@@ -1,5 +1,6 @@
 // controllers/adminController.js - COMPLETELY REWRITTEN WITH FORM DATA FIXES
 import asyncHandler from 'express-async-handler';
+import PaymentTransaction from '../models/PaymentTransaction.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
@@ -84,12 +85,16 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/orders
 // @access  Private/Admin
 const getOrders = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, search } = req.query;
+  const { page = 1, limit = 10, status, paymentStatus, search } = req.query;
   const skip = (page - 1) * limit;
 
   let filter = {};
   if (status && status !== 'all') {
     filter.status = status;
+  }
+
+  if (paymentStatus && paymentStatus !== 'all') {
+    filter.paymentStatus = paymentStatus;
   }
 
   if (search) {
@@ -144,22 +149,55 @@ const getOrderDetail = asyncHandler(async (req, res) => {
 // @route   PUT /api/admin/orders/:id/status
 // @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { status, trackingNumber, notifyCustomer = true } = req.body;
+  const { status, trackingNumber, location, note, shippingDetails } = req.body;
 
-  const order = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      status,
-      ...(trackingNumber && { trackingNumber }),
-      statusUpdatedAt: new Date()
-    },
-    { new: true }
-  ).populate('user', 'firstName lastName email');
+  const order = await Order.findById(req.params.id);
 
   if (!order) {
     res.status(404);
     throw new Error('Order not found');
   }
+
+  // Update Status
+  order.status = status;
+  if (status === 'shipped') {
+    order.status = 'shipped'; // Explicitly set
+  }
+
+  // Legacy tracking number support
+  if (trackingNumber) order.trackingNumber = trackingNumber;
+
+  // Shipping Details (When marking as shipped)
+  if (status === 'shipped' && shippingDetails) {
+    order.shippingDetails = {
+      ...order.shippingDetails,
+      ...shippingDetails,
+      shippedAt: new Date()
+    };
+    // Backfill legacy field
+    if (shippingDetails.estimatedDelivery) {
+      order.estimatedDeliveryDate = shippingDetails.estimatedDelivery;
+    }
+  }
+
+  // Add to Tracking History
+  if (!order.trackingHistory) {
+    order.trackingHistory = [];
+  }
+  order.trackingHistory.push({
+    status,
+    location: location || 'Processing Center',
+    note: note || `Order status updated to ${status}`,
+    timestamp: new Date()
+  });
+
+  // Update timestamp
+  order.statusUpdatedAt = new Date();
+
+  await order.save();
+
+  // Populate user for return
+  await order.populate('user', 'firstName lastName email');
 
   res.json({
     success: true,
@@ -893,8 +931,8 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
   const { period = '30d' } = req.query;
 
   let startDate;
-  const endDate = new Date();
 
+  // Set start date based on period
   switch (period) {
     case '7d':
       startDate = new Date();
@@ -917,6 +955,18 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       startDate.setDate(startDate.getDate() - 30);
   }
 
+  // Force start of day to capture all orders from that day
+  startDate.setHours(0, 0, 0, 0);
+
+  console.log(`📊 Analytics Request: Period=${period}, StartDate=${startDate.toISOString()}`);
+
+  // Broaden Filter for Debugging/Production to capture all valid sales
+  // Including 'pending' because M-Pesa/Card flow might stick there briefly or user wants to see potential sales
+  // Including 'processing', 'shipped', 'delivered' which imply paid/valid
+  const paymentFilter = {
+    $in: ['paid', 'pending', 'processing', 'completed', 'shipped', 'delivered']
+  };
+
   // Aggregate metrics
   const [salesStats, categoryStats, totals] = await Promise.all([
     // Daily sales data for line chart
@@ -924,7 +974,8 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] }
+          // Broader payment status check
+          paymentStatus: paymentFilter
         }
       },
       {
@@ -942,7 +993,7 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] }
+          paymentStatus: paymentFilter
         }
       },
       { $unwind: '$items' },
@@ -969,7 +1020,7 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] } // Include pending for dev visibility
+          paymentStatus: paymentFilter
         }
       },
       {
@@ -977,7 +1028,7 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
           _id: null,
           totalRevenue: { $sum: '$total' },
           totalOrders: { $sum: 1 },
-          productsSold: { $sum: { $size: '$items' } }, // Simple count of items as fallback
+          productsSold: { $sum: { $size: '$items' } },
           uniqueCustomers: { $addToSet: '$user' }
         }
       }
@@ -1115,6 +1166,58 @@ const checkNewOrders = asyncHandler(async (req, res) => {
   });
 });
 
+const getPayments = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, status, search, startDate, endDate } = req.query;
+  const skip = (page - 1) * limit;
+
+  let filter = {};
+  if (status && status !== 'all' && status !== '') {
+    filter.status = status.toUpperCase(); // M-Pesa statuses are usually UPPERCASE (PENDING, SUCCESS, FAILED)
+  }
+
+  if (startDate && endDate) {
+    filter.createdAt = {
+      $gte: new Date(startDate),
+      $lte: new Date(new Date(endDate).setHours(23, 59, 59))
+    };
+  }
+
+  if (search) {
+    filter.$or = [
+      { transactionId: { $regex: search, $options: 'i' } },
+      { 'metadata.mpesaReceiptNumber': { $regex: search, $options: 'i' } },
+      { 'metadata.phoneNumber': { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  const payments = await PaymentTransaction.find(filter)
+    .populate({
+      path: 'order',
+      select: 'orderNumber total',
+      populate: {
+        path: 'user',
+        select: 'firstName lastName email phone'
+      }
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+  const total = await PaymentTransaction.countDocuments(filter);
+
+  res.json({
+    success: true,
+    data: {
+      payments,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    }
+  });
+});
+
 export {
   getDashboardStats,
   getOrders,
@@ -1135,5 +1238,6 @@ export {
   updateUserRole,
   deleteUser,
   testEmailConfig,
-  checkNewOrders
+  checkNewOrders,
+  getPayments
 };

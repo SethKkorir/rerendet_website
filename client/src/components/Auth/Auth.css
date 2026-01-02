@@ -1,4 +1,5 @@
-/* Login/Auth styles */
+/* client/src/components/Auth/Auth.css */
+
 .auth-container {
     min-height: 80vh;
     display: flex;
@@ -41,22 +42,25 @@
     margin-bottom: 0.5rem;
 }
 
-.auth-form input {
+.auth-form input,
+.auth-form select {
     width: 100%;
     padding: 0.75rem;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 1rem;
     transition: border-color 0.2s;
+    background-color: white;
 }
 
-.auth-form input:focus {
+.auth-form input:focus,
+.auth-form select:focus {
     outline: none;
     border-color: #6F4E37;
     box-shadow: 0 0 0 3px rgba(111, 78, 55, 0.1);
 }
 
-.btn-primary.full-width {
+.btn-primary {
     width: 100%;
     padding: 0.8rem;
     background-color: #6F4E37;
@@ -68,14 +72,23 @@
     transition: background-color 0.2s;
 }
 
-.btn-primary.full-width:hover {
+.btn-primary:hover {
     background-color: #5d4037;
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
 }
 
 .auth-footer {
     margin-top: 1.5rem;
     text-align: center;
     font-size: 0.95rem;
+}
+
+.auth-footer p {
+    margin: 0.5rem 0;
 }
 
 .auth-footer a {
@@ -107,6 +120,7 @@
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    width: 100%;
 }
 
 .auth-divider::before,
@@ -118,13 +132,15 @@
 
 .auth-divider span {
     padding: 0 1rem;
+    font-weight: 500;
+    font-size: 0.8rem;
 }
 
 /* Auth Polish: Checkbox */
 .checkbox-group {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
     margin-bottom: 1.5rem;
 }
 
@@ -134,13 +150,15 @@
     margin-top: 3px;
     cursor: pointer;
     accent-color: #6F4E37;
+    flex-shrink: 0;
 }
 
 .checkbox-group label {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #4b5563;
     line-height: 1.4;
     cursor: pointer;
-    display: inline;
-    /* override block */
+    display: inline-block;
+    margin-bottom: 0;
+    font-weight: 400;
 }

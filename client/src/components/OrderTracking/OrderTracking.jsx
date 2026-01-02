@@ -44,6 +44,32 @@ const OrderTracking = () => {
         }
     };
 
+    const downloadInvoice = async () => {
+        try {
+            const response = await fetch(`/api/orders/${id}/invoice`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to download invoice');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Invoice-${order.orderNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showNotification('Invoice downloaded successfully', 'success');
+        } catch (error) {
+            console.error('Invoice download failed:', error);
+            showNotification('Failed to download invoice', 'error');
+        }
+    };
+
     const getStatusIcon = (status) => {
         switch (status) {
             case 'confirmed': return <FaCheckCircle className="icon confirmed" />;
@@ -136,7 +162,7 @@ const OrderTracking = () => {
                                                     })}
                                                 </span>
                                             </div>
-                                            <div className="timeline-message">{event.message}</div>
+                                            <div className="timeline-message">{event.note || event.message}</div>
                                             {event.location && (
                                                 <div className="timeline-location">
                                                     <FaMapMarkerAlt /> {event.location}
@@ -162,21 +188,35 @@ const OrderTracking = () => {
                                     <span>{getStatusLabel(order.status)}</span>
                                 </div>
                             </div>
-                            {order.trackingNumber && (
+                            {order.shippingDetails?.courier && (
                                 <div className="info-item">
                                     <FaTruck />
                                     <div>
-                                        <label>Tracking Number</label>
-                                        <span className="tracking-number">{order.trackingNumber}</span>
+                                        <label>Courier</label>
+                                        <span>{order.shippingDetails.courier}</span>
                                     </div>
                                 </div>
                             )}
-                            {order.estimatedDeliveryDate && (
+                            {(order.shippingDetails?.trackingNumber || order.trackingNumber) && (
+                                <div className="info-item">
+                                    <FaBox />
+                                    <div>
+                                        <label>Tracking Number</label>
+                                        <span className="tracking-number">{order.shippingDetails?.trackingNumber || order.trackingNumber}</span>
+                                        {order.shippingDetails?.trackingUrl && (
+                                            <a href={order.shippingDetails.trackingUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '12px', color: '#B45309', marginTop: '4px' }}>
+                                                Track on Courier Site &rarr;
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            {(order.shippingDetails?.estimatedDelivery || order.estimatedDeliveryDate) && (
                                 <div className="info-item">
                                     <FaCalendarAlt />
                                     <div>
                                         <label>Estimated Delivery</label>
-                                        <span>{new Date(order.estimatedDeliveryDate).toLocaleDateString('en-US', {
+                                        <span>{new Date(order.shippingDetails?.estimatedDelivery || order.estimatedDeliveryDate).toLocaleDateString('en-US', {
                                             weekday: 'long',
                                             month: 'long',
                                             day: 'numeric'
@@ -197,9 +237,14 @@ const OrderTracking = () => {
                             </div>
                         </div>
 
-                        <button className="btn-receipt" onClick={() => navigate(`/orders/${order._id}`)}>
-                            View Full Receipt
-                        </button>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <button className="btn-receipt" onClick={() => navigate(`/orders/${order._id}`)} style={{ flex: 1 }}>
+                                View Full Receipt
+                            </button>
+                            <button className="btn-receipt" onClick={downloadInvoice} style={{ flex: 1, background: '#6F4E37', color: 'white' }}>
+                                Download Invoice
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

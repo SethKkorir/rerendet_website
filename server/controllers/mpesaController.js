@@ -7,12 +7,12 @@ import asyncHandler from 'express-async-handler';
 
 // M-Pesa Configuration
 const MPESA_CONFIG = {
-  consumerKey: process.env.MPESA_CONSUMER_KEY,
-  consumerSecret: process.env.MPESA_CONSUMER_SECRET,
-  shortCode: process.env.MPESA_SHORTCODE,
-  passkey: process.env.MPESA_PASSKEY,
-  callbackURL: process.env.MPESA_CALLBACK_URL || `${process.env.BASE_URL}/api/payments/mpesa-callback`,
-  environment: process.env.MPESA_ENVIRONMENT || 'sandbox' // sandbox or production
+  consumerKey: process.env.MPESA_CONSUMER_KEY?.trim(),
+  consumerSecret: process.env.MPESA_CONSUMER_SECRET?.trim(),
+  shortCode: process.env.MPESA_SHORTCODE?.trim(),
+  passkey: process.env.MPESA_PASSKEY?.trim(),
+  callbackURL: (process.env.MPESA_CALLBACK_URL || `${process.env.BASE_URL}/api/payments/mpesa-callback`)?.trim(),
+  environment: (process.env.MPESA_ENVIRONMENT || 'sandbox').split('#')[0].trim() // Handle potential inline comments
 };
 
 // Generate M-Pesa access token
@@ -70,6 +70,15 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
   // Generate transaction reference
   const transactionRef = `RCD${order.orderNumber}${Date.now().toString().slice(-6)}`;
 
+  // DEBUG LOG
+  console.log('🦁 M-Pesa Order Fetch:', {
+    id: order._id,
+    orderNumber: order.orderNumber,
+    total: order.total,
+    totalPrice: order.totalPrice, // Check if this exists
+    paymentStatus: order.paymentStatus
+  });
+
   try {
     const accessToken = await generateMpesaAccessToken();
     const { password, timestamp } = generateMpesaPassword();
@@ -79,7 +88,7 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
       Password: password,
       Timestamp: timestamp,
       TransactionType: 'CustomerPayBillOnline',
-      Amount: Math.round(order.totalPrice),
+      Amount: Math.round(order.total),
       PartyA: formattedPhone,
       PartyB: MPESA_CONFIG.shortCode,
       PhoneNumber: formattedPhone,
@@ -106,7 +115,7 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
       order: orderId,
       provider: 'MPESA',
       transactionId: transactionRef,
-      amount: order.totalPrice,
+      amount: order.total,
       currency: 'KES',
       status: 'PENDING',
       metadata: {
@@ -134,18 +143,20 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
       order: orderId,
       provider: 'MPESA',
       transactionId: transactionRef,
-      amount: order.totalPrice,
+      amount: order.total,
       currency: 'KES',
       status: 'FAILED',
       metadata: {
-        user: req.user._id,
+        user: req.user?._id,
         phoneNumber: formattedPhone,
-        failureReason: error.response?.data?.errorMessage || 'M-Pesa payment initiation failed'
+        failureReason: error.response?.data?.errorMessage || error.message || 'M-Pesa payment initiation failed'
       }
     });
 
-    res.status(500);
-    throw new Error(error.response?.data?.errorMessage || 'Failed to initiate M-Pesa payment');
+    res.status(500).json({
+      success: false,
+      message: error.response?.data?.errorMessage || 'Failed to initiate M-Pesa payment'
+    });
   }
 });
 
@@ -209,7 +220,8 @@ const processMpesaCallback = async (callbackData) => {
         await Order.findByIdAndUpdate(payment.order, {
           isPaid: true,
           paidAt: new Date(),
-          status: 'confirmed',
+          status: 'processing', // User requested single status 'processing' for paid orders implies moving forward
+          paymentStatus: 'paid',
           paymentResult: {
             id: mpesaReceiptNumber,
             status: 'completed',
@@ -261,14 +273,27 @@ const checkMpesaPaymentStatus = asyncHandler(async (req, res) => {
 });
 
 // Helper function to format phone number
+// Helper function to format phone number
 const formatPhoneNumber = (phone) => {
-  let cleaned = phone.replace(/\D/g, '');
+  if (!phone) return '';
 
+  // Remove all non-numeric characters
+  let cleaned = phone.toString().replace(/\D/g, '');
+
+  // Handle 07XX... -> 2547XX...
   if (cleaned.startsWith('0')) {
     cleaned = '254' + cleaned.substring(1);
-  } else if (cleaned.startsWith('+')) {
-    cleaned = cleaned.substring(1);
-  } else if (cleaned.startsWith('254') === false) {
+  }
+  // Handle 2540XX... -> 254XX... (Fix double prefix)
+  else if (cleaned.startsWith('2540')) {
+    cleaned = '254' + cleaned.substring(4);
+  }
+  // Handle 7XX... -> 2547XX...
+  else if (cleaned.startsWith('7') && cleaned.length === 9) {
+    cleaned = '254' + cleaned;
+  }
+  // If it starts with 254, assume it's good (unless 2540 which is caught above)
+  else if (!cleaned.startsWith('254')) {
     cleaned = '254' + cleaned;
   }
 

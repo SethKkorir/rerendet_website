@@ -11,11 +11,26 @@ const sendEmail = async (options) => {
     const emailConfig = settings.email;
     const isMock = options.mock || false;
 
-    // Determine config source: DB or ENV
+    // Determine config source: Explicit Config -> DB -> ENV
     let transporterConfig = null;
     let fromEmail = process.env.EMAIL_FROM || '"Rerendet Coffee" <noreply@rerendetcoffee.com>';
 
-    if (emailConfig && emailConfig.enabled && emailConfig.host) {
+    if (options.smtpConfig) {
+      // Use Explicit Config (e.g. from Test Connection)
+      console.log('🔧 Using Explicit SMTP Configuration for Testing');
+      transporterConfig = {
+        host: options.smtpConfig.host,
+        port: Number(options.smtpConfig.port),
+        secure: options.smtpConfig.secure,
+        auth: {
+          user: options.smtpConfig.auth.user,
+          pass: options.smtpConfig.auth.pass,
+        },
+      };
+      if (options.smtpConfig.from) {
+        fromEmail = options.smtpConfig.from;
+      }
+    } else if (emailConfig && emailConfig.enabled && emailConfig.host) {
       // Use DB Settings
       console.log('🔧 Using DB SMTP Configuration:', emailConfig.host);
       transporterConfig = {

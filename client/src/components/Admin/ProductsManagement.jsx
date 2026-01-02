@@ -874,10 +874,13 @@ const ProductModal = ({ product, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.inventory.stock}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  inventory: { ...prev.inventory, stock: parseInt(e.target.value) || 0 }
-                }))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    inventory: { ...prev.inventory, stock: val === '' ? '' : parseInt(val) }
+                  }));
+                }}
                 min="0"
                 required
               />
@@ -888,10 +891,13 @@ const ProductModal = ({ product, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.inventory.lowStockAlert}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  inventory: { ...prev.inventory, lowStockAlert: parseInt(e.target.value) || 5 }
-                }))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    inventory: { ...prev.inventory, lowStockAlert: val === '' ? '' : parseInt(val) }
+                  }));
+                }}
                 min="0"
               />
             </div>

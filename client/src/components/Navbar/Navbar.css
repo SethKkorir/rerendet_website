@@ -62,68 +62,7 @@
   align-items: center;
 }
 
-.santa-hat-overlay {
-  position: absolute;
-  top: -16px;
-  left: -12px;
-  width: 40px;
-  height: 40px;
-  z-index: 20;
-  pointer-events: none;
-  transform: rotate(-15deg);
-}
-
-.santa-hat-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* Fallback pure CSS Hat */
-.css-santa-hat {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 0;
-  height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-bottom: 25px solid #d42426;
-  /* Red hat base */
-  border-bottom-left-radius: 5px;
-  border-bottom-right-radius: 5px;
-  transform: rotate(-10deg);
-}
-
-.css-santa-hat::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: -14px;
-  width: 28px;
-  height: 8px;
-  background: white;
-  border-radius: 4px;
-  /* Hat brim */
-}
-
-.css-santa-hat::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: -5px;
-  width: 10px;
-  height: 10px;
-  background: white;
-  border-radius: 50%;
-  /* Pom pom */
-}
-
-/* Hide fallback if image loads (controlled via JS error handler, or simple stacking logic) 
-   But since we use onError to hide the IMG, the div fallback sits underneath or is rendered alternatively. 
-   In the JSX logic: img is rendered, if it fails, fallback div is visible? 
-   Actually, let's just style the fallback to be used if the image is missing. 
-*/
+/* Logo Icon (Replaced by Image) */
 
 .header__logo-icon {
   height: 2rem;
@@ -507,7 +446,7 @@
   border-color: var(--error);
 }
 
-.error-text {
+.error-message {
   color: var(--error);
   font-size: 0.75rem;
   font-weight: 500;
@@ -836,22 +775,5 @@
 @media (min-width: 768px) {
   .header__container {
     height: 5rem;
-  }
-}
-
-/* Accessibility */
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
   }
 }

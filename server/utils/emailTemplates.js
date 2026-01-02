@@ -56,15 +56,28 @@ const getBaseTemplate = (title, content, options = {}) => {
   `;
 };
 
-export const getVerificationEmail = (name, code, logoUrl) => {
+export const getVerificationEmail = (name, code, logoUrl, type = 'register') => {
+  let title, intro, body;
+
+  if (type === 'login') {
+    title = 'Login Verification Code';
+    intro = `Welcome Back, ${name}!`;
+    body = 'To complete your login and access your account, please use the verification code below:';
+  } else {
+    // Default to Register
+    title = 'Verify Your Account';
+    intro = `Hello ${name},`;
+    body = 'Welcome to Rerendet Coffee! To complete your registration and verify your email address, please use the code below:';
+  }
+
   const content = `
-    <h1>Verify Your Account</h1>
-    <p>Hello ${name},</p>
-    <p>Welcome to Rerendet Coffee! To complete your registration and verify your email address, please use the code below:</p>
+    <h1>${title}</h1>
+    <p>${intro}</p>
+    <p>${body}</p>
     <div class="verification-code">${code}</div>
-    <p>This code will expire in 10 minutes. If you did not create an account, please ignore this email.</p>
+    <p>This code will expire in 10 minutes. If you did not request this code, please ignore this email.</p>
   `;
-  return getBaseTemplate('Verify Your Email - Rerendet Coffee', content, { logoUrl });
+  return getBaseTemplate(`${title} - Rerendet Coffee`, content, { logoUrl });
 };
 
 export const getWelcomeEmail = (name, logoUrl) => {
@@ -207,4 +220,24 @@ export const getOrderStatusEmail = (name, orderNumber, status, trackingNumber, m
     </div>
   `;
   return getBaseTemplate(`Order Update #${orderNumber} - Rerendet Coffee`, content, { logoUrl });
+};
+
+export const getLowStockAlertEmail = (productName, currentStock, threshold, productUrl, logoUrl) => {
+  const content = `
+    <h1>⚠️ Low Stock Alert</h1>
+    <p>The following product has fallen below the inventory threshold:</p>
+    
+    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #856404;">${productName}</h3>
+      <p style="margin-bottom: 5px;"><strong>Current Stock:</strong> ${currentStock}</p>
+      <p style="margin-bottom: 0;"><strong>Threshold:</strong> ${threshold}</p>
+    </div>
+
+    <p>Please restock this item soon to avoid potential lost sales.</p>
+
+    <div style="text-align: center; margin-top: 30px;">
+      <a href="${productUrl}" class="btn">Manage Inventory</a>
+    </div>
+  `;
+  return getBaseTemplate(`Low Stock Alert: ${productName}`, content, { logoUrl });
 };

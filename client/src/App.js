@@ -21,6 +21,7 @@ import Notification from './components/Notification/Notification';
 import SessionLock from './components/Auth/SessionLock';
 import Dashboard from './components/Admin/Dashboard';
 import OrdersManagement from './components/Admin/OrdersManagement';
+import PaymentsManagement from './components/Admin/PaymentsManagement';
 import ProductsManagement from './components/Admin/ProductsManagement';
 import UsersManagement from './components/Admin/UsersManagement';
 import Analytics from './components/Admin/Analytics';
@@ -128,7 +129,7 @@ function App() {
         </div>
       )}
 
-      <Alert />
+
       <Notification />
       <SessionLock />
 
@@ -189,6 +190,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/orders" element={<OrdersManagement />} />
+                  <Route path="/payments" element={<PaymentsManagement />} />
                   <Route path="/orders-view" element={<AdminOrders />} />
                   <Route path="/products" element={<ProductsManagement />} />
                   <Route path="/users" element={<UsersManagement />} />

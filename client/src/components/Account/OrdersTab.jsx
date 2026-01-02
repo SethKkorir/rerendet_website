@@ -55,7 +55,7 @@ const OrdersTab = ({ orders, loading }) => {
                             </div>
 
                             <div className="order-actions">
-                                <button className="btn-outline btn-sm" onClick={() => navigate(`/account/orders/${order._id}`)}>Track Order</button>
+                                <button className="btn-outline btn-sm" onClick={() => navigate(`/order-tracking/${order._id}`)}>Track Order</button>
                             </div>
                         </div>
                     ))}

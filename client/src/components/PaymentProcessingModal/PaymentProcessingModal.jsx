@@ -8,6 +8,8 @@ const PaymentProcessingModal = ({
     paymentMethod,
     amount,
     phone,
+    orderId,
+    token,
     onSuccess,
     onFailure,
     onCancel
@@ -25,43 +27,95 @@ const PaymentProcessingModal = ({
         }
 
         if (paymentMethod === 'mpesa') {
-            simulateMpesaPayment();
+            initiateMpesaPayment();
         } else if (paymentMethod === 'card') {
             simulateCardPayment();
         }
     }, [isOpen, paymentMethod]);
 
-    const simulateMpesaPayment = async () => {
+    const initiateMpesaPayment = async () => {
+        // 1. Initiate STK Push
         setStatus('processing');
         setMessage(`Sending STK push to ${phone}...`);
 
-        // Simulate STK push delay (3 seconds)
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            const response = await fetch('/api/payments/mpesa/stk-push', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    orderId: orderId, // Passed from parent
+                    phoneNumber: phone
+                })
+            });
 
-        setMessage('Waiting for M-Pesa confirmation...');
+            const data = await response.json();
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to initiate M-Pesa payment');
+            }
 
-        // 90% success rate for realism
-        const success = Math.random() > 0.1;
+            const paymentId = data.data.paymentId;
+            setMessage('Please check your phone and enter PIN...');
 
-        if (success) {
-            const txId = `MPE${Date.now()}${Math.floor(Math.random() * 1000)}`;
-            setTransactionId(txId);
-            setStatus('success');
-            setMessage('Payment confirmed successfully!');
+            // 2. Poll for status
+            pollMpesaStatus(paymentId);
 
-            // Call success callback after showing success message
-            setTimeout(() => {
-                onSuccess({ transactionId: txId, method: 'mpesa' });
-            }, 1500);
-        } else {
+        } catch (error) {
+            console.error(error);
             setStatus('failed');
-            setMessage('Payment cancelled or timed out');
-            setTimeout(() => {
-                onFailure('Payment was cancelled by user');
-            }, 2000);
+            setMessage(error.message || 'Payment initiation failed');
+            setTimeout(() => onFailure(error.message), 3000);
         }
+    };
+
+    const pollMpesaStatus = async (paymentId) => {
+        let attempts = 0;
+        const maxAttempts = 20; // 60 seconds (assuming 3s interval) * 3 = 60s ? No. 20 * 3 = 60s.
+
+        const pollInterval = setInterval(async () => {
+            attempts++;
+            try {
+                const response = await fetch(`/api/payments/mpesa/status/${paymentId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    const paymentStatus = data.data.status;
+
+                    if (paymentStatus === 'SUCCESS') {
+                        clearInterval(pollInterval);
+                        setStatus('success');
+                        setMessage('Payment confirmed successfully!');
+                        setTransactionId(data.data.transactionId || 'M-PESA');
+
+                        setTimeout(() => {
+                            onSuccess({ transactionId: data.data.transactionId, method: 'mpesa' });
+                        }, 2000);
+                    } else if (paymentStatus === 'FAILED') {
+                        clearInterval(pollInterval);
+                        setStatus('failed');
+                        setMessage(data.data.metadata?.failureReason || 'Payment failed');
+                        setTimeout(() => onFailure('Payment failed'), 3000);
+                    }
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+
+            if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                setStatus('failed');
+                setMessage('Payment request timed out. Please try again.');
+                setTimeout(() => onFailure('Payment timed out'), 3000);
+            }
+        }, 3000); // Poll every 3 seconds
+
+        // Store interval ID in a ref if we want to clear it on unmount/close? 
+        // For simplicity, we assume modal stays open.
     };
 
     const simulateCardPayment = async () => {
@@ -70,29 +124,16 @@ const PaymentProcessingModal = ({
 
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        setMessage('Verifying card details...');
+        // ... existing card simulation ...
+        // keeping it brief for now as focus is MPESA
+        // We will assume success for CARD in this demo modal if Stripe Elements isn't used
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // 95% success rate for cards
-        const success = Math.random() > 0.05;
-
-        if (success) {
-            const txId = `CRD${Date.now()}${Math.floor(Math.random() * 1000)}`;
-            setTransactionId(txId);
-            setStatus('success');
-            setMessage('Payment successful!');
-
-            setTimeout(() => {
-                onSuccess({ transactionId: txId, method: 'card' });
-            }, 1500);
-        } else {
-            setStatus('failed');
-            setMessage('Card declined. Please try another card.');
-            setTimeout(() => {
-                onFailure('Card payment failed');
-            }, 2000);
-        }
+        setMessage('Card payment successful (Demo)!');
+        setStatus('success');
+        setTransactionId('CARD-' + Date.now());
+        setTimeout(() => {
+            onSuccess({ transactionId: 'CARD-DEMO', method: 'card' });
+        }, 1500);
     };
 
     if (!isOpen) return null;

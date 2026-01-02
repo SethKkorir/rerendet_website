@@ -1,14 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getOrderById } from '../../api/api';
-import { FaCheckCircle, FaPrint, FaArrowLeft, FaBoxOpen } from 'react-icons/fa';
+import { AppContext } from '../../context/AppContext';
+import { FaCheckCircle, FaPrint, FaArrowLeft, FaBoxOpen, FaFileDownload } from 'react-icons/fa';
 import './OrderReceipt.css';
 
 export default function OrderReceipt() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { token, showNotification } = useContext(AppContext);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const downloadInvoice = async () => {
+    try {
+      const response = await fetch(`/api/orders/${id}/invoice`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to download invoice');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Invoice-${order.orderNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showNotification('Invoice downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Invoice download failed:', error);
+      showNotification('Failed to download invoice', 'error');
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -129,6 +157,9 @@ export default function OrderReceipt() {
         <div className="receipt-actions">
           <button onClick={() => window.print()} className="btn-outline">
             <FaPrint /> Print Receipt
+          </button>
+          <button onClick={downloadInvoice} className="btn-outline" style={{ borderColor: '#6F4E37', color: '#6F4E37' }}>
+            <FaFileDownload /> Download PDF
           </button>
           <button onClick={() => navigate('/account')} className="btn-primary">
             <FaBoxOpen /> Track Order / View History

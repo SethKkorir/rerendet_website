@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
 import { FaLock, FaShieldAlt, FaKey, FaTrash, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { DeleteAccountModal } from '../Modals/SecurityModals';
 
 const SecurityTab = () => {
     const { user, updateUserProfile, loading: contextLoading, showSuccess, showError, token, logout } = useContext(AppContext);
@@ -15,7 +16,7 @@ const SecurityTab = () => {
     const [twoFALoading, setTwoFALoading] = useState(false);
 
     // Delete Account State
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     // --- Password Change ---
@@ -45,7 +46,7 @@ const SecurityTab = () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to update password');
 
-            showSuccess('Password updated successfully');
+            showSuccess(data.message || 'Password updated successfully'); // Use backend message in case of specific success details
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (error) {
             showError(error.message);
@@ -74,23 +75,10 @@ const SecurityTab = () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to update 2FA settings');
 
-            // Update local context/user
-            // We assume updateUserProfile can merge partial data or we manually fetch me
-            // Since updateUserProfile calls API usually, here we just want to update local state.
-            // Easiest is to reload window or just assume success if we used Context properly.
-            // But AppContext doesn't expose a "setUser" directly without fetch.
-            // We can force a reload or re-fetch user.
-
-            // Ideally, we'd have `refreshUser()` in context.
-            // For now, let's call `window.location.reload()` after short delay or trust user sees message.
-            // Better: The context might be stale.
-            // Let's rely on showSuccess.
-
             showSuccess(`Two-Factor Authentication ${!user.twoFactorEnabled ? 'Enabled' : 'Disabled'}`);
             setShow2FAConfirm(false);
             setTwoFAData({ password: '' });
 
-            // Soft reload to get fresh user data
             setTimeout(() => window.location.reload(), 1500);
 
         } catch (error) {
@@ -101,24 +89,30 @@ const SecurityTab = () => {
     };
 
     // --- Delete Account ---
-    const handleDeleteAccount = async () => {
-        if (!window.confirm('Are you ABSOLUTELY sure? This action cannot be undone.')) return;
-
+    const handleDeleteConfirm = async (password) => {
         setDeleteLoading(true);
         try {
             const response = await fetch('/api/auth/profile', {
                 method: 'DELETE',
                 headers: {
+                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
-                }
+                },
+                body: JSON.stringify({ password })
             });
 
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to delete account');
 
             showSuccess('Account deleted. We are sorry to see you go.');
-            await logout();
-            window.location.href = '/';
+            setShowDeleteModal(false);
+
+            // Wait a moment then logout
+            setTimeout(async () => {
+                await logout();
+                window.location.href = '/';
+            }, 1000);
+
         } catch (error) {
             showError(error.message);
         } finally {
@@ -131,6 +125,13 @@ const SecurityTab = () => {
             <div className="tab-header">
                 <h2>Security Settings</h2>
             </div>
+
+            <DeleteAccountModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onDelete={handleDeleteConfirm}
+                loading={deleteLoading}
+            />
 
             {/* Two-Factor Authentication */}
             <div className="content-card mb-4">
@@ -245,33 +246,12 @@ const SecurityTab = () => {
                         </p>
                     </div>
                     <div className="sec-actions">
-                        {!showDeleteConfirm ? (
-                            <button
-                                className="btn-danger"
-                                onClick={() => setShowDeleteConfirm(true)}
-                            >
-                                Delete Account
-                            </button>
-                        ) : (
-                            <div className="confirmation-box">
-                                <p className="text-danger font-bold mb-2">Are you sure?</p>
-                                <div className="flex gap-2">
-                                    <button
-                                        className="btn-danger btn-sm"
-                                        onClick={handleDeleteAccount}
-                                        disabled={deleteLoading}
-                                    >
-                                        {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
-                                    </button>
-                                    <button
-                                        className="btn-outline btn-sm"
-                                        onClick={() => setShowDeleteConfirm(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        <button
+                            className="btn-danger"
+                            onClick={() => setShowDeleteModal(true)}
+                        >
+                            Delete Account
+                        </button>
                     </div>
                 </div>
             </div>

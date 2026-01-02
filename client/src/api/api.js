@@ -51,7 +51,9 @@ export const resetPassword = (payload) => API.post('/auth/reset-password', paylo
 export const getCurrentUser = () => API.get('/auth/me');
 export const updateProfile = (payload) => API.put('/auth/profile', payload);
 export const changePassword = (payload) => API.put('/auth/change-password', payload);
-export const deleteAccount = () => API.delete('/auth/profile');
+export const deleteAccount = (payload) => API.delete('/auth/profile', { data: payload });
+export const requestWalletReveal = () => API.post('/auth/wallet/reveal/request');
+export const verifyWalletReveal = (payload) => API.post('/auth/wallet/reveal/verify', payload);
 export const getMyOrders = (params) => API.get('/orders/my', { params });
 export const getCart = () => API.get('/auth/cart');
 export const syncCart = (payload) => API.post('/auth/cart', payload);
@@ -76,9 +78,11 @@ export const getProfile = () => API.get('/auth/me'); // Using /me instead of /pr
 // ---- Orders / Checkout ----
 export const createOrder = (payload) => API.post('/orders', payload);
 export const getOrderById = (orderId) => API.get(`/orders/${orderId}`);
+export const downloadInvoice = (orderId) => API.get(`/orders/${orderId}/invoice`, { responseType: 'blob' });
 
 // ---- Payments ----
-export const processMpesaPayment = (payload) => API.post('/payments/mpesa', payload);
+export const processMpesaPayment = (payload) => API.post('/payments/mpesa/stk-push', payload);
+export const getMpesaStatus = (paymentId) => API.get(`/payments/mpesa/status/${paymentId}`);
 export const processCardPayment = (payload) => API.post('/payments/card', payload);
 export const processCashOnDelivery = (payload) => API.post('/payments/cash-on-delivery', payload);
 
@@ -86,6 +90,7 @@ export const processCashOnDelivery = (payload) => API.post('/payments/cash-on-de
 export const getPublicSettings = () => API.get('/settings/public');
 export const getSettings = () => API.get('/admin/settings');
 export const updateSettings = (payload) => API.put('/admin/settings', payload);
+export const testSmtpConnection = (config) => API.post('/admin/settings/test-email', config);
 export const uploadLogo = (formData) => API.post('/admin/settings/upload/logo', formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });

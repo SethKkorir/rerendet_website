@@ -68,7 +68,9 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                 onClose();
             }
         } catch (err) {
-            // Error handled in context, but we check if verification needed
+            // Error handled in context, but we also show it in the modal for better UX
+            setErrors({ general: err.response?.data?.message || err.message || 'Login failed' });
+
             if (err.message?.includes('verified')) {
                 setSignupData(prev => ({ ...prev, email: loginData.email }));
                 setView('verify-email');
@@ -91,7 +93,8 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                 onClose();
             }
         } catch (err) {
-            // Error handled in context
+            // Show error in modal
+            setErrors({ general: err.response?.data?.message || err.message || 'Google login failed' });
         }
     };
 
@@ -122,7 +125,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
             await register(signupData); // This triggers email sending on backend
             setView('verify-email');
         } catch (err) {
-            // Handled in context
+            setErrors({ general: err.response?.data?.message || err.message || 'Registration failed' });
         } finally {
             setLoading(false);
         }

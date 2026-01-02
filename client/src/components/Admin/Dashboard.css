@@ -109,6 +109,12 @@
   background: #e67e22;
 }
 
+.stat-icon.pending {
+  background: #f1c40f;
+  color: #fff;
+  /* Ensure text is white */
+}
+
 .stat-content h3 {
   margin: 0;
   font-size: 24px;

@@ -49,8 +49,7 @@ const shippingAddressSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    unique: true,
-    required: true
+    unique: true
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -87,6 +86,19 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'failed', 'refunded'],
     default: 'pending'
   },
+  paymentResult: {
+    id: { type: String },
+    status: { type: String },
+    update_time: { type: String },
+    email_address: { type: String }
+  },
+  shippingDetails: {
+    courier: { type: String },
+    trackingNumber: { type: String },
+    trackingUrl: { type: String },
+    estimatedDelivery: { type: Date },
+    shippedAt: { type: Date }
+  },
   paymentMethod: {
     type: String,
     required: true
@@ -94,20 +106,8 @@ const orderSchema = new mongoose.Schema({
   transactionId: {
     type: String
   },
-  trackingNumber: {
-    type: String
-  },
-  estimatedDeliveryDate: {
-    type: Date
-  },
-  trackingHistory: [
-    {
-      status: String,
-      timestamp: { type: Date, default: Date.now },
-      message: String,
-      location: String
-    }
-  ],
+  message: String,
+  location: String,
   notes: {
     type: String
   },
@@ -127,7 +127,7 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// FIXED: Generate order number - make sure this runs
+// Generate order number before saving
 orderSchema.pre('save', function (next) {
   if (this.isNew && !this.orderNumber) {
     const timestamp = Date.now();
@@ -137,7 +137,6 @@ orderSchema.pre('save', function (next) {
   next();
 });
 
-// EXPLICIT COLLECTION NAME
-const Order = mongoose.model('Order', orderSchema, 'orders');
+const Order = mongoose.model('Order', orderSchema);
 
 export default Order;

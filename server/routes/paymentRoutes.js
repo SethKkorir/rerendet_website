@@ -19,12 +19,14 @@ import {
   handleStripeWebhook
 } from '../controllers/stripeController.js';
 
+import { protect } from '../middleware/authMiddleware.js';
+
 import PaymentMethod from '../models/PaymentMethod.js';
 
 const router = express.Router();
 
 // --- MPESA Routes ---
-router.post('/mpesa/stk-push', initiateMpesaPayment);
+router.post('/mpesa/stk-push', protect, initiateMpesaPayment);
 router.post('/mpesa-callback', mpesaCallback);
 router.get('/mpesa/status/:paymentId', checkMpesaPaymentStatus);
 

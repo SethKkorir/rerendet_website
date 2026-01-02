@@ -22,7 +22,7 @@ const SnowEffect = () => {
 
     return (
         <div className="snow-container">
-            {[...Array(50)].map((_, i) => (
+            {[...Array(200)].map((_, i) => (
                 <div key={i} className="snowflake">
                     ❄
                 </div>

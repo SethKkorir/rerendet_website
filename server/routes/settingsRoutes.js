@@ -6,7 +6,9 @@ import {
   getSettings,
   updateSettings,
   uploadLogo,
-  getPublicSettings
+  getPublicSettings,
+  testEmail,
+  testPolicyNotification
 } from '../controllers/settingsController.js';
 
 const router = express.Router();
@@ -21,5 +23,7 @@ router.use(protect, admin);
 router.get('/', getSettings);
 router.put('/', updateSettings);
 router.post('/upload/logo', upload.single('logo'), uploadLogo);
+router.post('/test-email', testEmail);
+router.post('/test-policy-notification', testPolicyNotification);
 
 export default router;

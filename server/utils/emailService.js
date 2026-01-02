@@ -1,55 +1,59 @@
 // utils/emailService.js
-import nodemailer from 'nodemailer';
-import handlebars from 'handlebars';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { generateInvoice } from './invoiceGenerator.js';
+import sendEmail from './sendEmail.js';
 
 /**
- * Configure email transport
+ * Send Order Confirmation Email with Invoice
+ * @param {Object} order - Order object populated with user and items
  */
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT === '465', // true for 465, false for other ports
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-    }
-});
-
-/**
- * Send an email using a template
- */
-export const sendEmail = async (options) => {
+export const sendOrderConfirmationEmail = async (order) => {
     try {
-        const { to, subject, templateName, data } = options;
+        // Generate PDF Buffer
+        const invoiceBuffer = await generateInvoice(order);
 
-        // Load and compile template
-        const templatePath = path.join(__dirname, '../templates/emails', `${templateName}.hbs`);
-        const templateSource = fs.readFileSync(templatePath, 'utf8');
-        const template = handlebars.compile(templateSource);
-        const html = template(data);
+        // Prepare email content
+        const subject = `Order Confirmation #${order.orderNumber}`;
+        const html = `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2 style="color: #6F4E37;">Thank you for your order!</h2>
+                <p>Dear ${order.user.firstName},</p>
+                <p>We confirm receipt of your order <strong>#${order.orderNumber}</strong>.</p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <p style="margin: 0; font-weight: bold;">Order Summary</p>
+                    <p style="margin: 5px 0;">Total Paid: KSh ${order.total.toLocaleString()}</p>
+                    <p style="margin: 5px 0;">Items: ${order.items.length}</p>
+                </div>
+                <p>Please find your invoice attached.</p>
+                <p>We will notify you as soon as your package is shipped.</p>
+                <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+                <p style="font-size: 12px; color: #888;">Rerendet Coffee • Nairobi, Kenya</p>
+            </div>
+        `;
 
-        // Email options
-        const mailOptions = {
-            from: `"${process.env.EMAIL_FROM_NAME || 'Rerendet Coffee'}" <${process.env.EMAIL_FROM || 'orders@rerendetcoffee.com'}>`,
-            to,
-            subject,
-            html
-        };
+        // Send using shared utility (uses Admin Settings)
+        await sendEmail({
+            to: order.user.email,
+            subject: subject,
+            html: html,
+            attachments: [
+                {
+                    filename: `Invoice-${order.orderNumber}.pdf`,
+                    content: invoiceBuffer,
+                    contentType: 'application/pdf'
+                }
+            ]
+        });
 
-        // Send email
-        const info = await transporter.sendMail(mailOptions);
-        console.log('📧 Email sent:', info.messageId);
-        return info;
+        console.log(`✅ Order Confirmation Email sent to ${order.user.email}`);
+        return true;
+
     } catch (error) {
-        console.error('❌ Email sending error:', error);
-        // Don't throw error to avoid breaking the main process (e.g., order creation)
-        // but log it for debugging
-        return null;
+        console.error('❌ Failed to send order confirmation email:', error);
+        return false;
     }
 };
+
+/**
+ * Export generic sendEmail for compatibility if needed elsewhere
+ */
+export { sendEmail };

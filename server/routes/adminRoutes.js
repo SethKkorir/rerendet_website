@@ -24,7 +24,8 @@ import {
   updateUserRole,
   deleteUser,
   testEmailConfig,
-  checkNewOrders
+  checkNewOrders,
+  getPayments
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -40,6 +41,9 @@ router.get('/orders/status', adminAuth(['orders:manage']), checkNewOrders);
 router.get('/orders', adminAuth(['orders:manage']), getOrders);
 router.get('/orders/:id', adminAuth(['orders:manage']), getOrderDetail);
 router.put('/orders/:id/status', adminAuth(['orders:update_status']), updateOrderStatus);
+
+// ==================== PAYMENTS MANAGEMENT ====================
+router.get('/payments', adminAuth(['orders:manage']), getPayments);
 
 // ==================== PRODUCT MANAGEMENT ====================
 router.get('/products', adminAuth(['products:manage']), getProducts);

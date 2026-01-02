@@ -7,8 +7,10 @@ import { calculateShipping } from '../utils/shippingCalculator.js';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeObject, sanitizeEmail, sanitizePhone, sanitizeAmount } from '../utils/inputSanitizer.js';
-import { sendEmail } from '../utils/emailService.js';
+
+import { sendOrderConfirmationEmail, sendEmail } from '../utils/emailService.js';
 import { sendLowStockAlert } from '../utils/adminNotificationService.js';
+import Settings from '../models/Settings.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -31,8 +33,12 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const userId = req.user._id;
 
-    console.log('🛒 Creating order for user:', userId);
-    console.log('📦 Order items:', items?.length);
+    console.log('🛒 Create Order Request Received');
+    console.log('👤 User:', userId);
+    console.log('💳 Payment Method:', paymentMethod);
+    console.log('📦 Items Count:', items?.length);
+    if (!items || items.length === 0) console.log('⚠️ Items Missing in body:', req.body);
+    console.log('📍 Shipping Address Country:', shippingAddress?.country);
 
     // ✅ SECURITY: Sanitize shipping address to prevent XSS
     const sanitizedAddress = sanitizeObject(shippingAddress);
@@ -138,9 +144,12 @@ const createOrder = asyncHandler(async (req, res) => {
     }
 
     // ✅ SECURITY: Calculate final amounts and validate against client-provided total
+    const settings = await Settings.getSettings();
+    const taxRate = settings?.payment?.taxRate || 0;
+
     const finalSubtotal = sanitizeAmount(calculatedSubtotal);
     const finalShippingCost = sanitizeAmount(shippingCost);
-    const finalTax = sanitizeAmount(finalSubtotal * 0.16); // 16% VAT
+    const finalTax = sanitizeAmount(finalSubtotal * taxRate); // Dynamic VAT
     const calculatedTotal = sanitizeAmount(finalSubtotal + finalShippingCost + finalTax);
     const clientTotal = sanitizeAmount(totalAmount);
 
@@ -194,7 +203,7 @@ const createOrder = asyncHandler(async (req, res) => {
       tax: finalTax,
       total: finalTotal,
       paymentMethod: paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
+      paymentStatus: 'pending',
       status: 'confirmed',
       notes: notes || '',
       trackingHistory: [
@@ -249,60 +258,10 @@ const createOrder = asyncHandler(async (req, res) => {
       data: populatedOrder
     });
 
-    // Send order confirmation email (asynchronous, don't await/return)
-    try {
-      const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/account/orders/${savedOrder._id}`;
-
-      // Try to get logo from settings, or default to standard path
-      let logoUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/rerendet-logo.png`;
-      try {
-        const { default: Settings } = await import('../models/Settings.js');
-        const settings = await Settings.getSettings();
-        if (settings?.store?.logo) logoUrl = settings.store.logo;
-      } catch (e) {
-        // ignore settings load error
-      }
-
-      // Generate Invoice Buffer
-      let invoiceBuffer = null;
-      try {
-        const { generateInvoice } = await import('../utils/invoiceGenerator.js');
-        // Use populatedOrder to ensure we have all data needed (though savedOrder has mostly everything, populated references might be safer if used)
-        invoiceBuffer = await generateInvoice(populatedOrder);
-      } catch (invErr) {
-        console.error('⚠️ Failed to generate invoce for email attachment:', invErr);
-      }
-
-      const emailData = {
-        order: {
-          ...savedOrder.toObject(),
-          formattedDate: new Date(savedOrder.createdAt).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }),
-          items: orderItems,
-          shippingAddress: savedOrder.shippingAddress
-        },
-        dashboardUrl,
-        logoUrl // Pass logo URL to template
-      };
-
-      const attachments = invoiceBuffer ? [{
-        filename: `Invoice-${savedOrder.orderNumber}.pdf`,
-        content: invoiceBuffer
-      }] : [];
-
-      sendEmail({
-        to: savedOrder.shippingAddress.email,
-        subject: `Order Confirmation - #${savedOrder.orderNumber}`,
-        templateName: 'orderConfirmation',
-        data: emailData,
-        attachments: attachments
-      });
-    } catch (emailError) {
-      console.error('📧 Background email sending error:', emailError);
-    }
+    // Send order confirmation email (asynchronous)
+    sendOrderConfirmationEmail(populatedOrder).catch(err =>
+      console.error('📧 Background email sending error:', err)
+    );
 
   } catch (error) {
     await session.abortTransaction();
@@ -522,6 +481,9 @@ const getOrders = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status, trackingNumber, adminNotes, location, message } = req.body;
+
+  console.log(`📦 Updating order ${req.params.id} to status: ${status}`);
+  console.log('📝 Update payload:', req.body);
 
   const order = await Order.findById(req.params.id);
 

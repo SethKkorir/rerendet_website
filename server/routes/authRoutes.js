@@ -24,7 +24,9 @@ import {
   changePassword,
   deleteAccount,
   getCart,
-  syncCart
+  syncCart,
+  requestWalletReveal,
+  verifyWalletReveal
 } from '../controllers/authController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 

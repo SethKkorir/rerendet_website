@@ -1,9 +1,10 @@
 // src/components/Admin/Settings.jsx - COMPLETELY REWRITTEN
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
+import API, { testSmtpConnection } from '../../api/api';
 import {
   FaSave, FaStore, FaCreditCard, FaEnvelope,
-  FaShieldAlt, FaBell, FaGlobe, FaTools,
+  FaShieldAlt, FaBell, FaGlobe, FaTools, FaInfoCircle,
   FaCheck, FaTimes, FaUpload, FaImage, FaFileAlt,
   FaLock, FaUserShield, FaMobileAlt
 } from 'react-icons/fa';
@@ -32,7 +33,7 @@ const InputField = ({ label, type = 'text', value, onChange, placeholder, ...pro
     <label>{label}</label>
     <input
       type={type}
-      value={value || ''}
+      value={value !== undefined && value !== null ? value : ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       {...props}
@@ -194,6 +195,8 @@ const Settings = () => {
         updatedSettings.notifyCustomers = true;
       }
 
+      console.log('📦 Saving Settings Payload:', updatedSettings);
+
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: {
@@ -203,9 +206,11 @@ const Settings = () => {
         body: JSON.stringify(updatedSettings)
       });
 
-      if (!response.ok) throw new Error('Failed to save settings');
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to save settings');
+      }
 
       if (data.success) {
         showNotification('Settings saved successfully', 'success');
@@ -233,28 +238,35 @@ const Settings = () => {
   };
 
   const handleTestEmail = async (emailConfig) => {
+    console.log('🧪 handleTestEmail called with:', emailConfig);
     try {
       showNotification('Testing SMTP connection...', 'info');
 
-      const response = await fetch('/api/admin/settings/test-email', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(emailConfig)
-      });
+      if (!emailConfig?.host) {
+        alert('Please enter an SMTP Host first.');
+        return;
+      }
 
-      const data = await response.json();
+      console.log('🚀 Sending request to API...');
+      // Use API client to ensure correct BaseURL and Headers
+      const response = await testSmtpConnection(emailConfig);
+      console.log('✅ API Response:', response);
 
-      if (response.ok && data.success) {
-        showNotification('✅ Connection successful!', 'success');
+      const { data } = response;
+
+      if (data.success) {
+        console.log('🎉 Success!');
+        showNotification('✅ Connection successful! Check your inbox.', 'success');
+        alert('Connection Successful! Check your inbox.');
       } else {
         throw new Error(data.message || 'Connection failed');
       }
     } catch (error) {
-      console.error('Test email error:', error);
-      showNotification(error.message || 'Connection failed', 'error');
+      console.error('❌ Test email error:', error);
+      // Handle axios error response structure
+      const msg = error.response?.data?.message || error.message || 'Connection failed';
+      showNotification(msg, 'error');
+      alert(`Connection Failed: ${msg}`);
     }
   };
 
@@ -269,16 +281,33 @@ const Settings = () => {
   };
 
   const handleNestedChange = (section, subSection, field, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [subSection]: {
-          ...prev[section]?.[subSection],
-          [field]: value
-        }
+    // If field is null, it means we are editing section.subSection directly (depth 2)
+    // If field is provided, we are editing section.subSection.field (depth 3)
+
+    setSettings(prev => {
+      if (field === null) {
+        // Depth 2: section.subSection = value
+        return {
+          ...prev,
+          [section]: {
+            ...prev[section],
+            [subSection]: value
+          }
+        };
+      } else {
+        // Depth 3: section.subSection.field = value
+        return {
+          ...prev,
+          [section]: {
+            ...prev[section],
+            [subSection]: {
+              ...prev[section]?.[subSection],
+              [field]: value
+            }
+          }
+        };
       }
-    }));
+    });
   };
 
   const handleBusinessHoursChange = (day, field, value) => {
@@ -349,6 +378,13 @@ const Settings = () => {
             icon={<FaBell />}
             label="Notifications"
             isActive={activeTab === 'notifications'}
+            onClick={setActiveTab}
+          />
+          <TabButton
+            id="about"
+            icon={<FaInfoCircle />}
+            label="About Us"
+            isActive={activeTab === 'about'}
             onClick={setActiveTab}
           />
           <TabButton
@@ -511,20 +547,20 @@ const Settings = () => {
                     step="0.01"
                     min="0"
                     max="100"
-                    value={settings.payment?.taxRate * 100 || 16}
-                    onChange={(value) => handleInputChange('payment', 'taxRate', parseFloat(value) / 100)}
+                    value={settings.payment?.taxRate !== undefined ? settings.payment.taxRate * 100 : 16}
+                    onChange={(value) => handleInputChange('payment', 'taxRate', value === '' ? 0 : parseFloat(value) / 100)}
                   />
                   <InputField
                     label="Free Shipping Threshold (KES)"
                     type="number"
-                    value={settings.payment?.freeShippingThreshold || 5000}
-                    onChange={(value) => handleInputChange('payment', 'freeShippingThreshold', parseInt(value))}
+                    value={settings.payment?.freeShippingThreshold !== undefined ? settings.payment.freeShippingThreshold : 5000}
+                    onChange={(value) => handleInputChange('payment', 'freeShippingThreshold', value === '' ? 0 : parseInt(value))}
                   />
                   <InputField
                     label="Standard Shipping Price (KES)"
                     type="number"
-                    value={settings.payment?.shippingPrice || 500}
-                    onChange={(value) => handleInputChange('payment', 'shippingPrice', parseInt(value))}
+                    value={settings.payment?.shippingPrice !== undefined ? settings.payment.shippingPrice : 500}
+                    onChange={(value) => handleInputChange('payment', 'shippingPrice', value === '' ? 0 : parseInt(value))}
                   />
                 </div>
               </SettingSection>
@@ -571,11 +607,20 @@ const Settings = () => {
                     label="SMTP Port"
                     type="number"
                     value={settings.email?.port}
-                    onChange={(value) => handleInputChange('email', 'port', parseInt(value))}
+                    onChange={(value) => {
+                      const port = parseInt(value);
+                      handleInputChange('email', 'port', port);
+                      // Auto-configure SSL based on port
+                      if (port === 587) {
+                        handleInputChange('email', 'secure', false); // STARTTLS
+                      } else if (port === 465) {
+                        handleInputChange('email', 'secure', true); // SSL
+                      }
+                    }}
                     placeholder="587"
                   />
                   <CheckboxField
-                    label="Use SSL/TLS"
+                    label="Use SSL/TLS (Check for Port 465, Uncheck for 587)"
                     checked={settings.email?.secure}
                     onChange={(checked) => handleInputChange('email', 'secure', checked)}
                   />
@@ -673,6 +718,69 @@ const Settings = () => {
             </div>
           )}
 
+          {/* About Us Tab */}
+          {activeTab === 'about' && (
+            <div className="tab-content">
+              <SettingSection title="About Section Content">
+                <div className="form-grid">
+                  <InputField
+                    label="Section Title"
+                    value={settings.about?.title}
+                    onChange={(value) => handleNestedChange('about', 'title', null, value)} // Fixed: handleNestedChange signature mismatch? Checking below
+                    placeholder="Our Coffee Story"
+                  />
+                  <InputField
+                    label="About Image URL"
+                    value={settings.about?.image}
+                    onChange={(value) => handleNestedChange('about', 'image', null, value)}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Subtitle / Intro</label>
+                    <textarea
+                      className="settings-textarea"
+                      value={settings.about?.subtitle || ''}
+                      onChange={(e) => handleNestedChange('about', 'subtitle', null, e.target.value)}
+                      rows="3"
+                    />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Main Content</label>
+                    <textarea
+                      className="settings-textarea"
+                      value={settings.about?.content || ''}
+                      onChange={(e) => handleNestedChange('about', 'content', null, e.target.value)}
+                      rows="6"
+                    />
+                  </div>
+                </div>
+              </SettingSection>
+
+              <SettingSection title="Company Statistics">
+                <div className="form-grid">
+                  <InputField
+                    label="Years of Experience"
+                    value={settings.about?.years}
+                    onChange={(value) => handleNestedChange('about', 'years', null, value)}
+                    placeholder="25+"
+                  />
+                  <InputField
+                    label="Organic Percentage"
+                    value={settings.about?.organic}
+                    onChange={(value) => handleNestedChange('about', 'organic', null, value)}
+                    placeholder="100%"
+                  />
+                  <InputField
+                    label="Awards Won"
+                    value={settings.about?.awards}
+                    onChange={(value) => handleNestedChange('about', 'awards', null, value)}
+                    placeholder="3"
+                  />
+                </div>
+              </SettingSection>
+            </div>
+          )}
+
           {/* Security Tab */}
           {activeTab === 'security' && (
             <div className="tab-content">
@@ -724,23 +832,26 @@ const Settings = () => {
                     </div>
                   </div>
 
-                  <div className="security-card danger">
-                    <div className="security-card-header">
-                      <div className="security-icon-wrapper danger-icon">
-                        <FaTimes />
+                  {/* Delete Account Section - Hidden for Admins */}
+                  {user?.userType !== 'admin' && user?.role !== 'super-admin' && (
+                    <div className="security-card danger">
+                      <div className="security-card-header">
+                        <div className="security-icon-wrapper danger-icon">
+                          <FaTimes />
+                        </div>
+                        <div className="security-info">
+                          <h4 className="text-danger">Delete Account</h4>
+                          <p>Permanently delete your account and all data.</p>
+                        </div>
+                        <button
+                          className="btn-outline danger"
+                          onClick={() => setActiveModal('deleteAccount')}
+                        >
+                          Delete Account
+                        </button>
                       </div>
-                      <div className="security-info">
-                        <h4 className="text-danger">Delete Account</h4>
-                        <p>Permanently delete your account and all data.</p>
-                      </div>
-                      <button
-                        className="btn-outline danger"
-                        onClick={() => setActiveModal('deleteAccount')}
-                      >
-                        Delete Account
-                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               </SettingSection>
 
@@ -911,7 +1022,7 @@ const Settings = () => {
                     <label>Privacy Policy</label>
                     <textarea
                       value={settings.policies?.privacyPolicy}
-                      onChange={(e) => handleNestedChange('policies', 'privacyPolicy', undefined, e.target.value)}
+                      onChange={(e) => handleInputChange('policies', 'privacyPolicy', e.target.value)}
                       placeholder="Enter your privacy policy here..."
                       rows="6"
                     />
@@ -920,7 +1031,7 @@ const Settings = () => {
                     <label>Terms & Conditions</label>
                     <textarea
                       value={settings.policies?.termsConditions}
-                      onChange={(e) => handleNestedChange('policies', 'termsConditions', undefined, e.target.value)}
+                      onChange={(e) => handleInputChange('policies', 'termsConditions', e.target.value)}
                       placeholder="Enter your terms and conditions here..."
                       rows="6"
                     />
@@ -929,7 +1040,7 @@ const Settings = () => {
                     <label>Refund Policy</label>
                     <textarea
                       value={settings.policies?.refundPolicy}
-                      onChange={(e) => handleNestedChange('policies', 'refundPolicy', undefined, e.target.value)}
+                      onChange={(e) => handleInputChange('policies', 'refundPolicy', e.target.value)}
                       placeholder="Enter your refund policy here..."
                       rows="4"
                     />
@@ -938,7 +1049,7 @@ const Settings = () => {
                     <label>Shipping Policy</label>
                     <textarea
                       value={settings.policies?.shippingPolicy}
-                      onChange={(e) => handleNestedChange('policies', 'shippingPolicy', undefined, e.target.value)}
+                      onChange={(e) => handleInputChange('policies', 'shippingPolicy', e.target.value)}
                       placeholder="Enter your shipping policy here..."
                       rows="4"
                     />
@@ -957,6 +1068,30 @@ const Settings = () => {
                     <p style={{ marginTop: '5px', fontSize: '0.9rem', color: '#0c4a6e' }}>
                       Check this box only if you want to send an immediate email notification to all registered customers regarding these changes.
                     </p>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      style={{ marginTop: '10px' }}
+                      onClick={async () => {
+                        try {
+                          showNotification('Sending test notification...', 'info');
+                          const res = await fetch('/api/admin/settings/test-policy-notification', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                          });
+                          const d = await res.json();
+                          if (d.success) {
+                            showNotification('✅ Test Sent! Check your inbox.', 'success');
+                          } else {
+                            throw new Error(d.message);
+                          }
+                        } catch (err) {
+                          showNotification(err.message, 'error');
+                        }
+                      }}
+                    >
+                      <FaBell /> Test Notification (Send to Me Only)
+                    </button>
                   </div>
                 </div>
               </SettingSection>

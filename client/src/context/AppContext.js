@@ -50,17 +50,150 @@ export function AppProvider({ children }) {
       return [];
     }
   });
+
+  // ==================== CURRENCY & LOCATION ====================
+  const [currency, setCurrency] = useState(() => localStorage.getItem('currency') || 'KES');
+
+  // Exchange rates (Base: KES) - In a real app, fetch these from an API
+  const EXCHANGE_RATES = {
+    KES: 1,
+    USD: 0.0078,
+    EUR: 0.0071,
+    GBP: 0.0062,
+    AED: 0.029,
+    UGX: 28.5,
+    TZS: 19.5,
+    RWF: 9.8
+  };
+
+  const CURRENCY_SYMBOLS = {
+    KES: 'KSh ',
+    USD: '$ ',
+    EUR: '€ ',
+    GBP: '£ ',
+    AED: 'AED ',
+    UGX: 'USh ',
+    TZS: 'TSh ',
+    RWF: 'RWF '
+  };
+
+  const formatPrice = useCallback((amountInKes) => {
+    const rate = EXCHANGE_RATES[currency] || 1;
+    const value = amountInKes * rate;
+    const symbol = CURRENCY_SYMBOLS[currency] || currency + ' ';
+
+    return symbol + value.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+  }, [currency]);
+
+  const updateCurrencyByCountry = useCallback((countryNameOrCode, isManual = false) => {
+    // Mapping of country names/codes to currency
+    const countryToCurrency = {
+      // African Countries
+      'Kenya': 'KES', 'KE': 'KES',
+      'Uganda': 'UGX', 'UG': 'UGX',
+      'Tanzania': 'TZS', 'TZ': 'TZS',
+      'Rwanda': 'RWF', 'RW': 'RWF',
+      'South Africa': 'ZAR', 'ZA': 'ZAR',
+      'Nigeria': 'NGN', 'NG': 'NGN',
+      'Ghana': 'GHS', 'GH': 'GHS',
+      'Egypt': 'EGP', 'EG': 'EGP',
+      'Ethiopia': 'ETB', 'ET': 'ETB',
+
+      // Major Western Countries
+      'United States of America': 'USD', 'USA': 'USD', 'US': 'USD',
+      'United Kingdom': 'GBP', 'UK': 'GBP', 'GB': 'GBP',
+      'Canada': 'CAD', 'CA': 'CAD',
+      'Australia': 'AUD', 'AU': 'AUD',
+
+      // Europe (Eurozone + others)
+      'Germany': 'EUR', 'DE': 'EUR',
+      'France': 'EUR', 'FR': 'EUR',
+      'Italy': 'EUR', 'IT': 'EUR',
+      'Spain': 'EUR', 'ES': 'EUR',
+      'Netherlands': 'EUR', 'NL': 'EUR',
+      'Belgium': 'EUR', 'BE': 'EUR',
+      'Austria': 'EUR', 'AT': 'EUR',
+      'Ireland': 'EUR', 'IE': 'EUR',
+      'Finland': 'EUR', 'FI': 'EUR',
+      'Portugal': 'EUR', 'PT': 'EUR',
+      'Greece': 'EUR', 'GR': 'EUR',
+      'Switzerland': 'CHF', 'CH': 'CHF',
+      'Sweden': 'SEK', 'SE': 'SEK',
+      'Norway': 'NOK', 'NO': 'NOK',
+      'Denmark': 'DKK', 'DK': 'DKK',
+
+      // Middle East
+      'United Arab Emirates': 'AED', 'AE': 'AED',
+      'Saudi Arabia': 'SAR', 'SA': 'SAR',
+      'Qatar': 'QAR', 'QA': 'QAR',
+
+      // Asia
+      'Japan': 'JPY', 'JP': 'JPY',
+      'China': 'CNY', 'CN': 'CNY',
+      'India': 'INR', 'IN': 'INR',
+      'Singapore': 'SGD', 'SG': 'SGD',
+
+      // Default/Fallback Logic handled by checking if key exists
+    };
+
+    // Default to USD for unknown countries if not KES based
+    let newCurrency = countryToCurrency[countryNameOrCode];
+
+    // If not found, and it's not Kenya, default to USD for international
+    if (!newCurrency && countryNameOrCode !== 'Kenya') {
+      newCurrency = 'USD';
+    }
+
+    if (newCurrency) {
+      setCurrency(newCurrency);
+      localStorage.setItem('currency', newCurrency);
+
+      if (isManual) {
+        localStorage.setItem('currency_manual', 'true');
+      }
+    }
+  }, []);
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart and currency to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('cart', JSON.stringify(cart));
+      localStorage.setItem('currency', currency);
     } catch (error) {
-      console.error('Error saving cart to localStorage:', error);
+      console.error('Error saving to localStorage:', error);
     }
-  }, [cart]);
+  }, [cart, currency]);
+
+  // Automatic Currency Detection
+  useEffect(() => {
+    const detectLocation = async () => {
+      // If currency is already set in localStorage, don't overwrite it
+      if (localStorage.getItem('currency')) return;
+
+      try {
+        console.log('🌍 Detecting user location for currency...');
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+
+        if (data && data.country_name) {
+          console.log(`📍 Detected Location: ${data.country_name} (${data.country_code})`);
+          updateCurrencyByCountry(data.country_name);
+        }
+      } catch (error) {
+        console.error('Failed to detect location:', error);
+        // Fallback or leave as default KES/USD
+      }
+    };
+
+    detectLocation();
+  }, [updateCurrencyByCountry]);
 
   const [publicSettings, setPublicSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
@@ -199,11 +332,8 @@ export function AppProvider({ children }) {
   // ==================== ALERT SYSTEM (Backward Compatibility) ====================
 
   const showAlert = useCallback((message, type = 'info') => {
-    // Also add as notification for the new system
+    // Use the new notification system exclusively
     addNotification(message, type);
-
-    // Keep old alert system for components that still use it
-    setAlert({ isVisible: true, message, type });
   }, [addNotification]);
 
   const hideAlert = useCallback(() => {
@@ -1095,7 +1225,13 @@ export function AppProvider({ children }) {
     settingsLoading,
     fetchPublicSettings,
     orderRefreshTrigger,
-    refreshOrders
+    refreshOrders,
+
+    // Currency
+    currency,
+    setCurrency,
+    formatPrice,
+    updateCurrencyByCountry
   }), [
     user, token, userType, loading, isAuthenticated, isAdmin, isSuperAdmin, isCustomer,
     notifications, alert,
@@ -1108,7 +1244,8 @@ export function AppProvider({ children }) {
     openCart, closeCart, toggleCart, setMobileMenuOpenState,
     updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
     orderRefreshTrigger, refreshOrders,
-    isLocked, unlockSession
+    isLocked, unlockSession,
+    publicSettings, settingsLoading
   ]);
 
   return (

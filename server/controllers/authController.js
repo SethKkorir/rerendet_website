@@ -12,6 +12,79 @@ dotenv.config();
 
 // ==================== CUSTOMER AUTH ====================
 
+// Helper: Mask sensitive wallet info
+const maskWallet = (wallet) => {
+  if (!wallet) return {};
+  const masked = { ...wallet }; // Shallow copy
+
+  if (masked.mpesaPhone && masked.mpesaPhone.length > 4) {
+    masked.mpesaPhone = '**** **** ' + masked.mpesaPhone.slice(-4);
+  }
+  // Add other wallet fields here if they exist (e.g. card number)
+
+  return masked;
+};
+
+// @desc    Request code to reveal wallet info
+// @route   POST /api/auth/wallet/reveal/request
+// @access  Private
+const requestWalletReveal = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  // Generate verification code
+  const verificationCode = user.generateVerificationCode();
+  await user.save();
+
+  // Send email
+  try {
+    // Reuse verification email template but with a custom context wrapper if needed, 
+    // or just generic "Verification Required"
+    // For now, using standard verification email is fine as it says "Verify Your Account"
+    // But user asked for specific "Verify to Reveal" context? 
+    // "receive verification code in email, enter then they can see the info"
+    let logoUrl;
+    try {
+      const settings = await Settings.getSettings();
+      logoUrl = settings?.store?.logo;
+    } catch (err) { }
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Secure Wallet Access - Rerendet Coffee',
+      html: getVerificationEmail(user.firstName, verificationCode, logoUrl, 'login') // Reuse 'login' type for "Welcome Back" tone or add 'security' type later
+    });
+
+    res.json({ success: true, message: 'Verification code sent to email' });
+  } catch (error) {
+    res.status(500);
+    throw new Error('Failed to send verification email');
+  }
+});
+
+// @desc    Verify code and reveal wallet info
+// @route   POST /api/auth/wallet/reveal/verify
+// @access  Private
+const verifyWalletReveal = asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  const user = await User.findById(req.user._id).select('+verificationCode +verificationCodeExpires +wallet');
+
+  if (!user.verificationCode || user.verificationCode !== code || user.verificationCodeExpires < Date.now()) {
+    res.status(400);
+    throw new Error('Invalid or expired verification code');
+  }
+
+  // Clear code
+  user.verificationCode = undefined;
+  user.verificationCodeExpires = undefined;
+  await user.save();
+
+  // Return UNMASKED wallet
+  res.json({
+    success: true,
+    data: user.wallet || {}
+  });
+});
+
 // @desc    Verify 2FA Code and Login
 // @route   POST /api/auth/verify-2fa
 // @access  Public
@@ -48,7 +121,9 @@ const verify2FALogin = asyncHandler(async (req, res) => {
         isVerified: user.isVerified,
         profilePicture: user.profilePicture,
         shippingInfo: user.shippingInfo || {},
-        wallet: user.wallet || {},
+        profilePicture: user.profilePicture,
+        shippingInfo: user.shippingInfo || {},
+        wallet: maskWallet(user.wallet),
         cart: user.cart || [],
 
         twoFactorEnabled: user.twoFactorEnabled,
@@ -82,7 +157,9 @@ const toggle2FA = asyncHandler(async (req, res) => {
 
 // Customer registration
 const registerCustomer = asyncHandler(async (req, res) => {
-  const { firstName, lastName, email, password, phone, gender, dateOfBirth, userType = 'customer' } = req.body;
+  const { firstName, lastName, email: rawEmail, password, phone, gender, dateOfBirth, userType = 'customer' } = req.body;
+
+  const email = rawEmail?.toLowerCase().trim();
 
   console.log(`👤 Customer registration attempt:`, email);
 
@@ -101,10 +178,22 @@ const registerCustomer = asyncHandler(async (req, res) => {
     }
   }
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
+  console.log(`🔍 Checking for existing user with email: '${email}'`);
+
+  // DEBUGGING: Check total user count to verify DB connection
+  const userCount = await User.countDocuments();
+  console.log(`📊 Total users in DB: ${userCount}`);
+
+  // Check if user already exists (Case Insensitive Regex)
+  const existingUser = await User.findOne({
+    email: { $regex: new RegExp(`^${email}$`, 'i') }
+  });
+
+  console.log(`🕵️ Existing user found via Regex?`, existingUser ? `YES (ID: ${existingUser._id})` : 'NO');
+
   if (existingUser) {
-    res.status(400);
+    console.warn(`⚠️ Duplicate registration prevented for: ${email}`);
+    res.status(409);
     throw new Error('User already exists with this email');
   }
 
@@ -242,7 +331,7 @@ const googleLogin = asyncHandler(async (req, res) => {
         await sendEmail({
           to: email,
           subject: 'Google Login Verification - Rerendet Coffee',
-          html: getVerificationEmail(firstName, verificationCode, logoUrl)
+          html: getVerificationEmail(firstName, verificationCode, logoUrl, 'login')
         });
         console.log('📧 2FA code sent to Google user:', email);
       } catch (err) {
@@ -313,8 +402,8 @@ const loginCustomer = asyncHandler(async (req, res) => {
 
   if (!user) {
     console.log('❌ Customer not found:', email);
-    res.status(401);
-    throw new Error('Invalid email or password');
+    res.status(404);
+    throw new Error('User not found');
   }
 
   // Check if account is locked
@@ -368,7 +457,7 @@ const loginCustomer = asyncHandler(async (req, res) => {
       await sendEmail({
         to: email,
         subject: 'Login Verification Code - Rerendet Coffee',
-        html: getVerificationEmail(user.firstName, verificationCode, logoUrl)
+        html: getVerificationEmail(user.firstName, verificationCode, logoUrl, 'login')
       });
     } catch (error) {
       console.error('Failed to send 2FA email:', error);
@@ -514,9 +603,9 @@ const updateProfile = asyncHandler(async (req, res) => {
         role: updatedUser.role,
         isVerified: updatedUser.isVerified,
         profilePicture: updatedUser.profilePicture,
-        profilePicture: updatedUser.profilePicture,
+        profilePicture: user.profilePicture,
         shippingInfo: updatedUser.shippingInfo,
-        wallet: updatedUser.wallet,
+        wallet: maskWallet(updatedUser.wallet),
         twoFactorEnabled: updatedUser.twoFactorEnabled,
         preferences: updatedUser.preferences
       }
@@ -541,6 +630,15 @@ const changePassword = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.user._id).select('+password');
 
+  // 30-Day Check
+  if (user.passwordChangedAt) {
+    const daysSinceChange = (Date.now() - new Date(user.passwordChangedAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceChange < 30) {
+      res.status(429); // Too Many Requests
+      throw new Error(`Security Policy: You can only change your password once every 30 days. Please try again in ${Math.ceil(30 - daysSinceChange)} days.`);
+    }
+  }
+
   if (user && (await bcrypt.compare(currentPassword, user.password))) {
     user.password = newPassword;
     await user.save();
@@ -562,11 +660,28 @@ const changePassword = asyncHandler(async (req, res) => {
 // @route   DELETE /api/auth/profile
 // @access  Private
 const deleteAccount = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const { password } = req.body;
+  const user = await User.findById(req.user._id).select('+password'); // Select password for verification
+
+  if (!password) {
+    res.status(400);
+    throw new Error('Current password is required to delete account');
+  }
 
   if (user) {
+    // Verify password first
+    if (!await user.comparePassword(password)) {
+      res.status(401);
+      throw new Error('Incorrect password. Account deletion failed.');
+    }
     const userEmail = user.email;
     const firstName = user.firstName;
+
+    // SECURITY: Prevent Admin Self-Deletion
+    if (user.userType === 'admin' || user.role === 'super-admin') {
+      res.status(403);
+      throw new Error('Administrators cannot self-delete. Please contact a Super Admin or Database Administrator.');
+    }
 
     await User.deleteOne({ _id: user._id });
 
@@ -897,7 +1012,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     role: user.role,
     isVerified: user.isVerified,
     profilePicture: user.profilePicture,
-    shippingInfo: user.shippingInfo || {}
+    shippingInfo: user.shippingInfo || {},
+    wallet: maskWallet(user.wallet)
   };
 
   // Add permissions if admin
@@ -1127,7 +1243,9 @@ export {
   resetPassword,
   resendVerification,
   changePassword,
-  deleteAccount
+  deleteAccount,
+  requestWalletReveal,
+  verifyWalletReveal
 };
 
 /**

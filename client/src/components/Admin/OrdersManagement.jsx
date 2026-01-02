@@ -10,6 +10,7 @@ const OrdersManagement = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: 'all',
+    paymentStatus: 'all',
     search: '',
 
     startDate: '',
@@ -66,7 +67,7 @@ const OrdersManagement = () => {
     }
   };
 
-  const updateOrderStatus = async (orderId, newStatus, trackingNumber = '', location = '', message = '') => {
+  const updateOrderStatus = async (orderId, newStatus, trackingNumber = '', location = '', message = '', shippingDetails = null) => {
     try {
       const response = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
@@ -78,7 +79,8 @@ const OrdersManagement = () => {
           status: newStatus,
           trackingNumber,
           location,
-          message,
+          note: message, // Backend expects 'note'
+          shippingDetails,
           notifyCustomer: true
         })
       });
@@ -150,28 +152,42 @@ const OrdersManagement = () => {
     }
   };
 
-  const StatusBadge = ({ status }) => {
-    const statusColors = {
-      pending: 'orange',
-      confirmed: 'blue',
-      processing: 'purple',
-      shipped: 'teal',
-      delivered: 'green',
-      cancelled: 'red'
-    };
+  const StatusBadge = ({ order }) => {
+    const status = order.status;
+    const paymentStatus = order.paymentStatus;
 
-    const statusLabels = {
-      pending: 'Pending',
-      confirmed: 'Confirmed',
-      processing: 'Processing',
-      shipped: 'Shipped',
-      delivered: 'Delivered',
-      cancelled: 'Cancelled'
-    };
+    let displayStatus = status;
+    let color = 'gray';
+
+    // Combined Status Logic
+    if (status === 'pending') {
+      if (paymentStatus === 'paid') {
+        displayStatus = 'Paid (Pending)';
+        color = 'blue';
+      } else if (paymentStatus === 'failed') {
+        displayStatus = 'Payment Failed';
+        color = 'red';
+      } else {
+        displayStatus = 'Pending Payment';
+        color = 'orange';
+      }
+    } else {
+      const statusColors = {
+        confirmed: 'blue',
+        processing: 'purple',
+        shipped: 'teal',
+        delivered: 'green',
+        cancelled: 'red'
+      };
+      color = statusColors[status] || 'gray';
+
+      // Capitalize first letter
+      displayStatus = status.charAt(0).toUpperCase() + status.slice(1);
+    }
 
     return (
-      <span className={`status-badge ${statusColors[status] || 'gray'}`}>
-        {statusLabels[status] || status}
+      <span className={`status-badge ${color}`}>
+        {displayStatus}
       </span>
     );
   };
@@ -233,9 +249,7 @@ const OrdersManagement = () => {
         </small>
       </td>
       <td>
-        <StatusBadge status={order.status} />
-        <br />
-        <PaymentStatusBadge status={order.paymentStatus} />
+        <StatusBadge order={order} />
       </td>
       <td>
         <div className="order-actions">
@@ -303,6 +317,19 @@ const OrdersManagement = () => {
           <option value="shipped">Shipped</option>
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
+        </select>
+
+        <select
+          value={filters.paymentStatus}
+          onChange={(e) => setFilters(prev => ({ ...prev, paymentStatus: e.target.value, page: 1 }))}
+          className="filter-select"
+          style={{ marginLeft: '10px' }}
+        >
+          <option value="all">All Payment Status</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="failed">Failed</option>
+          <option value="refunded">Refunded</option>
         </select>
 
         <div className="date-filters">
@@ -612,7 +639,9 @@ const OrderDetailsModal = ({ order, onClose }) => {
 // Status Update Modal Component (keep the existing one)
 const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
   const [status, setStatus] = useState(order.status);
-  const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || '');
+  const [trackingNumber, setTrackingNumber] = useState(order.shippingDetails?.trackingNumber || order.trackingNumber || '');
+  const [courier, setCourier] = useState(order.shippingDetails?.courier || '');
+  const [estimatedDelivery, setEstimatedDelivery] = useState(order.shippingDetails?.estimatedDelivery ? new Date(order.shippingDetails.estimatedDelivery).toISOString().split('T')[0] : '');
   const [location, setLocation] = useState('');
   const [message, setMessage] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -620,7 +649,17 @@ const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUpdating(true);
-    await onUpdate(order._id, status, trackingNumber, location, message);
+
+    let shippingDetails = null;
+    if (status === 'shipped') {
+      shippingDetails = {
+        courier,
+        trackingNumber,
+        estimatedDelivery
+      };
+    }
+
+    await onUpdate(order._id, status, trackingNumber, location, message, shippingDetails);
     setUpdating(false);
   };
 
@@ -663,16 +702,42 @@ const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
             </select>
           </div>
 
-          {(status === 'shipped' || status === 'delivered') && (
-            <div className="form-group">
-              <label>Tracking Number</label>
-              <input
-                type="text"
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder={status === 'shipped' ? "Enter tracking number (Required)" : "Enter tracking number"}
-                required={status === 'shipped'}
-              />
+          {(status === 'shipped' || status === 'delivered' || status === 'processing') && (
+            <div className="shipping-fields p-3 bg-gray-50 rounded mb-3">
+              <h4 style={{ fontSize: '14px', marginBottom: '10px', color: '#666' }}>Shipping Details</h4>
+
+              <div className="form-group">
+                <label>Courier Service</label>
+                <input
+                  type="text"
+                  value={courier}
+                  onChange={(e) => setCourier(e.target.value)}
+                  placeholder="e.g. DHL, G4S, Wells Fargo"
+                  required={status === 'shipped'}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Tracking Number</label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder={status === 'shipped' ? "Enter tracking number (Required)" : "Enter tracking number"}
+                  required={status === 'shipped'}
+                />
+              </div>
+
+              {status === 'shipped' && (
+                <div className="form-group">
+                  <label>Estimated Delivery Date</label>
+                  <input
+                    type="date"
+                    value={estimatedDelivery}
+                    onChange={(e) => setEstimatedDelivery(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           )}
 

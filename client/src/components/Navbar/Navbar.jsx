@@ -12,7 +12,7 @@ import {
 import { AppContext } from '../../context/AppContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import AuthModal from '../Auth/AuthModal';
-import SnowEffect from '../Seasonal/SnowEffect'; // Import SnowEffect
+import FireworksEffect from '../Seasonal/FireworksEffect';
 import './Navbar.css';
 
 function Navbar() {
@@ -34,7 +34,6 @@ function Navbar() {
   const [darkMode, setDarkMode] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authView, setAuthView] = useState('login');
-  const [isWinterSeason, setIsWinterSeason] = useState(false);
 
   // Scroll effect
   useEffect(() => {
@@ -45,7 +44,7 @@ function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Theme initialization and Winter Check
+  // Theme initialization
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode') === 'true';
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -53,13 +52,6 @@ function Navbar() {
 
     setDarkMode(initialMode);
     document.documentElement.setAttribute('data-theme', initialMode ? 'dark' : 'light');
-
-    // Check for Christmas/Winter Season (Dec 15 - Jan 3)
-    const date = new Date();
-    const month = date.getMonth(); // 0-11
-    const day = date.getDate();
-    const isWinter = (month === 11 && day >= 15) || (month === 0 && day <= 3);
-    setIsWinterSeason(isWinter);
   }, []);
 
   useEffect(() => {
@@ -108,23 +100,14 @@ function Navbar() {
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <>
-        {/* Winter Snow Effect */}
-        {isWinterSeason && <SnowEffect />}
+        {/* New Year Fireworks Effect */}
+        <FireworksEffect />
 
         {/* Main Header */}
         <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>
           <div className="header__container">
             <div className="header__logo" onClick={() => navigate('/')}>
               <div className="logo-wrapper">
-                {/* Santa Hat Overlay */}
-                {isWinterSeason && (
-                  <div className="santa-hat-overlay">
-                    <img src="/santa-hat.png" alt="Santa Hat" className="santa-hat-img" onError={(e) => e.target.style.display = 'none'} />
-                    {/* Fallback CSS Hat if image missing */}
-                    <div className="css-santa-hat"></div>
-                  </div>
-                )}
-
                 <img
                   src={publicSettings?.store?.logo || "/rerendet-logo.png"}
                   alt={publicSettings?.store?.name || "Rerendet Coffee"}
@@ -132,7 +115,11 @@ function Navbar() {
                   style={{ height: '70px' }}
                 />
               </div>
-              <span className="header__logo-text">Rerendet Coffee</span>
+
+              {/* Text Wrapper */}
+              <div className="text-wrapper" style={{ position: 'relative' }}>
+                <span className="header__logo-text">Rerendet Coffee</span>
+              </div>
             </div>
 
             {/* Desktop Navigation */}

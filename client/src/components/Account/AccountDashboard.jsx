@@ -9,11 +9,14 @@ import { useNavigate } from 'react-router-dom';
 import './AccountDashboard.css';
 
 // Import Tab Components
+// Import Tab Components
+import OverviewTab from './OverviewTab';
 import OrdersTab from './OrdersTab';
 import AddressesTab from './AddressesTab';
 import WalletTab from './WalletTab';
 import ProfileTab from './ProfileTab';
 import SecurityTab from './SecurityTab';
+import { FaHome } from 'react-icons/fa';
 
 function AccountDashboard() {
   const {
@@ -23,7 +26,7 @@ function AccountDashboard() {
   } = useContext(AppContext);
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('orders'); // Default to orders for utility
+  const [activeTab, setActiveTab] = useState('overview'); // Default to overview
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Real Data State
@@ -31,9 +34,11 @@ function AccountDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Load orders only when Orders tab is active or on mount if active
+  // Load orders when needed (Overview needs them for stats/recent too)
   useEffect(() => {
-    if (user && activeTab === 'orders') {
-      loadOrders();
+    if (user && (activeTab === 'orders' || activeTab === 'overview')) {
+      loadOrders(); // We verify if loadOrders prevents double calls internally if needed, or simple cache?
+      // For now, it's fine to call it.
     }
   }, [user, activeTab]);
 
@@ -58,6 +63,7 @@ function AccountDashboard() {
 
   // Tabs Configuration
   const tabs = [
+    { id: 'overview', label: 'Overview', icon: <FaHome /> },
     { id: 'orders', label: 'My Orders', icon: <FaShoppingBag /> },
     { id: 'addresses', label: 'Addresses', icon: <FaMapMarkerAlt /> },
     { id: 'wallet', label: 'Wallet', icon: <FaCreditCard /> },
@@ -106,6 +112,7 @@ function AccountDashboard() {
             <FaUser />
           </button>
 
+          {activeTab === 'overview' && <OverviewTab user={user} orders={orders} setActiveTab={setActiveTab} />}
           {activeTab === 'orders' && <OrdersTab orders={orders} loading={ordersLoading} />}
           {activeTab === 'addresses' && <AddressesTab />}
           {activeTab === 'wallet' && <WalletTab />}

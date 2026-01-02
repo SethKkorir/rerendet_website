@@ -15,7 +15,8 @@ import {
   FaFileCsv,
   FaDownload,
   FaCoffee,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaClock
 } from 'react-icons/fa';
 import {
   AreaChart,
@@ -67,6 +68,12 @@ const Dashboard = () => {
           };
         });
         setChartData(formattedData);
+
+        // Merge category distribution into stats for Pie Chart
+        setStats(prev => ({
+          ...prev,
+          categoryDistribution: analyticsRes.data.categoryDistribution || []
+        }));
       }
 
     } catch (error) {
@@ -360,6 +367,14 @@ const Dashboard = () => {
               icon={<FaShoppingBag />}
               color="orders"
               subtitle={`${stats?.overview?.todayOrders || 0} today`}
+            />
+            <StatCard
+              title="Pending Payments"
+              value={(stats?.overview?.pendingOrders || 0).toLocaleString()}
+              change={0}
+              icon={<FaClock />}
+              color="pending"
+              subtitle="Unpaid Orders"
             />
             <StatCard
               title="Total Customers"

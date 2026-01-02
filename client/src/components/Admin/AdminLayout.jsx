@@ -9,7 +9,7 @@ import {
   FaEnvelope, FaChartBar, FaCog, FaSignOutAlt,
   FaBars, FaTimes, FaBell, FaUserCircle,
   FaInfoCircle, FaCheckCircle, FaExclamationCircle,
-  FaBullhorn
+  FaBullhorn, FaMoneyBillWave
 } from 'react-icons/fa';
 import './AdminLayout.css';
 import CommandPalette from './CommandPalette';
@@ -92,6 +92,7 @@ const AdminLayout = ({ children }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <FaTachometerAlt />, path: '/admin' },
     { id: 'orders', label: 'Orders', icon: <FaShoppingBag />, path: '/admin/orders' },
+    { id: 'payments', label: 'Payments', icon: <FaMoneyBillWave />, path: '/admin/payments' },
     { id: 'products', label: 'Products', icon: <FaBox />, path: '/admin/products' },
     { id: 'users', label: 'Users', icon: <FaUsers />, path: '/admin/users' },
     { id: 'contacts', label: 'Contacts', icon: <FaEnvelope />, path: '/admin/contacts' },

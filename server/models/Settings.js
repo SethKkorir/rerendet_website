@@ -28,9 +28,9 @@ const settingsSchema = new mongoose.Schema({
   payment: {
     currency: { type: String, default: 'KES' },
     currencySymbol: { type: String, default: 'KSh' },
-    taxRate: { type: Number, default: 0.16 }, // 16% VAT
-    freeShippingThreshold: { type: Number, default: 5000 },
-    shippingPrice: { type: Number, default: 500 },
+    taxRate: { type: Number, default: 0 }, // 0% VAT
+    freeShippingThreshold: { type: Number, default: 0 },
+    shippingPrice: { type: Number, default: 0 },
     paymentMethods: {
       mpesa: { type: Boolean, default: true },
       card: { type: Boolean, default: true },
@@ -104,6 +104,17 @@ const settingsSchema = new mongoose.Schema({
     termsConditions: { type: String, default: '' },
     refundPolicy: { type: String, default: '' },
     shippingPolicy: { type: String, default: '' }
+  },
+
+  // About Section
+  about: {
+    title: { type: String, default: 'Our Coffee Story' },
+    subtitle: { type: String, default: 'Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations. Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants.' },
+    content: { type: String, default: 'At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.' },
+    image: { type: String, default: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000' },
+    years: { type: String, default: '' },
+    organic: { type: String, default: '' },
+    awards: { type: String, default: '' }
   },
 
   // Maintenance Settings

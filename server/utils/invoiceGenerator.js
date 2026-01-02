@@ -1,7 +1,8 @@
-// utils/invoiceGenerator.js
+// utils/invoiceGenerator.js - MODERN & DYNAMIC
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import Settings from '../models/Settings.js'; // Import Settings Model
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,29 +10,49 @@ const __dirname = path.dirname(__filename);
 /**
  * Generate a professional PDF invoice for an order
  * @param {Object} order - The order object
- * @param {Object} [res] - Optional response object to stream PDF to. If null, returns a Promise<Buffer>
+ * @param {Object} [res] - Optional response object to stream PDF to.
  * @returns {Promise<Buffer>|void}
  */
-export const generateInvoice = (order, res = null) => {
+export const generateInvoice = async (order, res = null) => {
+    // 1. Fetch Store Settings
+    let storeSettings = {
+        name: 'Rerendet Coffee',
+        address: 'Nairobi, Kenya',
+        email: 'info@rerendetcoffee.com',
+        phone: '+254 700 000 000',
+        logo: ''
+    };
+
+    try {
+        const settings = await Settings.getSettings();
+        if (settings && settings.store) {
+            storeSettings = {
+                name: settings.store.name || storeSettings.name,
+                address: settings.store.address || storeSettings.address,
+                email: settings.store.email || storeSettings.email,
+                phone: settings.store.phone || storeSettings.phone,
+                logo: settings.store.logo || ''
+            };
+        }
+    } catch (error) {
+        console.warn('⚠️ Could not fetch settings for invoice, using defaults.', error);
+    }
+
     return new Promise((resolve, reject) => {
         try {
-            // Create a new PDF document
             const doc = new PDFDocument({
                 size: 'A4',
-                margin: 50,
+                margin: 40, // Slightly tighter margin for modern look
                 bufferPages: true
             });
 
             const buffers = [];
 
-            // Output Handling
             if (res) {
-                // Stream to response (Download)
                 res.setHeader('Content-Type', 'application/pdf');
-                res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber}.pdf`);
+                res.setHeader('Content-Disposition', `attachment; filename=Invoice-${order.orderNumber}.pdf`);
                 doc.pipe(res);
             } else {
-                // Buffer for Email Attachment
                 doc.on('data', buffers.push.bind(buffers));
                 doc.on('end', () => {
                     const pdfData = Buffer.concat(buffers);
@@ -39,238 +60,166 @@ export const generateInvoice = (order, res = null) => {
                 });
             }
 
+            // --- THEME ---
+            const COLORS = {
+                primary: '#6F4E37',    // Coffee Brown
+                secondary: '#2c3e50',  // Dark Slate
+                accent: '#E67E22',     // Orange Accent (Subtle)
+                text: '#34495e',       // Grey Text
+                lightGray: '#F5F6FA',  // Backgrounds
+                border: '#DCDDE1'
+            };
 
+            const FONTS = {
+                bold: 'Helvetica-Bold',
+                regular: 'Helvetica'
+            };
 
-            // --- Colors & Fonts ---
-            const primaryColor = '#6F4E37'; // Rerendet Coffee Brown
-            const secondaryColor = '#8D6E63';
-            const lightBg = '#F8F9FA';
-            const darkText = '#2D3436';
-            const lightText = '#636E72';
-
-            // --- Header Section ---
-            // Logo
-            const logoPath = path.join(__dirname, '../client/public/rerendet-logo.png');
+            // --- HEADER ---
+            // Logo (Left)
+            const logoPath = path.join(__dirname, '../../client/public/rerendet-logo.png');
+            let hasLogo = false;
             try {
-                doc.image(logoPath, 50, 45, { width: 80 });
+                // Try local file first (robustness)
+                doc.image(logoPath, 40, 40, { width: 60 });
+                hasLogo = true;
             } catch (e) {
-                console.error("Logo not found, skipping", e);
-                // Fallback text if logo missing
-                doc
-                    .fontSize(20)
-                    .font('Helvetica-Bold')
-                    .fillColor(primaryColor)
-                    .text('R', 50, 45);
+                // Formatting fallback if logo fails
+                doc.rect(40, 40, 60, 60).fill(COLORS.primary);
+                doc.fontSize(24).fillColor('white').text(storeSettings.name.charAt(0), 55, 55);
             }
 
-            // Company Info (Right Aligned Header)
-            doc
-                .fontSize(20)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('Rerendet Coffee', 0, 50, { align: 'right', indent: 50 }); // align right doesn't use x, but bounds.
+            // Company Info (Right)
+            doc.fontSize(20).font(FONTS.bold).fillColor(COLORS.primary)
+                .text('INVOICE', 0, 40, { align: 'right', indent: 0 });
 
-            // Reset position for company details
-            doc
-                .fontSize(9)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text('Premium Ethiopian Coffee', 400, 80, { align: 'right' })
-                .text('Nairobi, Kenya', 400, 95, { align: 'right' })
-                .text('info@rerendetcoffee.com', 400, 110, { align: 'right' })
-                .text('+254 700 123 456', 400, 125, { align: 'right' });
+            doc.fontSize(9).font(FONTS.regular).fillColor(COLORS.text)
+                .text(storeSettings.name, 0, 70, { align: 'right' })
+                .text(storeSettings.address, 0, 82, { align: 'right' })
+                .text(storeSettings.email, 0, 94, { align: 'right' })
+                .text(storeSettings.phone, 0, 106, { align: 'right' });
 
+            // --- ORDER METADATA BAR ---
+            const metaTop = 140;
+            doc.rect(40, metaTop, 515, 45).fill(COLORS.lightGray); // Background strip
 
-            // --- Invoice Badge & Status ---
-            // Draw a colored background for the invoice info
-            const invoiceInfoTop = 160;
+            const drawMetaItem = (label, value, x) => {
+                doc.fontSize(8).font(FONTS.bold).fillColor(COLORS.secondary).text(label.toUpperCase(), x, metaTop + 10);
+                doc.fontSize(10).font(FONTS.regular).fillColor(COLORS.text).text(value, x, metaTop + 25);
+            };
 
-            doc
-                .save()
-                .roundedRect(50, invoiceInfoTop, 500, 70, 5)
-                .fill(lightBg)
-                .restore();
+            drawMetaItem('Invoice No', `#${order.orderNumber}`, 60);
+            drawMetaItem('Date', new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), 180);
+            drawMetaItem('Status', order.isPaid ? 'PAID' : 'PENDING', 300);
+            drawMetaItem('Total', `KES ${order.total.toLocaleString()}`, 450);
 
-            // Left side of box: Invoice #
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('INVOICE NUMBER', 70, invoiceInfoTop + 15)
-                .fontSize(14)
-                .font('Helvetica-Bold')
-                .fillColor(darkText)
-                .text(`#${order.orderNumber}`, 70, invoiceInfoTop + 35);
+            // --- BILLING & SHIPPING ---
+            const addressTop = 210;
 
-            // Middle of box: Date
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('DATE MARKED', 250, invoiceInfoTop + 15)
-                .fontSize(12)
-                .font('Helvetica')
-                .fillColor(darkText)
-                .text(new Date(order.createdAt).toLocaleDateString('en-GB', {
-                    year: 'numeric', month: 'long', day: 'numeric'
-                }), 250, invoiceInfoTop + 35);
+            // Container for Bill To
+            doc.fontSize(10).font(FONTS.bold).fillColor(COLORS.primary).text('BILL TO', 40, addressTop);
+            doc.fontSize(9).font(FONTS.regular).fillColor(COLORS.text)
+                .text(`${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`, 40, addressTop + 15)
+                .text(order.shippingAddress.email, 40, addressTop + 27)
+                .text(order.shippingAddress.phone, 40, addressTop + 39);
 
-            // Right side of box: Total Amount
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('TOTAL AMOUNT', 430, invoiceInfoTop + 15)
-                .fontSize(14)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text(`KSh ${order.total.toLocaleString()}`, 430, invoiceInfoTop + 35);
+            // Container for Ship To (Right side)
+            doc.fontSize(10).font(FONTS.bold).fillColor(COLORS.primary).text('SHIP TO', 300, addressTop);
+            doc.fontSize(9).font(FONTS.regular).fillColor(COLORS.text)
+                .text(order.shippingAddress.address, 300, addressTop + 15)
+                .text(`${order.shippingAddress.city}, ${order.shippingAddress.county}`, 300, addressTop + 27)
+                .text(order.shippingAddress.country || 'Kenya', 300, addressTop + 39);
 
+            // --- ITEMS TABLE ---
+            const tableTop = 300;
+            const colX = { item: 40, size: 250, qty: 340, price: 400, total: 480 };
 
-            // --- Bill To / Ship To Section ---
-            const addressTop = 260;
+            // Header
+            doc.rect(40, tableTop, 515, 25).fill(COLORS.primary);
+            doc.fontSize(9).font(FONTS.bold).fillColor('white');
+            doc.text('ITEM DESCRIPTION', colX.item + 10, tableTop + 8);
+            doc.text('SIZE', colX.size, tableTop + 8);
+            doc.text('QTY', colX.qty, tableTop + 8);
+            doc.text('PRICE', colX.price, tableTop + 8);
+            doc.text('TOTAL', colX.total, tableTop + 8);
 
-            // Bill To
-            doc
-                .fontSize(11)
-                .font('Helvetica-Bold')
-                .fillColor(darkText)
-                .text('Billed To:', 50, addressTop);
-
-            doc
-                .fontSize(10)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text(`${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`, 50, addressTop + 20)
-                .text(order.shippingAddress.email, 50, addressTop + 35)
-                .text(order.shippingAddress.phone, 50, addressTop + 50);
-
-            // Ship To (if different? Assuming same for now but styled separately)
-            doc
-                .fontSize(11)
-                .font('Helvetica-Bold')
-                .fillColor(darkText)
-                .text('Shipped To:', 300, addressTop);
-
-            doc
-                .fontSize(10)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text(order.shippingAddress.address, 300, addressTop + 20)
-                .text(`${order.shippingAddress.city}, ${order.shippingAddress.county}`, 300, addressTop + 35)
-                .text(order.shippingAddress.country, 300, addressTop + 50);
-
-
-            // --- Items Table ---
-            const tableTop = 350;
-
-            // Table Header
-            doc
-                .rect(50, tableTop, 500, 30)
-                .fill(primaryColor);
-
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor('#FFFFFF')
-                .text('Item Request', 65, tableTop + 10)
-                .text('Size', 280, tableTop + 10)
-                .text('Qty', 350, tableTop + 10)
-                .text('Price Check', 420, tableTop + 10)
-                .text('Total', 490, tableTop + 10);
-
-            // Table Rows
-            let y = tableTop + 40;
-            doc.font('Helvetica').fontSize(10);
+            // Rows
+            let y = tableTop + 35;
+            doc.font(FONTS.regular).fillColor(COLORS.text);
 
             order.items.forEach((item, i) => {
-                const isLast = i === order.items.length - 1;
                 const itemTotal = item.price * item.quantity;
 
-                // Zebra striping (optional, let's keep it clean white with border)
-                // Bottom border
-                doc
-                    .moveTo(50, y + 20)
-                    .lineTo(550, y + 20)
-                    .strokeColor('#EEEEEE')
-                    .lineWidth(1)
-                    .stroke();
+                // Row Background (Zebra optional, using line separation instead)
+                doc.moveTo(40, y + 15).lineTo(555, y + 15).lineWidth(0.5).strokeColor(COLORS.border).stroke();
 
-                doc
-                    .fillColor(darkText)
-                    .text(item.name, 65, y - 5)
-                    .text(item.size, 280, y - 5)
-                    .text(item.quantity.toString(), 350, y - 5)
-                    .text(item.price.toLocaleString(), 420, y - 5)
-                    .font('Helvetica-Bold') // Bold total
-                    .text(itemTotal.toLocaleString(), 490, y - 5)
-                    .font('Helvetica'); // Reset font
+                doc.fontSize(9).text(item.name, colX.item + 10, y);
+                doc.text(item.size || '-', colX.size, y);
+                doc.text(item.quantity.toString(), colX.qty, y);
+                doc.text(item.price.toLocaleString(), colX.price, y);
+                doc.font(FONTS.bold).text(itemTotal.toLocaleString(), colX.total, y).font(FONTS.regular);
 
-                y += 35;
+                y += 25;
             });
 
-            // --- Totals Section ---
-            const footerStart = y + 20;
+            // --- SUMMARY SECTION ---
+            const summaryTop = y + 20;
+            const summaryLeft = 350;
+            const summaryRight = 480;
 
-            // Summary Box (Right Aligned)
-            const summaryX = 350;
+            doc.fontSize(9).fillColor(COLORS.text);
 
-            doc
-                .fontSize(10)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text('Subtotal:', summaryX, footerStart)
-                .text(`KSh ${order.subtotal.toLocaleString()}`, 490, footerStart, { align: 'left' });
+            // Helper for summary line
+            const drawSummaryLine = (label, value, isBold = false, yPos) => {
+                doc.font(isBold ? FONTS.bold : FONTS.regular).text(label, summaryLeft, yPos);
+                doc.font(isBold ? FONTS.bold : FONTS.regular).text(value, summaryRight, yPos, { align: 'left' }); // Align left relative to the X point, essentially column
+            };
 
-            doc
-                .text('Shipping:', summaryX, footerStart + 20)
-                .text(`KSh ${order.shippingCost.toLocaleString()}`, 490, footerStart + 20, { align: 'left' });
+            let currentY = summaryTop;
+            drawSummaryLine('Subtotal', `KES ${order.subtotal.toLocaleString()}`, false, currentY);
+            currentY += 15;
+
+            drawSummaryLine('Shipping', `KES ${order.shippingCost.toLocaleString()}`, false, currentY);
+            currentY += 15;
 
             const tax = order.total - order.subtotal - order.shippingCost;
-            if (tax > 0) {
-                doc
-                    .text('VAT (16%):', summaryX, footerStart + 40)
-                    .text(`KSh ${tax.toLocaleString()}`, 490, footerStart + 40, { align: 'left' });
-            }
+            // Always show Tax line as requested (regulation)
+            drawSummaryLine('Tax (VAT 0%)', `KES ${Math.max(0, tax).toLocaleString()}`, false, currentY);
+            currentY += 15;
 
-            // Grand Total Highlight
-            const grandTotalY = footerStart + 65;
-            doc
-                .rect(summaryX - 10, grandTotalY - 10, 210, 40)
-                .fill(lightBg);
+            // Divider
+            doc.moveTo(summaryLeft, currentY + 5).lineTo(555, currentY + 5).lineWidth(1).strokeColor(COLORS.primary).stroke();
+            currentY += 15;
 
-            doc
-                .fontSize(12)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('Grand Total:', summaryX, grandTotalY)
-                .fontSize(14)
-                .text(`KSh ${order.total.toLocaleString()}`, 490, grandTotalY - 2, { align: 'left' });
+            // Grand Total
+            doc.fontSize(12).fillColor(COLORS.primary);
+            drawSummaryLine('Grand Total', `KES ${order.total.toLocaleString()}`, true, currentY);
 
+            // --- PAYMENTS & FOOTER ---
+            const footerTop = 750; // Near bottom
+            doc.fontSize(8).font(FONTS.regular).fillColor('#95a5a6');
 
-            // --- Footer ---
-            const pageHeight = 841.89; // A4 height in points
+            // Payment Info
+            const paymentMethod = order.paymentMethod === 'mpesa' ? 'M-PESA' : (order.paymentMethod || 'Card').toUpperCase();
+            const transactionId = order.transactionId || order.paymentResult?.id || 'N/A';
 
-            doc
-                .fontSize(9)
-                .font('Helvetica')
-                .fillColor('#999')
-                .text('Thank you for choosing Rerendet Coffee.', 50, pageHeight - 70, { align: 'center', width: 500 })
-                .text('Payment Status: ' + order.paymentStatus.toUpperCase(), 50, pageHeight - 55, { align: 'center', width: 500 });
+            doc.text(`Payment Method: ${paymentMethod} | Transaction ID: ${transactionId}`, 40, footerTop);
 
-            // Finalize
+            // Thank you note
+            doc.fontSize(10).fillColor(COLORS.primary)
+                .text('Thank you for your business!', 0, footerTop + 20, { align: 'center' });
+
+            doc.fontSize(8).fillColor('#95a5a6')
+                .text('For questions, contact us at ' + storeSettings.email, 0, footerTop + 35, { align: 'center' });
+
             doc.end();
 
         } catch (error) {
             console.error('Invoice generation error:', error);
-            if (res && !res.headersSent) {
-                res.status(500).send('Error generating invoice');
-            }
-            if (!res) {
-                reject(error);
-            }
+            if (res && !res.headersSent) res.status(500).send('Error generating invoice');
+            else if (!res) reject(error);
         }
-    }); // End Promise
+    });
 };
 
 export default generateInvoice;

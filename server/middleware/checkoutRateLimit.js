@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 // Prevents rapid checkout attempts and potential fraud
 export const checkoutLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Limit each user to 5 checkout attempts per window
+    max: 100, // Increased limit for testing
     message: {
         success: false,
         message: 'Too many checkout attempts. Please try again in 15 minutes.'

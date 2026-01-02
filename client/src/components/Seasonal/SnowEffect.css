@@ -44,7 +44,8 @@
     left: 10%;
     animation-duration: 12s;
     animation-delay: 1s;
-    font-size: 1.2em;
+    font-size: 2.5em;
+    /* Huger */
 }
 
 .snowflake:nth-child(3) {
@@ -57,7 +58,8 @@
     left: 30%;
     animation-duration: 15s;
     animation-delay: 0.5s;
-    font-size: 0.8em;
+    font-size: 1.5em;
+    /* Bigger */
 }
 
 .snowflake:nth-child(5) {
@@ -70,7 +72,8 @@
     left: 50%;
     animation-duration: 13s;
     animation-delay: 1.5s;
-    font-size: 1.5em;
+    font-size: 3em;
+    /* Very huge */
 }
 
 .snowflake:nth-child(7) {
@@ -83,7 +86,7 @@
     left: 70%;
     animation-duration: 14s;
     animation-delay: 2.5s;
-    font-size: 0.9em;
+    font-size: 1.8em;
 }
 
 .snowflake:nth-child(9) {
@@ -96,10 +99,10 @@
     left: 90%;
     animation-duration: 12s;
     animation-delay: 0s;
-    font-size: 1.1em;
+    font-size: 2.2em;
 }
 
-/* Add more variability for up to 50 flakes with SCSS loop logic typically, but hardcoding a few groups for brevity or using nth-child(2n) etc */
+/* Loop logic replacement with nth-child */
 .snowflake:nth-child(odd) {
     animation-duration: 14s;
 }
@@ -110,16 +113,27 @@
 
 .snowflake:nth-child(3n) {
     animation-duration: 11s;
-    font-size: 0.7em;
-    opacity: 0.8;
+    font-size: 1.5em;
+    /* Base big size */
+    opacity: 0.9;
 }
 
 .snowflake:nth-child(5n) {
     animation-duration: 16s;
-    font-size: 1.3em;
+    font-size: 2.5em;
+    /* Huge */
 }
 
 .snowflake:nth-child(7n) {
     animation-delay: 2s;
+    opacity: 0.8;
+    font-size: 2em;
+    /* Big */
+}
+
+.snowflake:nth-child(11n) {
+    font-size: 4em;
+    /* Massive */
     opacity: 0.6;
+    animation-duration: 20s;
 }
