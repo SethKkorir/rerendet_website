@@ -42,7 +42,7 @@ const app = express();
 app.set('trust proxy', 1); // trust first proxy
 
 // Connect to MongoDB
-connectDB();
+// Connect to MongoDB - Called later with admin check
 
 
 const createDefaultAdmin = async () => {
