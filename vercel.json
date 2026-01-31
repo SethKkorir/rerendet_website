@@ -23,6 +23,10 @@
             "dest": "/client/static/$1"
         },
         {
+            "src": "/(.*)\\.(png|jpg|jpeg|gif|svg|ico|json)",
+            "dest": "/client/$1.$2"
+        },
+        {
             "src": "/favicon.ico",
             "dest": "/client/favicon.ico"
         },
