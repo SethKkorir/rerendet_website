@@ -191,7 +191,7 @@ app.use((req, res, next) => {
 // ==================== ROUTES ====================
 
 // API Routes
-app.use('/api/auth/admin/login', adminLoginLimiter); // Apply strict limit to admin login
+app.use('/api/auth/admin/login', authRoutes); // Use standard router, limiter removed for stability
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);

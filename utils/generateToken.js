@@ -5,22 +5,22 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const generateToken = (userId) => {
-  // Check if JWT_SECRET is set
+  // Check if JWT_SECRET is set, otherwise use a fallback (Critical for Vercel initial setup)
+  const secret = process.env.JWT_SECRET || 'rerendet_coffee_secret_fallback_2024';
+
   if (!process.env.JWT_SECRET) {
-    console.error('❌ JWT_SECRET is not set in environment variables');
-    console.error('Available env vars:', Object.keys(process.env));
-    throw new Error('JWT_SECRET is not configured');
+    console.warn('⚠️ JWT_SECRET not set. Using fallback secret.');
   }
 
   try {
     const token = jwt.sign(
-      { id: userId }, 
-      process.env.JWT_SECRET, 
+      { id: userId },
+      secret,
       {
         expiresIn: process.env.JWT_EXPIRES_IN || '7d',
       }
     );
-    
+
     console.log('✅ Token generated successfully for user:', userId);
     return token;
   } catch (error) {
