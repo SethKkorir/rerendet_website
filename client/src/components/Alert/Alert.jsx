@@ -5,17 +5,29 @@ import './Alert.css';
 
 const Alert = () => {
   const ctx = useContext(AppContext) || {};
-  const alert = ctx.alert || { isVisible: false, message: '' };
-  const hideAlert = ctx.hideAlert || (() => {});
+  const alert = ctx.alert || { isVisible: false, message: '', type: 'info' };
+  const hideAlert = ctx.hideAlert || (() => { });
 
   if (!alert || !alert.isVisible) return null;
 
+  const getIcon = (type) => {
+    switch (type) {
+      case 'success': return '✅';
+      case 'error': return '❌';
+      case 'warning': return '⚠️';
+      default: return 'ℹ️';
+    }
+  };
+
   return (
-    <div className="app-alert">
-      <div className="app-alert__message">{alert.message || 'Notice'}</div>
-      <button className="app-alert__close" onClick={hideAlert} aria-label="Close alert">
-        ×
-      </button>
+    <div className={`alert alert-${alert.type}`}>
+      <div className="alert-content">
+        <span className="alert-icon">{getIcon(alert.type)}</span>
+        <div className="alert-message">{alert.message}</div>
+        <button className="alert-close" onClick={hideAlert} aria-label="Close alert">
+          ×
+        </button>
+      </div>
     </div>
   );
 };

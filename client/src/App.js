@@ -16,7 +16,6 @@ import { MpesaModal, CardModal } from './components/Modals/PaymentModal';
 import BackToTop from './components/BackToTop/BackToTop';
 import AdminLayout from './components/Admin/AdminLayout';
 import AdminRoute from './components/Admin/AdminRoute';
-import Alert from './components/Alert/Alert';
 import Notification from './components/Notification/Notification';
 import SessionLock from './components/Auth/SessionLock';
 import Dashboard from './components/Admin/Dashboard';
@@ -128,7 +127,6 @@ function App() {
         </div>
       )}
 
-      <Alert />
       <Notification />
       <SessionLock />
 
