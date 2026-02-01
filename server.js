@@ -38,8 +38,10 @@ dotenv.config();
 
 const app = express();
 
-// Configure trust proxy - ADD THIS LINE
-app.set('trust proxy', 1); // trust first proxy
+// Configure trust proxy
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
 // Connect to MongoDB
 // Connect to MongoDB - Called later with admin check
