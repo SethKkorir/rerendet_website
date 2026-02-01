@@ -10,17 +10,12 @@ const About = () => {
   const years = aboutData.yearsInBusiness || 0;
   const organic = aboutData.organicPercentage || 0;
   const awards = aboutData.awardsWon || 0;
-  const story = aboutData.story || '';
-  const subStory = aboutData.subStory || '';
-  const image = aboutData.imageUrl || '';
+  const story = aboutData.story || 'Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations. Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants.';
+  const subStory = aboutData.subStory || 'At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.';
+  const image = aboutData.imageUrl || 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000';
 
-  // Don't render anything if there's no content
+  // Only show stats if they have values greater than 0
   const hasStats = years > 0 || organic > 0 || awards > 0;
-  const hasContent = story || subStory || hasStats;
-
-  if (!hasContent) {
-    return null; // Hide the entire section if empty
-  }
 
   return (
     <section id="about" className="about">
@@ -34,8 +29,8 @@ const About = () => {
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
             <h2 className="section-title">Our Coffee Story</h2>
-            {story && <p>{story}</p>}
-            {subStory && <p>{subStory}</p>}
+            <p>{story}</p>
+            <p>{subStory}</p>
 
             {hasStats && (
               <div className="about-stats">
@@ -63,18 +58,16 @@ const About = () => {
             <button className="about-cta-btn">Read Full Story</button>
           </motion.div>
 
-          {image && (
-            <motion.div
-              className="about-image"
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-            >
-              <div className="image-overlay"></div>
-              <img src={image} alt="Rerendet Coffee Farm" />
-            </motion.div>
-          )}
+          <motion.div
+            className="about-image"
+            initial={{ opacity: 0, x: 50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+          >
+            <div className="image-overlay"></div>
+            <img src={image} alt="Rerendet Coffee Farm" />
+          </motion.div>
         </div>
       </div>
     </section>
