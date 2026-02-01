@@ -717,7 +717,9 @@ const loginAdmin = asyncHandler(async (req, res) => {
 
   } catch (error) {
     console.error('❌ Admin login error:', error.message);
-    throw error;
+    // Ensure we don't expose 500 details unless needed
+    if (res.statusCode === 200) res.status(500);
+    throw new Error(error.message || 'Server error during admin login');
   }
 });
 
