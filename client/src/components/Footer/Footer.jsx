@@ -43,7 +43,7 @@ const Footer = () => {
             </p>
             <div className="social-links">
               {social.facebook && <a href={social.facebook} target="_blank" rel="noopener noreferrer" className="social-icon" aria-label="Facebook"><FaFacebookF /></a>}
-              {social.instagram && <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="social-icon" aria-label="Instagram"><FaInstagram /></a>}
+              <a href={social.instagram || 'https://www.instagram.com/rerendetcoffee?igsh=amdyZDYzd2w1dndq'} target="_blank" rel="noopener noreferrer" className="social-icon" aria-label="Instagram"><FaInstagram /></a>
               {social.twitter && <a href={social.twitter} target="_blank" rel="noopener noreferrer" className="social-icon" aria-label="Twitter"><FaTwitter /></a>}
             </div>
 
