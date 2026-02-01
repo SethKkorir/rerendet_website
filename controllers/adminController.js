@@ -215,157 +215,141 @@ const getProducts = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Create product - COMPLETELY REWRITTEN WITH FORM DATA SUPPORT
+// @desc    Create product - COMPLETELY REWRITTEN WITH FORM DATA SUPPORT & NO TRANSACTIONS (Vercel Safe)
 // @route   POST /api/admin/products
 // @access  Private/Admin
 const createProduct = asyncHandler(async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Check if data is coming as FormData with JSON (from frontend)
+  let requestBody = { ...req.body };
+
+  if (req.body.data) {
+    try {
+      const jsonData = JSON.parse(req.body.data);
+      requestBody = { ...requestBody, ...jsonData };
+    } catch (error) {
+      res.status(400);
+      throw new Error('Invalid data format');
+    }
+  }
+
+  const {
+    name,
+    description,
+    sizes,
+    category,
+    roastLevel,
+    origin,
+    flavorNotes,
+    badge,
+    inventory,
+    tags,
+    isFeatured
+  } = requestBody;
+
+  // Validate required fields
+  if (!name || !description || !sizes || !category) {
+    res.status(400);
+    throw new Error('Please fill in all required fields: name, description, sizes, category');
+  }
+
+  // Parse sizes - handle both string and array formats
+  let parsedSizes;
+  try {
+    if (typeof sizes === 'string') {
+      parsedSizes = JSON.parse(sizes);
+    } else if (Array.isArray(sizes)) {
+      parsedSizes = sizes;
+    } else {
+      throw new Error('Invalid sizes format');
+    }
+  } catch (error) {
+    res.status(400);
+    throw new Error('Invalid sizes format: ' + error.message);
+  }
+
+  // Validate sizes have valid prices
+  const validatedSizes = parsedSizes.map((size, index) => {
+    const price = parseFloat(size.price);
+    if (isNaN(price) || price <= 0) {
+      throw new Error(`Invalid price for size ${size.size} at position ${index + 1}`);
+    }
+    return {
+      size: size.size,
+      price: price
+    };
+  });
+
+  // Handle images from uploaded files
+  const images = req.files ? req.files.map(file => ({
+    public_id: file.filename,
+    url: file.path
+  })) : [];
+
+  // Parse and validate inventory
+  let stock = 0;
+  let lowStockAlert = 5;
+
+  if (inventory) {
+    if (typeof inventory === 'object') {
+      stock = parseInt(inventory.stock) || 0;
+      lowStockAlert = parseInt(inventory.lowStockAlert) || 5;
+    } else {
+      // Handle case where inventory might be a string
+      stock = parseInt(inventory) || 0;
+    }
+  }
+
+  if (isNaN(stock) || stock < 0) {
+    res.status(400);
+    throw new Error('Invalid stock quantity');
+  }
+
+  // Parse flavor notes
+  let parsedFlavorNotes = [];
+  if (flavorNotes) {
+    if (typeof flavorNotes === 'string') {
+      parsedFlavorNotes = flavorNotes.split(',').map(note => note.trim()).filter(note => note);
+    } else if (Array.isArray(flavorNotes)) {
+      parsedFlavorNotes = flavorNotes;
+    }
+  }
+
+  // Parse tags
+  let parsedTags = [];
+  if (tags) {
+    if (typeof tags === 'string') {
+      parsedTags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+    } else if (Array.isArray(tags)) {
+      parsedTags = tags;
+    }
+  }
+
+  // Parse isFeatured
+  const parsedIsFeatured = isFeatured === 'true' || isFeatured === true;
+
+  // Create product data
+  const productData = {
+    name: name.toString().trim(),
+    description: description.toString().trim(),
+    sizes: validatedSizes,
+    images: images.filter(img => img.url),
+    category: category.toString(),
+    roastLevel: category === 'coffee-beans' ? (roastLevel?.toString() || 'medium') : undefined,
+    origin: origin?.toString().trim() || '',
+    flavorNotes: parsedFlavorNotes,
+    badge: badge?.toString().trim() || '',
+    inventory: {
+      stock: stock,
+      lowStockAlert: lowStockAlert
+    },
+    tags: parsedTags,
+    isFeatured: parsedIsFeatured,
+    isActive: true
+  };
 
   try {
-    // Check if data is coming as FormData with JSON (from frontend)
-    let requestBody = { ...req.body };
-
-    if (req.body.data) {
-      try {
-        const jsonData = JSON.parse(req.body.data);
-        requestBody = { ...requestBody, ...jsonData };
-      } catch (error) {
-        await session.abortTransaction();
-        session.endSession();
-        res.status(400);
-        throw new Error('Invalid data format');
-      }
-    }
-
-    const {
-      name,
-      description,
-      sizes,
-      category,
-      roastLevel,
-      origin,
-      flavorNotes,
-      badge,
-      inventory,
-      tags,
-      isFeatured
-    } = requestBody;
-
-    // Validate required fields
-    if (!name || !description || !sizes || !category) {
-      await session.abortTransaction();
-      session.endSession();
-      res.status(400);
-      throw new Error('Please fill in all required fields: name, description, sizes, category');
-    }
-
-    // Parse sizes - handle both string and array formats
-    let parsedSizes;
-    try {
-      if (typeof sizes === 'string') {
-        parsedSizes = JSON.parse(sizes);
-      } else if (Array.isArray(sizes)) {
-        parsedSizes = sizes;
-      } else {
-        throw new Error('Invalid sizes format');
-      }
-    } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
-      res.status(400);
-      throw new Error('Invalid sizes format: ' + error.message);
-    }
-
-    // Validate sizes have valid prices
-    const validatedSizes = parsedSizes.map((size, index) => {
-      const price = parseFloat(size.price);
-      if (isNaN(price) || price <= 0) {
-        throw new Error(`Invalid price for size ${size.size} at position ${index + 1}`);
-      }
-      return {
-        size: size.size,
-        price: price
-      };
-    });
-
-    // Handle images from uploaded files
-    const images = req.files ? req.files.map(file => ({
-      public_id: file.filename,
-      url: file.path
-    })) : [];
-
-    // Parse and validate inventory
-    let stock = 0;
-    let lowStockAlert = 5;
-
-    if (inventory) {
-      if (typeof inventory === 'object') {
-        stock = parseInt(inventory.stock) || 0;
-        lowStockAlert = parseInt(inventory.lowStockAlert) || 5;
-      } else {
-        // Handle case where inventory might be a string
-        stock = parseInt(inventory) || 0;
-      }
-    }
-
-    if (isNaN(stock) || stock < 0) {
-      await session.abortTransaction();
-      session.endSession();
-      res.status(400);
-      throw new Error('Invalid stock quantity');
-    }
-
-    // Parse flavor notes
-    let parsedFlavorNotes = [];
-    if (flavorNotes) {
-      if (typeof flavorNotes === 'string') {
-        parsedFlavorNotes = flavorNotes.split(',').map(note => note.trim()).filter(note => note);
-      } else if (Array.isArray(flavorNotes)) {
-        parsedFlavorNotes = flavorNotes;
-      }
-    }
-
-    // Parse tags
-    let parsedTags = [];
-    if (tags) {
-      if (typeof tags === 'string') {
-        parsedTags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      } else if (Array.isArray(tags)) {
-        parsedTags = tags;
-      }
-    }
-
-    // Parse isFeatured
-    const parsedIsFeatured = isFeatured === 'true' || isFeatured === true;
-
-    // Create product data
-    const productData = {
-      name: name.toString().trim(),
-      description: description.toString().trim(),
-      sizes: validatedSizes,
-      images: images.filter(img => img.url),
-      category: category.toString(),
-      roastLevel: category === 'coffee-beans' ? (roastLevel?.toString() || 'medium') : undefined,
-      origin: origin?.toString().trim() || '',
-      flavorNotes: parsedFlavorNotes,
-      badge: badge?.toString().trim() || '',
-      inventory: {
-        stock: stock,
-        lowStockAlert: lowStockAlert
-      },
-      tags: parsedTags,
-      isFeatured: parsedIsFeatured,
-      isActive: true
-    };
-
-
-
     const product = new Product(productData);
-    const createdProduct = await product.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
+    const createdProduct = await product.save();
 
     res.status(201).json({
       success: true,
@@ -374,15 +358,13 @@ const createProduct = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-
     // Log detailed error for debugging
     console.error('❌ Product creation error:', error);
     console.error('❌ Request body:', req.body);
     console.error('❌ Request files:', req.files);
 
-    throw error;
+    res.status(500);
+    throw new Error('Failed to create product: ' + error.message);
   }
 });
 
