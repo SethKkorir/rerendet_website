@@ -173,6 +173,8 @@ const registerCustomer = asyncHandler(async (req, res) => {
 
 // Google Login
 import { OAuth2Client } from 'google-auth-library';
+// Google Login
+import { OAuth2Client } from 'google-auth-library';
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const googleLogin = asyncHandler(async (req, res) => {
@@ -196,6 +198,12 @@ const googleLogin = asyncHandler(async (req, res) => {
     let user = await User.findOne({ email }).populate('cart.product');
 
     if (user) {
+      // SECURITY CHECK: Prevent Admin Login via Customer Google Auth
+      if (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin') {
+        res.status(403);
+        throw new Error('Administrators must log in via the Admin Portal using a password.');
+      }
+
       // If user exists, update googleId if missing
       if (!user.googleId) {
         user.googleId = googleId;
@@ -296,7 +304,7 @@ const googleLogin = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Google Auth Error:', error);
     res.status(401);
-    throw new Error('Invalid Google Token');
+    throw new Error(error.message || 'Invalid Google Token');
   }
 });
 
@@ -305,16 +313,20 @@ const loginCustomer = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   console.log('👤 Customer login attempt:', email);
 
-  // Only look for customers
-  const user = await User.findOne({
-    email,
-    userType: 'customer'  // Only customers
-  }).select('+password +isVerified +loginAttempts +lockUntil +verificationCode +verificationCodeExpires +twoFactorEnabled');
+  // First, find user by email to do a proper check
+  const user = await User.findOne({ email }).select('+password +isVerified +loginAttempts +lockUntil +verificationCode +verificationCodeExpires +twoFactorEnabled +userType');
 
   if (!user) {
     console.log('❌ Customer not found:', email);
     res.status(401);
     throw new Error('Invalid email or password');
+  }
+
+  // Security Check: is this an admin?
+  if (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin') {
+    console.log('⚠️ Admin attempted login via customer portal:', email);
+    res.status(403);
+    throw new Error('This account is an Administrator. Please use the Admin Login Portal.');
   }
 
   // Check if account is locked
