@@ -227,7 +227,8 @@ const getPublicSettings = asyncHandler(async (req, res) => {
       },
       seo: settings.seo,
       policies: settings.policies,
-      maintenance: settings.maintenance
+      maintenance: settings.maintenance,
+      about: settings.about
     };
 
     res.json({

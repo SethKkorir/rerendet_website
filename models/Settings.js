@@ -13,6 +13,16 @@ const settingsSchema = new mongoose.Schema({
     favicon: { type: String, default: '' }
   },
 
+  // About Us Page Content (Dynamic)
+  about: {
+    yearsInBusiness: { type: Number, default: 25 },
+    organicPercentage: { type: Number, default: 100 },
+    awardsWon: { type: Number, default: 3 },
+    story: { type: String, default: 'Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations. Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants.' },
+    subStory: { type: String, default: 'At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.' },
+    imageUrl: { type: String, default: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000' }
+  },
+
   // Business Hours
   businessHours: {
     monday: { open: String, close: String, closed: { type: Boolean, default: false } },
