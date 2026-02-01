@@ -103,7 +103,7 @@ const settingsSchema = new mongoose.Schema({
     enableStructuredData: { type: Boolean, default: true },
     social: {
       facebook: { type: String, default: '' },
-      instagram: { type: String, default: '' },
+      instagram: { type: String, default: 'https://www.instagram.com/rerendetcoffee?igsh=amdyZDYzd2w1dndq' },
       twitter: { type: String, default: '' }
     }
   },
