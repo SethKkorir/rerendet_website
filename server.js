@@ -268,39 +268,44 @@ app.get('/api/health', (req, res) => {
 
 // ==================== ERROR HANDLING ====================
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
-  });
-});
+// ==================== SERVE STATIC ASSETS (PRODUCTION) ====================
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server Error:', err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folder
+  app.use(express.static(path.join(__dirname, 'client/build')));
+
+  app.get('*', (req, res) => {
+    // Exclude API routes from this catch-all
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({
+        success: false,
+        message: 'API route not found'
+      });
+    }
+    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
   });
-});
+}
+
 // ==================== SERVER START ====================
 
 const PORT = process.env.PORT || 5000;
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    // Start background jobs
-    startCronJobs();
 
-    console.log(`
+app.listen(PORT, () => {
+  // Start background jobs
+  startCronJobs();
+
+  console.log(`
   🚀 Server running on port ${PORT}
   📊 Environment: ${process.env.NODE_ENV || 'development'}
   🔗 API: http://localhost:${PORT}/api
   ❤️  Health: http://localhost:${PORT}/api/health
-  🔒 Trust proxy: ${app.get('trust proxy')}
-    `);
-  });
-}
+  `);
+});
 
 export default app;
