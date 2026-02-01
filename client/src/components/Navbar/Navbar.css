@@ -1,18 +1,16 @@
 /* Navbar.css - Premium Glassmorphism Design */
 :root {
   --nav-height: 4.5rem;
-  --nav-bg-scrolled: rgba(255, 255, 255, 0.85);
-  /* Translucent White */
+  --nav-bg-scrolled: rgba(255, 255, 255, 0.8);
+  /* Refined translucent white */
   --nav-backdrop: 20px;
-  --nav-text: #1d1d1f;
-  --nav-border: rgba(0, 0, 0, 0.05);
+  --nav-text: var(--foreground);
+  --nav-border: var(--border);
 }
 
 [data-theme="dark"] {
-  --nav-bg-scrolled: rgba(28, 28, 30, 0.85);
-  /* Translucent Dark */
-  --nav-text: #f5f5f7;
-  --nav-border: rgba(255, 255, 255, 0.1);
+  --nav-bg-scrolled: rgba(15, 23, 42, 0.8);
+  /* Refined translucent dark slate */
 }
 
 /* Base Header Styles */
