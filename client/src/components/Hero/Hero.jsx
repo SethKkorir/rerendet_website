@@ -1,12 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FaLeaf, FaArrowRight, FaStar } from 'react-icons/fa';
+import { FaArrowRight, FaShoppingBag } from 'react-icons/fa';
 import './Hero.css';
 
 const Hero = () => {
-  // Premium Dark Roast / Beans / Steam aesthetic
-  const heroImage = "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=2574&auto=format&fit=crop";
-
   const scrollToSection = (sectionId) => {
     const section = document.getElementById(sectionId);
     if (section) {
@@ -20,92 +17,94 @@ const Hero = () => {
       opacity: 1,
       transition: {
         staggerChildren: 0.2,
-        delayChildren: 0.3
+        delayChildren: 0.1
       }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, x: -30 },
     visible: {
       opacity: 1,
-      y: 0,
+      x: 0,
       transition: { duration: 0.8, ease: "easeOut" }
     }
   };
 
-  return (
-    <section className="hero-section" id="hero" data-testid="hero-section">
-      {/* Animated Background */}
-      <div className="hero-background-wrapper">
-        <motion.div
-          className="hero-background-image"
-          initial={{ scale: 1.1 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 10, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
-          style={{ backgroundImage: `url(${heroImage})` }}
-        />
-        <div className="hero-overlay" />
-      </div>
+  const imageVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 1, ease: "easeOut" }
+    }
+  };
 
-      {/* Main Content */}
-      <div className="hero-container">
+  return (
+    <section className="hero-modern" id="hero">
+      <div className="container hero-grid">
         <motion.div
-          className="hero-content"
+          className="hero-text-content"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-
-          {/* Premium Badge */}
-          <motion.div className="hero-badge" variants={itemVariants} data-testid="badge-hero-premium">
-            <span className="hero-badge-text">PREMIUM BLEND</span>
+          <motion.div className="hero-pre-title" variants={itemVariants}>
+            <span>100% Organic Arabica</span>
           </motion.div>
 
-          {/* Main Heading */}
-          <motion.h1 className="hero-heading" variants={itemVariants} data-testid="text-hero-headline">
-            Start Your Day With{" "}
-            <span className="hero-heading-accent">Rerendet-Coffee.</span>
+          <motion.h1 className="hero-main-title" variants={itemVariants}>
+            Pure Coffee <br />
+            <span className="accent">Pure Energy</span>
           </motion.h1>
 
-          {/* Description */}
-          <motion.p className="hero-description" variants={itemVariants}>
-            Boost your productivity and mood with our 100% natural Arabica roast
-            from the highlands of Kenya. Smooth, bold, and delivered to your door.
+          <motion.p className="hero-subline" variants={itemVariants}>
+            Experience the rich, bold flavors of hand-picked Kenyan coffee beans,
+            roasted to perfection and delivered fresh to your doorstep.
           </motion.p>
 
-          {/* CTA Buttons */}
-          <motion.div className="hero-cta" variants={itemVariants}>
+          <motion.div className="hero-button-group" variants={itemVariants}>
             <button
-              className="hero-cta-btn hero-cta-btn-primary"
+              className="btn-primary hero-btn"
               onClick={() => scrollToSection('coffee-shop')}
-              data-testid="button-order-now"
             >
-              Order Now
-              <FaArrowRight className="hero-cta-icon" />
+              Shop Collection <FaArrowRight className="btn-icon" />
             </button>
             <button
-              className="hero-cta-btn hero-cta-btn-secondary"
+              className="btn-ghost hero-btn"
               onClick={() => scrollToSection('about')}
             >
-              <FaLeaf className="hero-cta-icon" />
               Our Story
             </button>
           </motion.div>
 
+          <motion.div className="hero-trust-badges" variants={itemVariants}>
+            <div className="trust-badge">
+              <strong>4.9/5</strong> Rating
+            </div>
+            <div className="trust-badge">
+              <strong>Fast</strong> Delivery
+            </div>
+            <div className="trust-badge">
+              <strong>Eco</strong> Friendly
+            </div>
+          </motion.div>
+        </motion.div>
 
+        <motion.div
+          className="hero-image-container"
+          variants={imageVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <div className="hero-image-wrapper">
+            <img src="/hero-product.png" alt="Rerendet Coffee Premium Bag" className="hero-main-image" />
+            <div className="hero-image-glow"></div>
+          </div>
         </motion.div>
       </div>
 
-      {/* Scroll Indicator */}
-      <motion.div
-        className="hero-scroll-indicator"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2, duration: 1 }}
-      >
-        <div className="hero-scroll-dot" />
-      </motion.div>
+      <div className="hero-bottom-decor"></div>
     </section>
   );
 };
