@@ -59,6 +59,14 @@ function Navbar() {
     }
   }, [publicSettings, fetchPublicSettings]);
 
+  // Debug Google Client ID
+  useEffect(() => {
+    if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
+      console.warn('⚠️ REACT_APP_GOOGLE_CLIENT_ID is missing! Google Login will not work.');
+      console.log('Current ENV keys:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP')));
+    }
+  }, []);
+
   // Toggle handlers
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
