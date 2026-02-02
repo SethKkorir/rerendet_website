@@ -632,6 +632,11 @@ export function AppProvider({ children }) {
       showSuccess(`Welcome ${userData.firstName}! Google login successful.`);
       return response.data;
     } catch (error) {
+      console.error('❌ Google Login API Error:', {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        error: error.response?.data
+      });
       const errorMessage = error.response?.data?.message || 'Google login failed';
       showError(errorMessage);
       throw error;
