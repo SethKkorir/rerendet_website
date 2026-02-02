@@ -112,7 +112,7 @@ function Navbar() {
   ];
 
   return (
-    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || ""}>
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com"}>
       <>
         {/* Main Header */}
         <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>

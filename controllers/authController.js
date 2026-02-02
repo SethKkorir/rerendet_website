@@ -174,7 +174,7 @@ const registerCustomer = asyncHandler(async (req, res) => {
 // Google Login
 // Google Login
 import { OAuth2Client } from 'google-auth-library';
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com");
 
 const googleLogin = asyncHandler(async (req, res) => {
   const { credential } = req.body;
@@ -185,10 +185,9 @@ const googleLogin = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Verify Google Token
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: process.env.GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com"
     });
     const payload = ticket.getPayload();
     const { email, given_name: firstName, family_name: lastName, picture, sub: googleId } = payload;
