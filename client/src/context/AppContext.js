@@ -637,7 +637,14 @@ export function AppProvider({ children }) {
         message: error.response?.data?.message,
         error: error.response?.data
       });
-      const errorMessage = error.response?.data?.message || 'Google login failed';
+
+      let errorMessage = error.response?.data?.message || 'Google login failed';
+
+      // Check if the error is a HTML string (likely a 403 Forbidden from the server/WAF)
+      if (typeof error.response?.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
+        errorMessage = 'Security Block: Your current domain might not be whitelisted. Please check CORS settings.';
+      }
+
       showError(errorMessage);
       throw error;
     } finally {
