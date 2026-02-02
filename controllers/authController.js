@@ -185,6 +185,8 @@ const googleLogin = asyncHandler(async (req, res) => {
   }
 
   try {
+    console.log('📡 Verifying Google token for audience:', process.env.GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com");
+
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com"
@@ -192,12 +194,16 @@ const googleLogin = asyncHandler(async (req, res) => {
     const payload = ticket.getPayload();
     const { email, given_name: firstName, family_name: lastName, picture, sub: googleId } = payload;
 
+    console.log('✅ Google token verified for email:', email);
+
     // Check if user exists
     let user = await User.findOne({ email }).populate('cart.product');
 
     if (user) {
+      console.log('👤 Existing user found:', email, 'Type:', user.userType);
       // SECURITY CHECK: Prevent Admin Login via Customer Google Auth
       if (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin') {
+        console.warn('🚫 Blocked Admin login via Google:', email);
         res.status(403);
         throw new Error('Administrators must log in via the Admin Portal using a password.');
       }
@@ -300,8 +306,13 @@ const googleLogin = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Google Auth Error:', error);
-    res.status(401);
+    console.error('❌ Google Auth Error Detail:', {
+      message: error.message,
+      stack: error.stack,
+      status: res.statusCode
+    });
+    // Don't override status if already set (like 403)
+    if (res.statusCode === 200) res.status(401);
     throw new Error(error.message || 'Invalid Google Token');
   }
 });
