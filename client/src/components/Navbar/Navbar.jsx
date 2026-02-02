@@ -61,9 +61,15 @@ function Navbar() {
 
   // Debug Google Client ID
   useEffect(() => {
+    const keys = Object.keys(process.env).filter(key => key.startsWith('REACT_APP'));
+    console.log('🌐 Frontend Environment Debug:', {
+      hasGoogleId: !!process.env.REACT_APP_GOOGLE_CLIENT_ID,
+      visibleKeys: keys,
+      nodeEnv: process.env.NODE_ENV
+    });
+
     if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
-      console.warn('⚠️ REACT_APP_GOOGLE_CLIENT_ID is missing! Google Login will not work.');
-      console.log('Current ENV keys:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP')));
+      console.warn('❌ CRITICAL: REACT_APP_GOOGLE_CLIENT_ID is missing from the build!');
     }
   }, []);
 
