@@ -172,7 +172,6 @@ const registerCustomer = asyncHandler(async (req, res) => {
 });
 
 // Google Login
-import { OAuth2Client } from 'google-auth-library';
 // Google Login
 import { OAuth2Client } from 'google-auth-library';
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
