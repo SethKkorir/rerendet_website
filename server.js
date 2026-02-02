@@ -26,6 +26,7 @@ import subscriberRoutes from './routes/subscriberRoutes.js';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import xss from 'xss-clean';
+import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 
 // Import models
 import Product from './models/Product.js';
@@ -42,6 +43,12 @@ const app = express();
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
+
+// Global logger to debug production requests
+app.use((req, res, next) => {
+  console.log(`📡 [${req.method}] ${req.path} - Origin: ${req.get('Origin')}`);
+  next();
+});
 
 // Connect to MongoDB
 // Connect to MongoDB - Called later with admin check
@@ -182,11 +189,9 @@ app.use(hpp());
 
 // Add security headers manually for Google OAuth compatibility
 app.use((req, res, next) => {
-  // Remove conflicting headers that might block Google OAuth
-  res.removeHeader('Cross-Origin-Opener-Policy');
-  res.removeHeader('Cross-Origin-Embedder-Policy');
-
-  // Set permissive headers for OAuth
+  // Use explicit values instead of removing to ensure browser compliance
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
@@ -271,6 +276,8 @@ app.get('/api/health', (req, res) => {
 
 
 // ==================== ERROR HANDLING ====================
+app.use(notFound);
+app.use(errorHandler);
 
 // ==================== SERVE STATIC ASSETS (PRODUCTION) ====================
 import path from 'path';
