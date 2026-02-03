@@ -145,7 +145,7 @@ app.post('/api/contact', async (req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ success: true, env: process.env.NODE_ENV, time: new Date() });
+  res.status(200).json({ success: true, version: '2.5-ADMIN-FIX', env: process.env.NODE_ENV, time: new Date() });
 });
 
 // 3. Static Assets (Production)

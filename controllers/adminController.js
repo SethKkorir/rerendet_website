@@ -290,11 +290,17 @@ const createProduct = asyncHandler(async (req, res) => {
   let lowStockAlert = 5;
 
   if (inventory) {
-    if (typeof inventory === 'object') {
-      stock = parseInt(inventory.stock) || 0;
-      lowStockAlert = parseInt(inventory.lowStockAlert) || 5;
-    } else {
-      // Handle case where inventory might be a string
+    try {
+      if (typeof inventory === 'string') {
+        const parsedInventory = JSON.parse(inventory);
+        stock = parseInt(parsedInventory.stock) || 0;
+        lowStockAlert = parseInt(parsedInventory.lowStockAlert) || 5;
+      } else if (typeof inventory === 'object') {
+        stock = parseInt(inventory.stock) || 0;
+        lowStockAlert = parseInt(inventory.lowStockAlert) || 5;
+      }
+    } catch (e) {
+      // If it's not JSON, try parsing it as a simple number (old behavior)
       stock = parseInt(inventory) || 0;
     }
   }
@@ -307,20 +313,41 @@ const createProduct = asyncHandler(async (req, res) => {
   // Parse flavor notes
   let parsedFlavorNotes = [];
   if (flavorNotes) {
-    if (typeof flavorNotes === 'string') {
-      parsedFlavorNotes = flavorNotes.split(',').map(note => note.trim()).filter(note => note);
-    } else if (Array.isArray(flavorNotes)) {
-      parsedFlavorNotes = flavorNotes;
+    try {
+      if (typeof flavorNotes === 'string') {
+        // Try parsing as JSON first (if sent as JSON.stringify)
+        if (flavorNotes.startsWith('[') || flavorNotes.startsWith('{')) {
+          parsedFlavorNotes = JSON.parse(flavorNotes);
+        } else {
+          // Fallback to comma-separated string
+          parsedFlavorNotes = flavorNotes.split(',').map(note => note.trim()).filter(note => note);
+        }
+      } else if (Array.isArray(flavorNotes)) {
+        parsedFlavorNotes = flavorNotes;
+      }
+    } catch (e) {
+      // Final fallback
+      parsedFlavorNotes = typeof flavorNotes === 'string' ?
+        flavorNotes.split(',').map(note => note.trim()).filter(note => note) : [];
     }
   }
 
   // Parse tags
   let parsedTags = [];
   if (tags) {
-    if (typeof tags === 'string') {
-      parsedTags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-    } else if (Array.isArray(tags)) {
-      parsedTags = tags;
+    try {
+      if (typeof tags === 'string') {
+        if (tags.startsWith('[') || tags.startsWith('{')) {
+          parsedTags = JSON.parse(tags);
+        } else {
+          parsedTags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+        }
+      } else if (Array.isArray(tags)) {
+        parsedTags = tags;
+      }
+    } catch (e) {
+      parsedTags = typeof tags === 'string' ?
+        tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
     }
   }
 
@@ -360,8 +387,15 @@ const createProduct = asyncHandler(async (req, res) => {
   } catch (error) {
     // Log detailed error for debugging
     console.error('❌ Product creation error:', error);
-    console.error('❌ Request body:', req.body);
-    console.error('❌ Request files:', req.files);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+
+    // Check if it's a validation error
+    if (error.name === 'ValidationError') {
+      res.status(400);
+      const messages = Object.values(error.errors).map(val => val.message);
+      throw new Error(messages.join(', '));
+    }
 
     res.status(500);
     throw new Error('Failed to create product: ' + error.message);
@@ -465,21 +499,35 @@ const updateProduct = asyncHandler(async (req, res) => {
     let stock = product.inventory.stock;
     let lowStockAlert = product.inventory.lowStockAlert;
 
-    if (typeof inventory === 'object') {
-      if (inventory.stock !== undefined) {
-        stock = parseInt(inventory.stock);
-        if (isNaN(stock) || stock < 0) {
-          res.status(400);
-          throw new Error('Invalid stock quantity');
+    try {
+      let invObj = inventory;
+      if (typeof inventory === 'string') {
+        invObj = JSON.parse(inventory);
+      }
+
+      if (typeof invObj === 'object') {
+        if (invObj.stock !== undefined) {
+          stock = parseInt(invObj.stock);
+          if (isNaN(stock) || stock < 0) {
+            res.status(400);
+            throw new Error('Invalid stock quantity');
+          }
+        }
+        if (invObj.lowStockAlert !== undefined) {
+          lowStockAlert = parseInt(invObj.lowStockAlert);
+          if (isNaN(lowStockAlert) || lowStockAlert < 0) {
+            res.status(400);
+            throw new Error('Invalid low stock alert value');
+          }
         }
       }
-      if (inventory.lowStockAlert !== undefined) {
-        lowStockAlert = parseInt(inventory.lowStockAlert);
-        if (isNaN(lowStockAlert) || lowStockAlert < 0) {
-          res.status(400);
-          throw new Error('Invalid low stock alert value');
-        }
+    } catch (e) {
+      // If parsing fails but it's not an intentional 400 error we already threw
+      if (res.statusCode !== 400) {
+        res.status(400);
+        throw new Error('Invalid inventory format');
       }
+      throw e;
     }
 
     product.inventory = {
