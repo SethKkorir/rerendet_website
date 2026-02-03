@@ -6,6 +6,7 @@ import generateToken from '../utils/generateToken.js';
 import sendEmail from '../utils/sendEmail.js';
 import { getVerificationEmail, getWelcomeEmail, getResetPasswordEmail, getRegretEmail } from '../utils/emailTemplates.js';
 import dotenv from 'dotenv';
+import { OAuth2Client } from 'google-auth-library';
 
 // Load environment variables
 dotenv.config();
@@ -173,7 +174,6 @@ const registerCustomer = asyncHandler(async (req, res) => {
 
 // Google Login
 // Google Login
-import { OAuth2Client } from 'google-auth-library';
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com");
 
 const googleLogin = asyncHandler(async (req, res) => {
