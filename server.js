@@ -115,6 +115,15 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
 
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: "Rerendet API is LIVE",
+    version: VERSION,
+    timestamp: new Date()
+  });
+});
+
 // 2. API Routes
 // Mount specific routes first
 app.use('/api/auth', authRoutes);
