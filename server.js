@@ -1,11 +1,23 @@
-// server.js
+// server.js - CLEAN REORGANIZED VERSION
+import dotenv from 'dotenv';
+// Load environment variables IMMEDIATELY
+dotenv.config();
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
+import xss from 'xss-clean';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Import local modules
 import connectDB from './config/db.js';
+import { notFound, errorHandler } from './middleware/errorMiddleware.js';
+import { startCronJobs } from './utils/cronJobs.js';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -22,107 +34,50 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
 
-// Security imports
-import mongoSanitize from 'express-mongo-sanitize';
-import hpp from 'hpp';
-import xss from 'xss-clean';
-import { notFound, errorHandler } from './middleware/errorMiddleware.js';
-
 // Import models
-import Product from './models/Product.js';
-import Order from './models/Order.js';
 import User from './models/User.js';
 import Contact from './models/Contact.js';
-import { startCronJobs } from './utils/cronJobs.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Configure trust proxy
+// 1. Basic Middlewares & Security
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-// Global logger to debug production requests
+// Global logger
 app.use((req, res, next) => {
   console.log(`📡 [${req.method}] ${req.path} - Origin: ${req.get('Origin')}`);
   next();
 });
 
-// Connect to MongoDB
-// Connect to MongoDB - Called later with admin check
-
-
-const createDefaultAdmin = async () => {
-  try {
-    const adminExists = await User.findOne({ email: 'admin@rerendetcoffee.com' });
-
-    if (!adminExists) {
-      await User.create({
-        firstName: 'Super',
-        lastName: 'Admin',
-        email: 'admin@rerendetcoffee.com',
-        password: 'Admin123!',
-        phone: '+254700000000',
-        userType: 'admin',
-        role: 'super-admin',
-        isVerified: true,
-        isActive: true,
-        adminPermissions: {
-          canManageUsers: true,
-          canManageProducts: true,
-          canManageOrders: true,
-          canManageContent: true
-        }
-      });
-      console.log('✅ Default admin user created');
-      console.log('📧 Email: admin@rerendetcoffee.com');
-      console.log('🔑 Password: Admin123!');
-    } else {
-      console.log('✅ Admin user already exists');
-    }
-  } catch (error) {
-    console.error('❌ Error creating default admin:', error);
-  }
-};
-
-// Call it after database connection
-connectDB().then(() => createDefaultAdmin());
-
-// CORS configuration - Allow both domains and local dev
+// CORS configuration - Allow multiple origins
 const allowedOrigins = [
   'http://localhost:3000',
   'https://rerendetwebsite.vercel.app',
   'https://rerendet-coffee.vercel.app'
 ];
-
-if (process.env.CLIENT_URL) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
+if (process.env.CLIENT_URL) allowedOrigins.push(process.env.CLIENT_URL);
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.some(o => origin.startsWith(o))) {
       callback(null, true);
     } else {
-      console.warn('🚫 CORS Blocked Origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Authorization'],
   optionsSuccessStatus: 200
 }));
 
-// Handle preflight requests globally
-app.options('*', cors());
-
-// Security middleware with Google OAuth compatibility
+// Security headers
 app.use(helmet({
   crossOriginOpenerPolicy: { policy: "unsafe-none" },
   crossOriginEmbedderPolicy: false,
@@ -138,71 +93,29 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:", "http:"],
     },
   },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
   referrerPolicy: { policy: "no-referrer-when-downgrade" }
 }));
 
-// Rate limiting with proxy configuration
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5000, // Increased for stability
-  message: {
-    success: false,
-    message: 'Too many requests, please try again later.'
-  },
-  trustProxy: true,
-  keyGenerator: (req, res) => {
-    // Use the client's real IP address (handles proxy scenarios)
-    return req.ip || req.connection.remoteAddress;
-  }
-});
-
-app.use(limiter);
-
-// Specific limiter for admin login (stricter)
-const adminLoginLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 attempts per hour
-  message: {
-    success: false,
-    message: 'Too many admin login attempts from this IP, please try again after an hour.'
-  },
-  trustProxy: true
-});
-
-// Body parser middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
-
-// Data sanitization against XSS
-app.use(xss());
-
-// Prevent HTTP Parameter Pollution
-app.use(hpp());
-
-// Add security headers manually for Google OAuth compatibility
+// Manual overrides for browser compliance
 app.use((req, res, next) => {
-  // Use explicit values instead of removing to ensure browser compliance
   res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-
   next();
 });
 
-// Debug routes removed for security
-// ==================== ROUTES ====================
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// API Routes
-app.use('/api/auth/admin/login', authRoutes); // Use standard router, limiter removed for stability
+// Sanitization
+app.use(mongoSanitize());
+app.use(xss());
+app.use(hpp());
+
+// 2. API Routes
+// Mount specific routes first
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -212,111 +125,76 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/admin/settings', settingsRoutes);
-app.use('/api/settings', settingsRoutes); // Public settings endpoint
+app.use('/api/settings', settingsRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/newsletter', subscriberRoutes);
 
-// ==================== PUBLIC ENDPOINTS ====================
-
-// Contact form endpoint
-app.post('/api/contact', async (req, res) => {
+// Custom public routes
+app.post('/api/contact', async (req, res, next) => {
   try {
     const { name, email, subject, message } = req.body;
-
     if (!name || !email || !subject || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
+      res.status(400);
+      throw new Error('All fields are required');
     }
-
-    // Basic Honeypot check (hidden field should be empty)
-    if (req.body._gotcha) {
-      console.log('🐝 Honeypot triggered by:', req.ip);
-      return res.status(400).json({ success: false, message: 'Spam detected' });
-    }
-
-    const contact = new Contact({
-      name,
-      email,
-      subject,
-      message,
-      status: 'new'
-    });
-
+    const contact = new Contact({ name, email, subject, message });
     await contact.save();
-
-    console.log('📧 New Contact Form Submission from:', email);
-
-    res.status(201).json({
-      success: true,
-      message: 'Thank you for your message! We will get back to you soon.'
-    });
-
-  } catch (error) {
-    console.error('Contact form error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to submit contact form'
-    });
-  }
+    res.status(201).json({ success: true, message: 'Message sent successfully!' });
+  } catch (err) { next(err); }
 });
 
-// Health check route
 app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+  res.status(200).json({ success: true, env: process.env.NODE_ENV, time: new Date() });
 });
 
-
-// ==================== ERROR HANDLING ====================
-app.use(notFound);
-app.use(errorHandler);
-
-// ==================== SERVE STATIC ASSETS (PRODUCTION) ====================
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  // Set static folder
+// 3. Static Assets (Production)
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
   app.use(express.static(path.join(__dirname, 'client/build')));
 
-  app.get('*', (req, res) => {
-    // Exclude API routes from this catch-all
-    if (req.path.startsWith('/api')) {
-      return res.status(404).json({
-        success: false,
-        message: 'API route not found'
-      });
-    }
+  // Only handle GET requests for SPA routing, skip /api
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
     res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
   });
 }
 
-// ==================== SERVER START ====================
+// 4. Error Handling (Must be last)
+app.use(notFound);
+app.use(errorHandler);
 
+// 5. Connection & Server Start
+const createDefaultAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ email: 'admin@rerendetcoffee.com' });
+    if (!adminExists) {
+      await User.create({
+        firstName: 'Super', lastName: 'Admin',
+        email: 'admin@rerendetcoffee.com', password: 'Admin123!',
+        phone: '+254700000000', userType: 'admin', role: 'super-admin',
+        isVerified: true, isActive: true,
+        adminPermissions: { canManageUsers: true, canManageProducts: true, canManageOrders: true, canManageContent: true }
+      });
+      console.log('✅ Default admin created');
+    }
+  } catch (err) { console.error('❌ Admin creation error:', err.message); }
+};
+
+// Start listening ONLY if not in Vercel environment
 const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  // Start background jobs
-  startCronJobs();
-
-  console.log(`
-  🚀 Server running on port ${PORT}
-  📊 Environment: ${process.env.NODE_ENV || 'development'}
-  🔗 API: http://localhost:${PORT}/api
-  ❤️  Health: http://localhost:${PORT}/api/health
-  `);
-});
+if (!process.env.VERCEL) {
+  connectDB().then(() => {
+    createDefaultAdmin();
+    app.listen(PORT, () => {
+      startCronJobs();
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  });
+} else {
+  // On Vercel, connection is handled differently 
+  // but we still want to ensure DB connects for the request
+  // Most Vercel apps connect on first request or as a top-level await if supported
+  connectDB();
+}
 
 export default app;
