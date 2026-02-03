@@ -62,11 +62,11 @@ function Navbar() {
   // Debug Google Client ID
   useEffect(() => {
     const keys = Object.keys(process.env).filter(key => key.startsWith('REACT_APP'));
-    console.log('🌐 Frontend Environment Debug (Force Update 1):', {
+    console.log('🌐 Frontend Environment Debug (Force Update 2.0 - ACTIVE):', {
       hasGoogleId: !!process.env.REACT_APP_GOOGLE_CLIENT_ID,
       visibleKeys: keys,
       nodeEnv: process.env.NODE_ENV,
-      buildTime: '2026-02-03 00:37'
+      buildTime: '2026-02-03 17:35'
     });
 
     if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
