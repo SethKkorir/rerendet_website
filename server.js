@@ -2,7 +2,8 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-
+const VERSION = 'V3.0-SUPER-DEBUG';
+console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -145,7 +146,13 @@ app.post('/api/contact', async (req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ success: true, version: '2.5-ADMIN-FIX', env: process.env.NODE_ENV, time: new Date() });
+  res.status(200).json({
+    success: true,
+    version: VERSION,
+    environment: process.env.NODE_ENV,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    time: new Date()
+  });
 });
 
 // 3. Static Assets (Production)
