@@ -6,12 +6,23 @@
             "destination": "/api/index.js"
         },
         {
-            "source": "/(.*)",
-            "destination": "/public/$1",
-            "check": true
+            "source": "/static/(.*)",
+            "destination": "/public/static/$1"
         },
         {
-            "source": "/((?!api/).*)",
+            "source": "/manifest.json",
+            "destination": "/public/manifest.json"
+        },
+        {
+            "source": "/favicon.ico",
+            "destination": "/public/favicon.ico"
+        },
+        {
+            "source": "/(.*\\.(?:js|css|png|jpg|jpeg|gif|ico|svg|json|woff2?|map))$",
+            "destination": "/public/$1"
+        },
+        {
+            "source": "/((?!api/|static/|.*\\.).*)",
             "destination": "/public/index.html"
         }
     ]
