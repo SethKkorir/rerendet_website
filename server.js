@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V3.5-PATH-FIX';
+const VERSION = 'V4.0-MIME-ROOT-FIX';
 console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
