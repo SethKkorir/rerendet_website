@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V3.2-CSP-FIX';
+const VERSION = 'V3.3-VERCEL-FIX';
 console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
@@ -182,13 +182,11 @@ app.get('/api/health', (req, res) => {
 
 // 3. Static Assets (Production)
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-  const publicPath = path.resolve(__dirname, 'public');
-  console.log(`📂 [STATIC] Serving assets from: ${publicPath}`);
+  // Use absolute path for public directory
+  const publicPath = path.join(process.cwd(), 'public');
+  console.log(`📂 [STATIC] Production mode. Assets path: ${publicPath}`);
 
-  app.use(express.static(publicPath, {
-    maxAge: '1d',
-    etag: true
-  }));
+  app.use(express.static(publicPath));
 
   // Only handle GET requests for SPA routing, skip /api
   app.get('*', (req, res, next) => {

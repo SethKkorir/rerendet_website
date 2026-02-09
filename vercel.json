@@ -6,16 +6,9 @@
             "destination": "/api/index.js"
         },
         {
-            "source": "/static/(.*)",
-            "destination": "/public/static/$1"
-        },
-        {
-            "source": "/manifest.json",
-            "destination": "/public/manifest.json"
-        },
-        {
-            "source": "/favicon.ico",
-            "destination": "/public/favicon.ico"
+            "source": "/(.*)",
+            "destination": "/public/$1",
+            "check": true
         },
         {
             "source": "/((?!api/).*)",
