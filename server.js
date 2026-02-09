@@ -95,9 +95,9 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
       connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://rerendetwebsite.vercel.app", "https://rerendet-coffee.vercel.app"],
       frameSrc: ["'self'", "https://accounts.google.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
     },
   },
   referrerPolicy: { policy: "no-referrer-when-downgrade" }

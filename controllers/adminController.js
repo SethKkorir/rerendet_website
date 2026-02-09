@@ -387,8 +387,14 @@ const createProduct = asyncHandler(async (req, res) => {
   } catch (error) {
     // Log detailed error for debugging
     console.error('❌ Product creation error:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
+
+    // Check for Duplicate Key Error (E11000)
+    if (error.code === 11000) {
+      res.status(400);
+      const field = Object.keys(error.keyPattern)[0];
+      const value = error.keyValue[field];
+      throw new Error(`A product with this ${field.split('.').pop()} ("${value}") already exists. Please use a unique name.`);
+    }
 
     // Check if it's a validation error
     if (error.name === 'ValidationError') {
