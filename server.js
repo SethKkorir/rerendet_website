@@ -115,7 +115,8 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
 
-app.get('/', (req, res) => {
+// Move health check to /api/status to avoid hijacking the root path
+app.get('/api/status', (req, res) => {
   res.json({
     success: true,
     message: "Rerendet API is LIVE",
@@ -166,12 +167,14 @@ app.get('/api/health', (req, res) => {
 
 // 3. Static Assets (Production)
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-  app.use(express.static(path.join(__dirname, 'client/build')));
+  // Use 'public' folder as defined in root package.json build script
+  const publicPath = path.join(__dirname, 'public');
+  app.use(express.static(publicPath));
 
   // Only handle GET requests for SPA routing, skip /api
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+    res.sendFile(path.resolve(publicPath, 'index.html'));
   });
 }
 

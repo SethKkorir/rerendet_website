@@ -7,7 +7,7 @@
         },
         {
             "source": "/((?!api/).*)",
-            "destination": "/$1"
+            "destination": "/public/$1"
         }
     ]
 }
