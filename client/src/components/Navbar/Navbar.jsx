@@ -62,7 +62,7 @@ function Navbar() {
   // Debug Google Client ID
   useEffect(() => {
     const keys = Object.keys(process.env).filter(key => key.startsWith('REACT_APP'));
-    console.log('🌐 [FRONTEND] Version: V3.2-CSP-FIX (FORCE SYNC)', {
+    console.log('🌐 [FRONTEND] Version: V3.5-PATH-FIX (FORCE SYNC)', {
       hasGoogleId: !!process.env.REACT_APP_GOOGLE_CLIENT_ID,
       nodeEnv: process.env.NODE_ENV,
       buildTime: new Date().toLocaleString()

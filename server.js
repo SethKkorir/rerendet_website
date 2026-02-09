@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V3.4-ROUTING-FIX';
+const VERSION = 'V3.5-PATH-FIX';
 console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
@@ -182,9 +182,8 @@ app.get('/api/health', (req, res) => {
 
 // 3. Static Assets (Production)
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-  // Use absolute path for public directory
-  const publicPath = path.join(process.cwd(), 'public');
-  console.log(`📂 [STATIC] Production mode. Assets path: ${publicPath}`);
+  const publicPath = path.resolve('public');
+  console.log(`📂 [STATIC] Production mode. Absolute Path: ${publicPath}`);
 
   app.use(express.static(publicPath));
 

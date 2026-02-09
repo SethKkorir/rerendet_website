@@ -1,5 +1,10 @@
 {
     "version": 2,
+    "functions": {
+        "api/index.js": {
+            "includeFiles": "public/**"
+        }
+    },
     "rewrites": [
         {
             "source": "/api/(.*)",
@@ -18,11 +23,11 @@
             "destination": "/public/favicon.ico"
         },
         {
-            "source": "/(.*\\.(?:js|css|png|jpg|jpeg|gif|ico|svg|json|woff2?|map))$",
+            "source": "/(.*\\.[^/]+)$",
             "destination": "/public/$1"
         },
         {
-            "source": "/((?!api/|static/|.*\\.).*)",
+            "source": "/((?!api/).*)",
             "destination": "/public/index.html"
         }
     ]
