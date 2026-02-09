@@ -65,10 +65,16 @@ if (process.env.CLIENT_URL) allowedOrigins.push(process.env.CLIENT_URL);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.some(o => origin.startsWith(o))) {
+    // Check if origin is allowed
+    const isAllowed = !origin ||
+      allowedOrigins.indexOf(origin) !== -1 ||
+      allowedOrigins.some(o => origin.startsWith(o)) ||
+      origin.includes('vercel.app'); // Bonus: Allow all vercel subdomains of the project
+
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.log(`❌ CORS Blocked: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
