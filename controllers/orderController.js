@@ -31,6 +31,17 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const userId = req.user._id;
 
+    // ✅ SECURITY: Block Admins from placing orders
+    if (req.user.userType === 'admin' || req.user.role === 'admin' || req.user.role === 'super-admin') {
+      console.warn('🚫 Admin attempted to create order:', req.user.email);
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({
+        success: false,
+        message: 'Administrators are not allowed to place orders. Please use a regular customer account.'
+      });
+    }
+
     console.log('🛒 Creating order for user:', userId);
     console.log('📦 Order items:', items?.length);
 

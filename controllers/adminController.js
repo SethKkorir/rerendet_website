@@ -655,6 +655,14 @@ const updateUserRole = asyncHandler(async (req, res) => {
   // Prevent changing role of super-admin unless it's another super-admin or itself?
   // For now, simple role update
   user.role = role;
+
+  // Also update userType based on role to ensure authentication logic works correctly
+  if (role === 'admin' || role === 'super-admin') {
+    user.userType = 'admin';
+  } else if (role === 'customer') {
+    user.userType = 'customer';
+  }
+
   await user.save();
 
   res.json({

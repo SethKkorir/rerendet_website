@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V3.1-FORCE-SYNC';
+const VERSION = 'V3.2-CSP-FIX';
 console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
@@ -59,7 +59,8 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   'http://localhost:3000',
   'https://rerendetwebsite.vercel.app',
-  'https://rerendet-coffee.vercel.app'
+  'https://rerendet-coffee.vercel.app',
+  'https://rerendet-website-two.vercel.app'
 ];
 if (process.env.CLIENT_URL) allowedOrigins.push(process.env.CLIENT_URL);
 
@@ -93,9 +94,17 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://rerendetwebsite.vercel.app", "https://rerendet-coffee.vercel.app"],
+      connectSrc: [
+        "'self'",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com",
+        "https://rerendetwebsite.vercel.app",
+        "https://rerendet-coffee.vercel.app",
+        "https://rerendet-website-two.vercel.app"
+      ],
       frameSrc: ["'self'", "https://accounts.google.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
     },
@@ -173,9 +182,13 @@ app.get('/api/health', (req, res) => {
 
 // 3. Static Assets (Production)
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-  // Use 'public' folder as defined in root package.json build script
-  const publicPath = path.join(__dirname, 'public');
-  app.use(express.static(publicPath));
+  const publicPath = path.resolve(__dirname, 'public');
+  console.log(`📂 [STATIC] Serving assets from: ${publicPath}`);
+
+  app.use(express.static(publicPath, {
+    maxAge: '1d',
+    etag: true
+  }));
 
   // Only handle GET requests for SPA routing, skip /api
   app.get('*', (req, res, next) => {

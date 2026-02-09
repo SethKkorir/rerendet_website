@@ -406,8 +406,11 @@ function Checkout() {
     if (!isAuthenticated) {
       showNotification('Please log in to checkout', 'info');
       navigate('/login');
+    } else if (user && (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin')) {
+      showNotification('Administrators cannot access the checkout page.', 'warning');
+      navigate('/admin');
     }
-  }, [isAuthenticated, navigate, showNotification]);
+  }, [isAuthenticated, user, navigate, showNotification]);
 
   if (cart.length === 0) {
     return (

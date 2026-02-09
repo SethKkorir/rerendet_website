@@ -19,11 +19,25 @@ dotenv.config();
 const verify2FALogin = asyncHandler(async (req, res) => {
   const { email, code } = req.body;
 
-  const user = await User.findOne({ email }).select('+verificationCode +verificationCodeExpires +role +isVerified +wallet +shippingInfo +cart +twoFactorEnabled +adminPermissions');
+  const user = await User.findOne({ email }).select('+verificationCode +verificationCodeExpires +role +userType +isVerified +wallet +shippingInfo +cart +twoFactorEnabled +adminPermissions');
 
   if (!user || user.verificationCode !== code || user.verificationCodeExpires < Date.now()) {
     res.status(400);
     throw new Error('Invalid or expired verification code');
+  }
+
+  // STRICT SEPARATION CHECK
+  const isTryAdminPath = req.originalUrl.includes('/admin/');
+  const isAdmin = user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin';
+
+  if (isTryAdminPath && !isAdmin) {
+    res.status(403);
+    throw new Error('This account does not have administrator privileges.');
+  }
+
+  if (!isTryAdminPath && isAdmin) {
+    res.status(403);
+    throw new Error('Administrators must log in via the Admin Portal.');
   }
 
   // Clear code
