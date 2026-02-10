@@ -13,45 +13,17 @@
         {
             "src": "/static/(.*)",
             "dest": "/public/static/$1",
-            "headers": {
-                "cache-control": "public, max-age=31536000, immutable"
-            }
+            "continue": true
         },
         {
-            "src": "(.*)/manifest.json",
-            "dest": "/public/manifest.json"
+            "src": "/manifest.json",
+            "dest": "/public/manifest.json",
+            "continue": true
         },
         {
-            "src": "(.*)/favicon.ico",
-            "dest": "/public/favicon.ico"
-        },
-        {
-            "src": "/robots.txt",
-            "dest": "/public/robots.txt"
-        },
-        {
-            "src": "/rerendet-logo.png",
-            "dest": "/public/rerendet-logo.png"
-        },
-        {
-            "src": "/hero-product.png",
-            "dest": "/public/hero-product.png"
-        },
-        {
-            "src": "/logo192.png",
-            "dest": "/public/logo192.png"
-        },
-        {
-            "src": "/logo512.png",
-            "dest": "/public/logo512.png"
-        },
-        {
-            "src": "/asset-manifest.json",
-            "dest": "/public/asset-manifest.json"
-        },
-        {
-            "src": "/(.*\\.(?:js|css|json|png|jpg|jpeg|gif|ico|svg|woff2?|map|txt))$",
-            "dest": "/public/$1"
+            "src": "/favicon.ico",
+            "dest": "/public/favicon.ico",
+            "continue": true
         },
         {
             "handle": "filesystem"

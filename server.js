@@ -2,7 +2,8 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V4.0-MIME-ROOT-FIX';
+const VERSION = 'V4.6-FORCE-SYNC';
+// CACHE BUSTER: 2026-02-10 21:25
 console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
