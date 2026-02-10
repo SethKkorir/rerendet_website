@@ -2,8 +2,8 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V4.6-FORCE-SYNC';
-// CACHE BUSTER: 2026-02-10 21:25
+const VERSION = 'V4.7-DIAGNOSTIC';
+// CACHE BUSTER: 2026-02-10 22:15
 console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
 import express from 'express';
 import mongoose from 'mongoose';
@@ -130,6 +130,34 @@ app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
+
+const VERSION_DESC = 'Diagnostic Build';
+
+// Diagnostic route
+app.get('/api/debug-fs', async (req, res) => {
+  try {
+    const fs = await import('fs/promises');
+    const rootFiles = await fs.readdir(process.cwd());
+    let publicFiles = [];
+    try {
+      publicFiles = await fs.readdir(path.join(process.cwd(), 'public'));
+    } catch (e) { publicFiles = ['ERROR: public folder not found']; }
+
+    res.json({
+      success: true,
+      cwd: process.cwd(),
+      __dirname,
+      rootFiles,
+      publicFiles,
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        VERCEL: process.env.VERCEL
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Move health check to /api/status to avoid hijacking the root path
 app.get('/api/status', (req, res) => {

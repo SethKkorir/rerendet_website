@@ -5,32 +5,50 @@
             "includeFiles": "public/**"
         }
     },
-    "routes": [
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "/api/index.js"
+            "source": "/api/:path*",
+            "destination": "/api/index.js"
         },
         {
-            "src": "/static/(.*)",
-            "dest": "/public/static/$1",
-            "continue": true
+            "source": "/static/:path*",
+            "destination": "/public/static/:path*"
         },
         {
-            "src": "/manifest.json",
-            "dest": "/public/manifest.json",
-            "continue": true
+            "source": "/manifest.json",
+            "destination": "/public/manifest.json"
         },
         {
-            "src": "/favicon.ico",
-            "dest": "/public/favicon.ico",
-            "continue": true
+            "source": "/favicon.ico",
+            "destination": "/public/favicon.ico"
         },
         {
-            "handle": "filesystem"
+            "source": "/robots.txt",
+            "destination": "/public/robots.txt"
         },
         {
-            "src": "/((?!api/).*)",
-            "dest": "/public/index.html"
+            "source": "/rerendet-logo.png",
+            "destination": "/public/rerendet-logo.png"
+        },
+        {
+            "source": "/hero-product.png",
+            "destination": "/public/hero-product.png"
+        },
+        {
+            "source": "/logo1920.png",
+            "destination": "/public/logo1920.png"
+        },
+        {
+            "source": "/logo512.png",
+            "destination": "/public/logo512.png"
+        },
+        {
+            "source": "/((?!api/).*\\..*)",
+            "destination": "/public/$1"
+        },
+        {
+            "source": "/((?!api/).*)",
+            "destination": "/public/index.html"
         }
     ]
 }
