@@ -1,43 +1,109 @@
-// src/components/Admin/OrdersManagement.jsx
-import React, { useState, useEffect, useContext } from 'react';
+// src/components/Admin/OrdersManagement.jsx — Premium Rewrite
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaSearch, FaFilter, FaEye, FaEdit, FaShippingFast, FaSync, FaCheckCircle, FaTimesCircle, FaBoxOpen } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FaSearch, FaEye, FaEdit, FaSync, FaBoxOpen,
+  FaTimes, FaChevronLeft, FaChevronRight,
+  FaShippingFast, FaCheckCircle, FaTimesCircle,
+  FaMoneyBillWave, FaClipboardList, FaTruck,
+  FaUser, FaMapMarkerAlt, FaPhone, FaEnvelope,
+  FaTag, FaClock, FaCoffee, FaBell, FaCalendar
+} from 'react-icons/fa';
 import './OrdersManagement.css';
 
-const StatusBadge = ({ status, type }) => {
-  const colors = {
-    // Payment
-    paid: 'green',
-    pending: 'orange',
-    failed: 'red',
-    refunded: 'gray',
+// ─── Config ─────────────────────────────────────────────────────
+const PAYMENT_COLORS = {
+  paid: { bg: 'rgba(16,185,129,0.12)', text: '#10b981', dot: '#10b981' },
+  pending: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', dot: '#f59e0b' },
+  failed: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', dot: '#ef4444' },
+  refunded: { bg: 'rgba(107,114,128,0.12)', text: '#6b7280', dot: '#6b7280' },
+};
 
-    // Fulfillment
-    unfulfilled: 'gray',
-    packed: 'blue',
-    shipped: 'purple',
-    delivered: 'green',
-    returned: 'red',
+const FULFILLMENT_CONFIG = {
+  unfulfilled: { label: 'Confirmed', step: 0, icon: <FaBoxOpen />, color: '#6b7280' },
+  packed: { label: 'Processing', step: 1, icon: <FaClipboardList />, color: '#3b82f6' },
+  shipped: { label: 'Shipped', step: 2, icon: <FaTruck />, color: '#8b5cf6' },
+  delivered: { label: 'Delivered', step: 3, icon: <FaCheckCircle />, color: '#10b981' },
+  returned: { label: 'Returned', step: -1, icon: <FaTimesCircle />, color: '#ef4444' },
+};
 
-    // Order
-    open: 'blue',
-    completed: 'green',
-    cancelled: 'red'
-  };
+const formatDate = (d) => !d ? '—' : new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const formatDateTime = (d) => !d ? '—' : new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+// ─── Status Badge ────────────────────────────────────────────────
+const PayBadge = ({ status }) => {
+  const cfg = PAYMENT_COLORS[status] || PAYMENT_COLORS.pending;
   return (
-    <span className={`status-badge ${colors[status] || 'gray'}`}>
+    <span className="om-pay-badge" style={{ background: cfg.bg, color: cfg.text }}>
+      <span className="om-dot" style={{ background: cfg.dot }} />
       {status}
     </span>
   );
 };
 
+const FulfillBadge = ({ status }) => {
+  const cfg = FULFILLMENT_CONFIG[status] || FULFILLMENT_CONFIG.unfulfilled;
+  return (
+    <span className="om-fulfill-badge" style={{ color: cfg.color, background: `${cfg.color}18` }}>
+      {cfg.icon} {cfg.label}
+    </span>
+  );
+};
+
+// ─── Fulfillment Pipeline ────────────────────────────────────────
+const FulfillPipeline = ({ status }) => {
+  const steps = ['unfulfilled', 'packed', 'shipped', 'delivered'];
+  const current = FULFILLMENT_CONFIG[status]?.step ?? 0;
+  const isReturned = status === 'returned';
+
+  if (isReturned) {
+    return (
+      <div className="om-pipeline returned">
+        <FaTimesCircle /> Order Returned
+      </div>
+    );
+  }
+
+  return (
+    <div className="om-pipeline">
+      {steps.map((step, i) => {
+        const cfg = FULFILLMENT_CONFIG[step];
+        const done = current >= cfg.step;
+        const active = current === cfg.step;
+        return (
+          <React.Fragment key={step}>
+            <div className={`om-pipeline-step ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
+              <div className="om-pipeline-dot">{cfg.icon}</div>
+              <span>{cfg.label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div className={`om-pipeline-line ${current > cfg.step ? 'done' : ''}`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Customer Initials Avatar ────────────────────────────────────
+const CustomerAvatar = ({ user }) => {
+  const initials = user
+    ? `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase()
+    : 'G';
+  return <div className="om-customer-avatar">{initials}</div>;
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════
 const OrdersManagement = () => {
   const { showNotification, token } = useContext(AppContext);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // NEW: Granular filters
+  const [stats, setStats] = useState({ total: 0, pending: 0, shipped: 0, revenue: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     paymentStatus: 'all',
     fulfillmentStatus: 'all',
@@ -45,52 +111,47 @@ const OrdersManagement = () => {
     startDate: '',
     endDate: '',
     page: 1,
-    limit: 10
+    limit: 12
   });
-
   const [pagination, setPagination] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [bulkAction, setBulkAction] = useState('');
 
+  // Search debounce
   useEffect(() => {
-    fetchOrders();
-  }, [filters]);
+    const t = setTimeout(() => setFilters(p => ({ ...p, search: searchTerm, page: 1 })), 450);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  useEffect(() => { fetchOrders(); }, [filters]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const queryParams = new URLSearchParams();
-
-      // Add filters to query params
-      Object.keys(filters).forEach(key => {
-        if (filters[key] && filters[key] !== 'all') {
-          queryParams.append(key, filters[key]);
-        }
+      const params = new URLSearchParams();
+      Object.keys(filters).forEach(k => {
+        if (filters[k] && filters[k] !== 'all') params.append(k, filters[k]);
       });
 
-      const response = await fetch(`/api/admin/orders?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const res = await fetch(`/api/admin/orders?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
-
-      if (!response.ok) throw new Error('Failed to fetch orders');
-
-      const data = await response.json();
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const data = await res.json();
 
       if (data.success) {
-        setOrders(data.data.orders || []);
+        const orderList = data.data.orders || [];
+        setOrders(orderList);
         setPagination(data.data.pagination || {});
-      } else {
-        throw new Error(data.message || 'Failed to fetch orders');
+        setStats({
+          total: data.data.pagination?.total || orderList.length,
+          pending: orderList.filter(o => o.paymentStatus === 'pending').length,
+          shipped: orderList.filter(o => o.fulfillmentStatus === 'shipped').length,
+          revenue: orderList.reduce((sum, o) => sum + (o.total || 0), 0),
+        });
       }
-    } catch (error) {
-      console.error('Orders fetch error:', error);
-      showNotification(error.message || 'Failed to load orders', 'error');
+    } catch (err) {
+      showNotification(err.message || 'Failed to load orders', 'error');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -99,562 +160,522 @@ const OrdersManagement = () => {
 
   const updateOrderStatus = async (orderId, updates) => {
     try {
-      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...updates,
-          notifyCustomer: true
-        })
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...updates, notifyCustomer: true })
       });
-
-      if (!response.ok) throw new Error('Failed to update order status');
-
-      const data = await response.json();
-
+      if (!res.ok) throw new Error('Failed to update');
+      const data = await res.json();
       if (data.success) {
-        showNotification('Order status updated successfully', 'success');
-        setShowStatusModal(false);
-        setSelectedOrder(null);
-        fetchOrders(); // Refresh orders
-      } else {
-        throw new Error(data.message || 'Failed to update order status');
-      }
-    } catch (error) {
-      console.error('Update order status error:', error);
-      showNotification(error.message || 'Failed to update order status', 'error');
+        showNotification('Order updated successfully', 'success');
+        fetchOrders();
+        // Refresh selected order state too
+        if (selectedOrder?._id === orderId) {
+          setSelectedOrder(prev => ({ ...prev, ...updates }));
+        }
+      } else throw new Error(data.message);
+    } catch (err) {
+      showNotification(err.message || 'Update failed', 'error');
     }
   };
 
+  const handleSelectAll = (e) => setSelectedOrders(e.target.checked ? orders.map(o => o._id) : []);
+  const handleSelectOrder = (id) =>
+    setSelectedOrders(p => p.includes(id) ? p.filter(i => i !== id) : [...p, id]);
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedOrders(orders.map(order => order._id));
-    } else {
-      setSelectedOrders([]);
-    }
-  };
-
-  const handleSelectOrder = (id) => {
-    setSelectedOrders(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
-
-  // TODO: Update bulk Action to support granular status if needed (skipping for now to focus on individual)
-  const handleBulkAction = async () => {
-    // Placeholder
-    alert("Bulk actions temporarily disabled for upgrade.");
-  };
-
-
-
-
-  const OrderRow = ({ order }) => (
-    <tr className={`order-row ${selectedOrders.includes(order._id) ? 'selected' : ''}`}>
-      <td>
-        <input
-          type="checkbox"
-          checked={selectedOrders.includes(order._id)}
-          onChange={() => handleSelectOrder(order._id)}
-        />
-      </td>
-      <td>
-        <strong>#{order.orderNumber}</strong>
-        <br />
-        <small style={{ color: '#666' }}>
-          {new Date(order.createdAt).toLocaleDateString()}
-        </small>
-      </td>
-      <td>
-        {order.user ? (
-          <>
-            {order.user.firstName} {order.user.lastName}
-            <br />
-            <small>{order.user.email}</small>
-          </>
-        ) : (
-          <span style={{ color: '#999' }}>Guest Order</span>
-        )}
-      </td>
-      <td>
-        KES {order.total?.toLocaleString()}
-        <br />
-        <small style={{ fontSize: '0.8em', color: '#666' }}>
-          {order.paymentMethod}
-        </small>
-      </td>
-      <td>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <small>Payment:</small>
-          <StatusBadge status={order.paymentStatus} />
-          <small style={{ marginTop: '4px' }}>Fulfillment:</small>
-          <StatusBadge status={order.fulfillmentStatus} />
-        </div>
-      </td>
-      <td>
-        <div className="order-actions">
-          <button
-            className="btn-icon info"
-            onClick={() => {
-              setSelectedOrder(order);
-              setShowOrderModal(true);
-            }}
-            title="View Details"
-          >
-            <FaEye />
-          </button>
-          <button
-            className="btn-icon warning"
-            onClick={() => {
-              setSelectedOrder(order);
-              setShowStatusModal(true);
-            }}
-            title="Update Status"
-          >
-            <FaEdit />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
+  const FULFILLMENT_PILLS = ['all', 'unfulfilled', 'packed', 'shipped', 'delivered', 'returned'];
 
   return (
     <div className="orders-management">
-      <div className="page-header">
-        <h1>Orders Management</h1>
-        <div className="header-actions">
-          <button
-            className="btn-primary"
-            onClick={fetchOrders}
-            disabled={loading}
+      {/* ── Stats Row ── */}
+      <div className="om-stats-row">
+        {[
+          { icon: <FaClipboardList />, label: 'Total Orders', value: pagination.total || stats.total, color: '#3b82f6' },
+          { icon: <FaClock />, label: 'Awaiting Payment', value: stats.pending, color: '#f59e0b' },
+          { icon: <FaShippingFast />, label: 'In Transit', value: stats.shipped, color: '#8b5cf6' },
+          { icon: <FaMoneyBillWave />, label: 'Revenue (Page)', value: `KES ${stats.revenue.toLocaleString()}`, color: '#10b981' },
+        ].map((s, i) => (
+          <motion.div
+            key={i}
+            className="om-stat-card"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.07 }}
           >
-            <FaSync className={loading ? 'spinning' : ''} />
-            Refresh
-          </button>
-        </div>
+            <div className="om-stat-icon" style={{ background: `${s.color}1a`, color: s.color }}>{s.icon}</div>
+            <div>
+              <p className="om-stat-value">{s.value}</p>
+              <p className="om-stat-label">{s.label}</p>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="search-box">
-          <FaSearch className="search-icon" />
+      {/* ── Toolbar ── */}
+      <div className="om-toolbar">
+        <div className="om-search-box">
+          <FaSearch className="om-search-icon" />
           <input
             type="text"
-            placeholder="Search..."
-            value={filters.search}
-            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
+            placeholder="Search order # or customer…"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
           />
+          {searchTerm && (
+            <button className="om-clear-btn" onClick={() => setSearchTerm('')}><FaTimes /></button>
+          )}
         </div>
 
-        {/* Payment Filter */}
+        {/* Payment filter */}
         <select
+          className="om-select"
           value={filters.paymentStatus}
-          onChange={(e) => setFilters(prev => ({ ...prev, paymentStatus: e.target.value, page: 1 }))}
-          className="filter-select"
+          onChange={e => setFilters(p => ({ ...p, paymentStatus: e.target.value, page: 1 }))}
         >
-          <option value="all">Payment: All</option>
+          <option value="all">💳 All Payments</option>
           <option value="pending">Pending</option>
           <option value="paid">Paid</option>
           <option value="failed">Failed</option>
           <option value="refunded">Refunded</option>
         </select>
 
-        {/* Fulfillment Filter */}
-        <select
-          value={filters.fulfillmentStatus}
-          onChange={(e) => setFilters(prev => ({ ...prev, fulfillmentStatus: e.target.value, page: 1 }))}
-          className="filter-select"
-        >
-          <option value="all">Fulfillment: All</option>
-          <option value="unfulfilled">Unfulfilled</option>
-          <option value="packed">Packed</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="returned">Returned</option>
-        </select>
-
-        <div className="date-filters">
+        {/* Date range */}
+        <div className="om-date-range">
+          <FaCalendar />
           <input
             type="date"
             value={filters.startDate}
-            onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value, page: 1 }))}
+            onChange={e => setFilters(p => ({ ...p, startDate: e.target.value, page: 1 }))}
           />
-          <span className="date-separator">-</span>
+          <span>—</span>
           <input
             type="date"
             value={filters.endDate}
-            onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value, page: 1 }))}
+            onChange={e => setFilters(p => ({ ...p, endDate: e.target.value, page: 1 }))}
           />
         </div>
+
+        <button className="om-refresh-btn" onClick={fetchOrders} disabled={loading} title="Refresh">
+          <FaSync className={loading ? 'om-spin' : ''} />
+        </button>
       </div>
 
-      {/* Orders Table */}
-      <div className="table-container">
-        {loading ? (
-          <div className="loading-state">
-            <div className="loading-spinner"></div>
-            <p>Loading orders...</p>
-          </div>
-        ) : (
-          <>
-            <table className="orders-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}>
-                    <input
-                      type="checkbox"
-                      onChange={handleSelectAll}
-                      checked={orders.length > 0 && selectedOrders.length === orders.length}
-                    />
-                  </th>
-                  <th>Order #</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Payment & Fulfillment</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map(order => (
-                  <OrderRow key={order._id} order={order} />
-                ))}
-              </tbody>
-            </table>
+      {/* ── Fulfillment Pills ── */}
+      <div className="om-fulfill-pills">
+        {FULFILLMENT_PILLS.map(f => (
+          <button
+            key={f}
+            className={`om-fulfill-pill ${filters.fulfillmentStatus === f ? 'active' : ''}`}
+            onClick={() => setFilters(p => ({ ...p, fulfillmentStatus: f, page: 1 }))}
+          >
+            {f === 'all' ? 'All Orders' : FULFILLMENT_CONFIG[f]?.label || f}
+          </button>
+        ))}
+      </div>
 
-            {orders.length === 0 && (
-              <div className="empty-state">
-                <p>No orders found</p>
-                <button
-                  className="btn-outline"
-                  onClick={fetchOrders}
-                >
-                  Try Again
-                </button>
-              </div>
-            )}
-          </>
+      {/* ── Bulk Bar ── */}
+      <AnimatePresence>
+        {selectedOrders.length > 0 && (
+          <motion.div
+            className="om-bulk-bar"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <span>{selectedOrders.length} order{selectedOrders.length > 1 ? 's' : ''} selected</span>
+            <button className="om-bulk-clear" onClick={() => setSelectedOrders([])}>
+              <FaTimes /> Clear Selection
+            </button>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* Pagination */}
-      {
-        pagination.pages > 1 && (
-          <div className="pagination">
-            <button
-              disabled={filters.page === 1}
-              onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
-              className="btn-outline"
-            >
-              Previous
-            </button>
+      {/* ── Table ── */}
+      {loading ? (
+        <div className="om-loading">
+          <div className="om-spinner" />
+          <p>Loading orders…</p>
+        </div>
+      ) : (
+        <div className="om-table-wrap">
+          <table className="om-table">
+            <thead>
+              <tr>
+                <th>
+                  <input type="checkbox" onChange={handleSelectAll}
+                    checked={orders.length > 0 && selectedOrders.length === orders.length} />
+                </th>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Payment</th>
+                <th>Fulfillment</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="om-empty-row">
+                    <div className="om-empty">
+                      <FaBoxOpen className="om-empty-icon" />
+                      <h3>No orders found</h3>
+                      <p>{searchTerm ? `No results for "${searchTerm}"` : 'Try adjusting your filters'}</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : orders.map((order, i) => (
+                <motion.tr
+                  key={order._id}
+                  className={`om-row ${selectedOrders.includes(order._id) ? 'selected' : ''}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.025 }}
+                  onClick={() => setSelectedOrder(order)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td onClick={e => e.stopPropagation()}>
+                    <input type="checkbox"
+                      checked={selectedOrders.includes(order._id)}
+                      onChange={() => handleSelectOrder(order._id)} />
+                  </td>
+                  <td>
+                    <div className="om-order-num-cell">
+                      <strong>#{order.orderNumber}</strong>
+                      <span className="om-item-count">{order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="om-customer-cell">
+                      <CustomerAvatar user={order.user} />
+                      <div>
+                        <strong>{order.user ? `${order.user.firstName} ${order.user.lastName}` : 'Guest'}</strong>
+                        <span className="om-customer-email">{order.user?.email || '—'}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="om-amount">KES {order.total?.toLocaleString()}</span>
+                    <span className="om-pay-method">{order.paymentMethod}</span>
+                  </td>
+                  <td><PayBadge status={order.paymentStatus} /></td>
+                  <td><FulfillBadge status={order.fulfillmentStatus} /></td>
+                  <td><span className="om-date">{formatDate(order.createdAt)}</span></td>
+                  <td onClick={e => e.stopPropagation()}>
+                    <button className="om-view-btn" onClick={() => setSelectedOrder(order)} title="Open Order">
+                      <FaEye />
+                    </button>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
 
-            <span className="page-info">
-              Page {filters.page} of {pagination.pages} ({pagination.total} total orders)
-            </span>
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="om-pagination">
+              <button className="om-page-btn" disabled={filters.page === 1}
+                onClick={() => setFilters(p => ({ ...p, page: p.page - 1 }))}>
+                <FaChevronLeft /> Prev
+              </button>
+              <span className="om-page-info">Page {filters.page} of {pagination.pages} · {pagination.total} orders</span>
+              <button className="om-page-btn" disabled={filters.page === pagination.pages}
+                onClick={() => setFilters(p => ({ ...p, page: p.page + 1 }))}>
+                Next <FaChevronRight />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
-            <button
-              disabled={filters.page === pagination.pages}
-              onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
-              className="btn-outline"
-            >
-              Next
-            </button>
-          </div>
-        )
-      }
-
-      {/* Order Details Modal */}
-      {
-        showOrderModal && selectedOrder && (
-          <OrderDetailsModal
+      {/* ── Order Drawer ── */}
+      <AnimatePresence>
+        {selectedOrder && (
+          <OrderDrawer
             order={selectedOrder}
-            onClose={() => {
-              setShowOrderModal(false);
-              setSelectedOrder(null);
-            }}
-          />
-        )
-      }
-
-      {/* Status Update Modal */}
-      {
-        showStatusModal && selectedOrder && (
-          <StatusUpdateModal
-            order={selectedOrder}
+            onClose={() => setSelectedOrder(null)}
             onUpdate={updateOrderStatus}
-            onClose={() => {
-              setShowStatusModal(false);
-              setSelectedOrder(null);
-            }}
           />
-        )
-      }
-    </div >
-  );
-};
-
-// Order Details Modal Component
-const OrderDetailsModal = ({ order, onClose }) => {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="header-info">
-            <h3>Order Details</h3>
-            <span className="order-tag">#{order.orderNumber}</span>
-          </div>
-          <button className="close-modal" onClick={onClose}>×</button>
-        </div>
-
-        <div className="order-details-body">
-          {/* MAIN CONTENT Area */}
-          <div className="order-main-scroll">
-            {/* 1. Status Overview */}
-            <div className="status-overview-card">
-              <div className="overview-item">
-                <span className="label">Payment Status</span>
-                <StatusBadge status={order.paymentStatus} />
-                <span className="sub-label">{order.paymentMethod}</span>
-              </div>
-              <div className="overview-item">
-                <span className="label">Fulfillment Status</span>
-                <StatusBadge status={order.fulfillmentStatus} />
-                <span className="sub-label">{order.shippingMethod || 'Standard Delivery'}</span>
-              </div>
-              <div className="overview-item">
-                <span className="label">Order Date</span>
-                <span className="value">{new Date(order.createdAt).toLocaleString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}</span>
-              </div>
-            </div>
-
-            {/* 2. Order Items Table-like List */}
-            <div className="detail-section">
-              <div className="section-header-row">
-                <h4>Items Ordered ({order.items?.length || 0})</h4>
-              </div>
-              <div className="order-items-list">
-                {order.items?.map((item, index) => (
-                  <div key={index} className="order-item-row">
-                    <div className="item-thumbnail">
-                      <img src={item.image || item.product?.images?.[0]?.url || '/placeholder-coffee.jpg'} alt={item.name} />
-                    </div>
-                    <div className="item-info">
-                      <div className="name">{item.name}</div>
-                      <div className="meta">
-                        {item.size && <span className="tag">Size: {item.size}</span>}
-                        {item.grind && <span className="tag">Grind: {item.grind}</span>}
-                      </div>
-                    </div>
-                    <div className="item-pricing">
-                      <div className="qty-price">{item.quantity} × KES {item.price?.toLocaleString()}</div>
-                      <div className="total">KES {(item.price * item.quantity)?.toLocaleString()}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. Event History Timeline */}
-            <div className="detail-section no-border">
-              <h4>System Activity & Events</h4>
-              <div className="admin-timeline">
-                {order.orderEvents && order.orderEvents.length > 0 ? (
-                  order.orderEvents.slice().reverse().map((event, index) => (
-                    <div key={index} className="timeline-item">
-                      <div className="timeline-dot"></div>
-                      <div className="timeline-content">
-                        <div className="time">{new Date(event.timestamp).toLocaleString()}</div>
-                        <div className="status-text">
-                          <StatusBadge status={event.status} />
-                        </div>
-                        <div className="note">{event.note}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-events">
-                    <FaSync className="icon" />
-                    <p>No event history recorded for this order yet.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* SIDEBAR Area */}
-          <div className="order-sidebar-sticky">
-            {/* Customer Card */}
-            <div className="sidebar-card">
-              <h4>Customer Info</h4>
-              <div className="customer-info-box">
-                <div className="customer-main">
-                  <div className="avatar">{order.user?.firstName?.[0] || 'G'}</div>
-                  <div className="details">
-                    <strong>{order.user ? `${order.user.firstName} ${order.user.lastName}` : 'Guest Customer'}</strong>
-                    <span>{order.user?.email || order.email}</span>
-                  </div>
-                </div>
-                {order.shippingAddress && (
-                  <div className="contact-details">
-                    <div className="info-row">
-                      <span className="icon">📍</span>
-                      <p>{order.shippingAddress.address}, {order.shippingAddress.city}</p>
-                    </div>
-                    <div className="info-row">
-                      <span className="icon">📞</span>
-                      <p>{order.shippingAddress.phone || 'No phone provided'}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Summary Card */}
-            <div className="sidebar-card summary">
-              <h4>Payment Summary</h4>
-              <div className="summary-list">
-                <div className="line-item">
-                  <span>Subtotal</span>
-                  <span>KES {order.subtotal?.toLocaleString()}</span>
-                </div>
-                <div className="line-item">
-                  <span>Shipping Fee</span>
-                  <span>KES {order.shippingCost?.toLocaleString()}</span>
-                </div>
-                {order.tax > 0 && (
-                  <div className="line-item">
-                    <span>Tax</span>
-                    <span>KES {order.tax?.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="total-line">
-                  <span>Total Amount</span>
-                  <span>KES {order.total?.toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="payment-indicator">
-                <div className={`indicator ${order.paymentStatus}`}></div>
-                <span>Paid via {order.paymentMethod}</span>
-              </div>
-            </div>
-
-            {/* Admin Notes / Internal Info */}
-            <div className="sidebar-card notes">
-              <h4>Internal Notes</h4>
-              <textarea placeholder="Add a private note for staff..." rows="4"></textarea>
-              <button className="btn-save-note">Save internal note</button>
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-// Status Update Modal Component
-const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
+// ═══════════════════════════════════════════════════════════════
+//  ORDER DETAIL DRAWER
+// ═══════════════════════════════════════════════════════════════
+const SUGGESTED_MESSAGES = {
+  unfulfilled: "Your order has been confirmed and is being processed by our team.",
+  packed: "Good news! Your beans have been hand-selected and packed. They are now awaiting dispatch.",
+  shipped: "Your premium selection has departed our estate. Your coffee is on its way to you!",
+  delivered: "The peak of coffee has arrived! Your order has been delivered. We hope you enjoy every sip.",
+  returned: "We noticed your order was returned. Our team will contact you shortly to resolve this."
+};
+
+const OrderDrawer = ({ order, onClose, onUpdate }) => {
+  const [activeTab, setActiveTab] = useState('details');
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || 'pending');
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || 'unfulfilled');
   const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || '');
   const [message, setMessage] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  const handleSubmit = async (e) => {
+  // Auto-suggest message when fulfillment status changes
+  useEffect(() => {
+    if (activeTab === 'update' && fulfillmentStatus !== order.fulfillmentStatus) {
+      setMessage(SUGGESTED_MESSAGES[fulfillmentStatus] || '');
+    }
+  }, [fulfillmentStatus, activeTab, order.fulfillmentStatus]);
+
+  const handleUpdate = async (e) => {
     e.preventDefault();
     setUpdating(true);
-    await onUpdate(order._id, {
-      paymentStatus,
-      fulfillmentStatus,
-      trackingNumber,
-      message
-    });
+    await onUpdate(order._id, { paymentStatus, fulfillmentStatus, trackingNumber, message });
     setUpdating(false);
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Update Order: #{order.orderNumber}</h3>
-          <button className="close-modal" onClick={onClose}>×</button>
+    <>
+      <motion.div
+        className="om-drawer-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="om-drawer"
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 250 }}
+      >
+        {/* ── Drawer Header ── */}
+        <div className="om-drawer-header">
+          <div className="om-drawer-title-block">
+            <span className="om-drawer-label">Order</span>
+            <strong className="om-drawer-num">#{order.orderNumber}</strong>
+          </div>
+          <div className="om-drawer-header-badges">
+            <PayBadge status={order.paymentStatus} />
+            <FulfillBadge status={order.fulfillmentStatus} />
+          </div>
+          <button className="om-drawer-close" onClick={onClose}><FaTimes /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="status-form">
-          <div className="form-group">
-            <label>Payment Status</label>
-            <select
-              value={paymentStatus}
-              onChange={(e) => setPaymentStatus(e.target.value)}
+        {/* ── Fulfillment Pipeline ── */}
+        <div className="om-drawer-pipeline">
+          <FulfillPipeline status={order.fulfillmentStatus} />
+        </div>
+
+        {/* ── Tabs ── */}
+        <div className="om-drawer-tabs">
+          {[
+            { id: 'details', label: '📦 Details' },
+            { id: 'update', label: '✏️ Update Status' },
+            { id: 'timeline', label: '📋 History' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              className={`om-drawer-tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
             >
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="failed">Failed</option>
-              <option value="refunded">Refunded</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Fulfillment Status</label>
-            <select
-              value={fulfillmentStatus}
-              onChange={(e) => setFulfillmentStatus(e.target.value)}
-            >
-              <option value="unfulfilled">Unfulfilled</option>
-              <option value="packed">Packed</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="returned">Returned</option>
-            </select>
-          </div>
-
-          {(fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') && (
-            <div className="form-group">
-              <label>Tracking Number</label>
-              <input
-                type="text"
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder={fulfillmentStatus === 'shipped' ? "Enter tracking number (Required)" : "Enter tracking number"}
-                required={fulfillmentStatus === 'shipped'}
-              />
-            </div>
-          )}
-
-          <div className="form-group">
-            <label>Note / Message to Customer</label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Optional message..."
-              rows="3"
-            />
-          </div>
-
-          <div className="modal-actions">
-            <button type="button" className="btn-outline" onClick={onClose}>
-              Cancel
+              {tab.label}
             </button>
-            <button type="submit" className="btn-primary" disabled={updating}>
-              {updating ? 'Updating...' : 'Update Status'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          ))}
+        </div>
+
+        {/* ── Body ── */}
+        <div className="om-drawer-body">
+          <AnimatePresence mode="wait">
+
+            {/* ═══ DETAILS ═══ */}
+            {activeTab === 'details' && (
+              <motion.div key="details" className="om-tab-pane" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }}>
+
+                {/* Customer */}
+                <div className="om-drawer-section">
+                  <h4 className="om-section-title"><FaUser /> Customer</h4>
+                  <div className="om-customer-profile">
+                    <CustomerAvatar user={order.user} />
+                    <div>
+                      <strong>{order.user ? `${order.user.firstName} ${order.user.lastName}` : 'Guest Customer'}</strong>
+                      {order.user?.email && <span className="om-detail-sub"><FaEnvelope /> {order.user.email}</span>}
+                    </div>
+                  </div>
+                  {order.shippingAddress && (
+                    <div className="om-address-box">
+                      <div className="om-address-row"><FaMapMarkerAlt /> {order.shippingAddress.address}, {order.shippingAddress.city}</div>
+                      {order.shippingAddress.phone && <div className="om-address-row"><FaPhone /> {order.shippingAddress.phone}</div>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Items */}
+                <div className="om-drawer-section">
+                  <h4 className="om-section-title"><FaCoffee /> Items ({order.items?.length || 0})</h4>
+                  <div className="om-items-list">
+                    {order.items?.map((item, i) => (
+                      <div key={i} className="om-item-row">
+                        <div className="om-item-thumb">
+                          <img
+                            src={item.image || item.product?.images?.[0]?.url || '/placeholder-coffee.jpg'}
+                            alt={item.name}
+                            onError={e => { e.target.style.display = 'none'; }}
+                          />
+                        </div>
+                        <div className="om-item-info">
+                          <strong>{item.name}</strong>
+                          <div className="om-item-tags">
+                            {item.size && <span>{item.size}</span>}
+                            {item.grind && <span>{item.grind}</span>}
+                          </div>
+                        </div>
+                        <div className="om-item-price">
+                          <span className="om-item-qty">× {item.quantity}</span>
+                          <strong>KES {(item.price * item.quantity)?.toLocaleString()}</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Summary */}
+                <div className="om-drawer-section">
+                  <h4 className="om-section-title"><FaMoneyBillWave /> Payment Summary</h4>
+                  <div className="om-summary">
+                    <div className="om-summary-row"><span>Subtotal</span><span>KES {order.subtotal?.toLocaleString()}</span></div>
+                    <div className="om-summary-row"><span>Shipping</span><span>KES {order.shippingCost?.toLocaleString() || '0'}</span></div>
+                    {order.tax > 0 && <div className="om-summary-row"><span>Tax</span><span>KES {order.tax?.toLocaleString()}</span></div>}
+                    <div className="om-summary-row total"><span>Total</span><span>KES {order.total?.toLocaleString()}</span></div>
+                  </div>
+                  <div className={`om-pay-indicator ${order.paymentStatus}`}>
+                    <span className="om-pay-dot" />
+                    {order.paymentStatus === 'paid' ? '✓ Payment received' : `Payment ${order.paymentStatus}`} via {order.paymentMethod}
+                  </div>
+                </div>
+
+                <div className="om-drawer-section">
+                  <h4 className="om-section-title"><FaTag /> Order Info</h4>
+                  <div className="om-info-row-list">
+                    <div className="om-info-pair"><span>Order Date</span><strong>{formatDateTime(order.createdAt)}</strong></div>
+                    <div className="om-info-pair"><span>Order ID</span><strong className="mono">#{order.orderNumber}</strong></div>
+                    {order.trackingNumber && <div className="om-info-pair"><span>Tracking</span><strong className="mono">{order.trackingNumber}</strong></div>}
+                    {order.notes && <div className="om-info-pair"><span>Customer Note</span><strong>{order.notes}</strong></div>}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══ UPDATE ═══ */}
+            {activeTab === 'update' && (
+              <motion.div key="update" className="om-tab-pane" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }}>
+                <form onSubmit={handleUpdate} className="om-update-form">
+
+                  <div className="om-form-field">
+                    <label>Payment Status</label>
+                    <div className="om-pay-options">
+                      {['pending', 'paid', 'failed', 'refunded'].map(s => {
+                        const cfg = PAYMENT_COLORS[s];
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            className={`om-pay-option ${paymentStatus === s ? 'active' : ''}`}
+                            style={paymentStatus === s ? { borderColor: cfg.text, background: cfg.bg, color: cfg.text } : {}}
+                            onClick={() => setPaymentStatus(s)}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="om-form-field">
+                    <label>Fulfillment Status</label>
+                    <div className="om-fulfill-options">
+                      {['unfulfilled', 'packed', 'shipped', 'delivered', 'returned'].map(s => {
+                        const cfg = FULFILLMENT_CONFIG[s];
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            className={`om-fulfill-option ${fulfillmentStatus === s ? 'active' : ''}`}
+                            style={fulfillmentStatus === s ? { borderColor: cfg.color, background: `${cfg.color}18`, color: cfg.color } : {}}
+                            onClick={() => setFulfillmentStatus(s)}
+                          >
+                            {cfg.icon} {cfg.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {(fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') && (
+                    <div className="om-form-field">
+                      <label>Tracking Number {fulfillmentStatus === 'shipped' && <span className="om-req">*</span>}</label>
+                      <input
+                        type="text"
+                        value={trackingNumber}
+                        onChange={e => setTrackingNumber(e.target.value)}
+                        placeholder="e.g., KE1234567890"
+                        required={fulfillmentStatus === 'shipped'}
+                      />
+                    </div>
+                  )}
+
+                  <div className="om-form-field">
+                    <label>Customer Notification Message <span className="om-hint">(optional — will be emailed)</span></label>
+                    <textarea
+                      value={message}
+                      onChange={e => setMessage(e.target.value)}
+                      placeholder="e.g., Your order has been shipped and will arrive in 2-3 days..."
+                      rows={4}
+                    />
+                  </div>
+
+                  <button type="submit" className="om-update-btn" disabled={updating}>
+                    {updating ? 'Saving changes…' : '✓ Save Status Update'}
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {/* ═══ TIMELINE ═══ */}
+            {activeTab === 'timeline' && (
+              <motion.div key="timeline" className="om-tab-pane" initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }}>
+                <div className="om-drawer-section">
+                  <h4 className="om-section-title"><FaClipboardList /> Order Activity</h4>
+                  {order.orderEvents?.length > 0 ? (
+                    <div className="om-timeline">
+                      {order.orderEvents.slice().reverse().map((event, i) => (
+                        <div key={i} className="om-timeline-item">
+                          <div className="om-timeline-dot" />
+                          <div className="om-timeline-content">
+                            <span className="om-timeline-time">{formatDateTime(event.timestamp)}</span>
+                            <PayBadge status={event.status} />
+                            {event.note && <p className="om-timeline-note">{event.note}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="om-no-events">
+                      <FaBell />
+                      <p>No activity history recorded yet.</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </>
   );
 };
 

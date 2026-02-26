@@ -94,6 +94,14 @@ const orderSchema = new mongoose.Schema({
 
   // Audit Trail
   orderEvents: [orderEventSchema],
+  trackingHistory: [
+    {
+      status: String,
+      location: String,
+      message: String,
+      timestamp: { type: Date, default: Date.now }
+    }
+  ],
 
   // Subscription & Discounts
   isSubscription: { type: Boolean, default: false },
@@ -123,8 +131,10 @@ orderSchema.virtual('status').get(function () {
   if (this.fulfillmentStatus === 'delivered') return 'delivered';
   if (this.fulfillmentStatus === 'shipped') return 'shipped';
   if (this.fulfillmentStatus === 'packed') return 'processing';
-  if (this.paymentStatus === 'paid') return 'confirmed';
-  return 'pending';
+
+  // If we reach here, it's either confirmed (paid/CoD) or pending
+  // We treat all open uncancelled orders as 'confirmed' at minimum once placed
+  return 'confirmed';
 });
 
 // Generate Order Number

@@ -7,7 +7,8 @@ import { calculateShipping } from '../utils/shippingCalculator.js';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeObject, sanitizeEmail, sanitizePhone, sanitizeAmount } from '../utils/inputSanitizer.js';
-import { sendEmail } from '../utils/emailService.js';
+import sendEmail from '../utils/sendEmail.js';
+import { getOrderConfirmationEmail, getOrderStatusEmail } from '../utils/emailTemplates.js';
 import { sendLowStockAlert } from '../utils/adminNotificationService.js';
 import Coupon from '../models/Coupon.js';
 import Subscription from '../models/Subscription.js';
@@ -180,23 +181,22 @@ const createOrder = asyncHandler(async (req, res) => {
     const finalSubtotal = sanitizeAmount(calculatedSubtotal);
     const finalShippingCost = sanitizeAmount(shippingCost);
     const taxableAmount = Math.max(0, finalSubtotal - discount);
-    const finalTax = sanitizeAmount(taxableAmount * 0.16); // 16% VAT
-    const calculatedTotal = sanitizeAmount(taxableAmount + finalShippingCost + finalTax);
+    const finalTax = 0; // No VAT — tax disabled
+    const calculatedTotal = sanitizeAmount(taxableAmount + finalShippingCost);
     const clientTotal = sanitizeAmount(totalAmount);
 
     console.log('💰 Validating order amounts:', {
       itemsSubtotal: calculatedSubtotal,
       discount: discount,
       shipping: finalShippingCost,
-      tax: finalTax,
       total: calculatedTotal
     });
 
-    // Prevent price manipulation
+    // Prevent price manipulation (tolerance: KES 2)
     if (Math.abs(calculatedTotal - clientTotal) > 2.0) {
       await session.abortTransaction();
       session.endSession();
-      console.warn(`⚠️ Price manipulation attempt detected: Client=${clientTotal}, Calculated=${calculatedTotal}, Discount=${discount}`);
+      console.warn(`⚠️ Price mismatch: Client=${clientTotal}, Server=${calculatedTotal}, Discount=${discount}`);
       return res.status(400).json({
         success: false,
         message: 'Order amount validation failed. Please refresh your cart.'
@@ -208,7 +208,6 @@ const createOrder = asyncHandler(async (req, res) => {
     console.log('✅ Order amounts validated:', {
       subtotal: finalSubtotal,
       shipping: finalShippingCost,
-      tax: finalTax,
       total: finalTotal
     });
 
@@ -377,11 +376,28 @@ const createOrder = asyncHandler(async (req, res) => {
         dashboardUrl
       };
 
+      // Fetch store logo
+      let logoUrl;
+      try {
+        const { default: Settings } = await import('../models/Settings.js');
+        const settings = await Settings.getSettings();
+        logoUrl = settings?.store?.logo;
+      } catch (e) {
+        // ignore
+      }
+
+      const emailHtml = getOrderConfirmationEmail(
+        savedOrder.shippingAddress.firstName,
+        savedOrder.orderNumber,
+        orderItems,
+        finalTotal,
+        logoUrl
+      );
+
       sendEmail({
         to: savedOrder.shippingAddress.email,
-        subject: `Order Confirmation - #${savedOrder.orderNumber}`,
-        templateName: 'orderConfirmation',
-        data: emailData
+        subject: `Order Selection Confirmed - #${savedOrder.orderNumber}`,
+        html: emailHtml
       });
     } catch (emailError) {
       console.error('📧 Background email sending error:', emailError);
@@ -627,6 +643,15 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   // Track changes for history logging
   const changes = [];
 
+  // Status Label Map for better UX
+  const STATUS_LABELS = {
+    unfulfilled: 'Confirmed',
+    packed: 'Processing',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    returned: 'Returned'
+  };
+
   // 1. Update Payment Status
   if (paymentStatus && order.paymentStatus !== paymentStatus) {
     order.paymentStatus = paymentStatus;
@@ -649,12 +674,13 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     }
 
     order.fulfillmentStatus = fulfillmentStatus;
-    changes.push(`Fulfillment status updated to ${fulfillmentStatus}`);
+    const fulfillmentLabel = STATUS_LABELS[fulfillmentStatus] || fulfillmentStatus;
+    changes.push(`Fulfillment status updated to ${fulfillmentLabel}`);
 
     // Auto-update event log
     order.orderEvents.push({
       status: 'FULFILLMENT_UPDATE',
-      note: `Fulfillment status changed to ${fulfillmentStatus} by admin`,
+      note: `Fulfillment status changed to ${fulfillmentLabel} by admin`,
       user: req.user._id
     });
   }
@@ -682,8 +708,11 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
   // Add to legacy trackingHistory for backward compatibility / frontend display
   if (changes.length > 0) {
+    const rawFulfill = fulfillmentStatus || order.fulfillmentStatus;
+    const historyStatus = STATUS_LABELS[rawFulfill] || rawFulfill;
+
     order.trackingHistory.push({
-      status: fulfillmentStatus || order.fulfillmentStatus, // Use fulfillment as primary "public" status
+      status: historyStatus.toLowerCase(), // Store lowercase for icon mapping
       location: location || '',
       message: message || changes.join('. '),
       timestamp: new Date()
@@ -698,8 +727,6 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   // SEND EMAIL NOTIFICATION (Only for significant fulfillment/payment changes)
   if ((fulfillmentStatus && ['shipped', 'delivered', 'returned'].includes(fulfillmentStatus)) || message) {
     try {
-      const { getOrderStatusEmail } = await import('../utils/emailTemplates.js');
-
       // Fetch store logo
       let logoUrl;
       try {
@@ -710,8 +737,9 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         // ignore
       }
 
-      // Determine effective status for email
-      const emailStatus = fulfillmentStatus || order.status;
+      // Determine effective status for email (use label)
+      const rawStatus = fulfillmentStatus || order.fulfillmentStatus;
+      const emailStatus = STATUS_LABELS[rawStatus] || rawStatus;
 
       const emailHtml = getOrderStatusEmail(
         updatedOrder.user.firstName,

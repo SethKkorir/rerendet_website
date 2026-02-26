@@ -177,10 +177,37 @@ function Checkout() {
   };
 
   const handlePlaceOrder = async () => {
-    if (paymentMethod === 'cod' && total > 10000) {
-      showNotification('COD limited to KSh 10k', 'error');
+    // 1. Validation
+    const newErrors = {};
+    if (!shippingInfo.firstName?.trim()) newErrors.firstName = 'First name is required';
+    if (!shippingInfo.lastName?.trim()) newErrors.lastName = 'Last name is required';
+    if (!shippingInfo.email?.trim()) newErrors.email = 'Email is required';
+    if (!shippingInfo.phone?.trim() || shippingInfo.phone.trim() === '+254') newErrors.phone = 'Valid phone is required';
+    if (!shippingInfo.address?.trim()) newErrors.address = 'Physical address is required';
+    if (!shippingInfo.county) newErrors.county = 'Please select a county';
+    if (!shippingInfo.city) newErrors.city = 'Please select a city/town';
+
+    if (paymentMethod === 'cod' && !codConfirmed) {
+      newErrors.cod = 'Please confirm pay on delivery';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      showNotification('Please fill in all required delivery details', 'error');
+      // Scroll to top of form or first error
+      window.scrollTo({ top: 200, behavior: 'smooth' });
       return;
     }
+
+    setErrors({});
+
+    // 2. COD Limit check
+    if (paymentMethod === 'cod' && total > 10000) {
+      showNotification('COD limited to KSh 10,000 for security reasons', 'error');
+      return;
+    }
+
+    // 3. Initiate Payment or Process
     if (paymentMethod === 'mpesa' || paymentMethod === 'card') {
       setShowPaymentModal(true);
     } else {
@@ -252,9 +279,11 @@ function Checkout() {
     <div className="checkout-page">
       <div className="checkout-container">
         <div className="checkout-forms-column">
-          <div className="checkout-header">
-            <h1>Fine Selection Checkout</h1>
-          </div>
+          <header className="checkout-header">
+            <div className="pre-title">Secure Checkout</div>
+            <h1>Fine <span>Selection</span> Checkout</h1>
+            <p>Complete your journey from estate to cup.</p>
+          </header>
 
           <PaymentProcessingModal
             isOpen={showPaymentModal}
@@ -267,39 +296,146 @@ function Checkout() {
           />
 
           <section className="checkout-form-section">
-            <div className="section-head"><FaTruck /> <h2>Delivery</h2></div>
+            <div className="section-head">
+              <FaTruck />
+              <h2>Delivery Details</h2>
+            </div>
             <div className="form-grid">
-              <input type="text" placeholder="First Name" value={shippingInfo.firstName} onChange={(e) => handleInputChange('firstName', e.target.value)} className="premium-input" />
-              <input type="text" placeholder="Last Name" value={shippingInfo.lastName} onChange={(e) => handleInputChange('lastName', e.target.value)} className="premium-input" />
-              <input type="email" placeholder="Email" value={shippingInfo.email} onChange={(e) => handleInputChange('email', e.target.value)} className="premium-input full-width" />
-              <input type="text" placeholder="Address" value={shippingInfo.address} onChange={(e) => handleInputChange('address', e.target.value)} className="premium-input full-width" />
-              <select value={shippingInfo.county} onChange={(e) => handleInputChange('county', e.target.value)} className="premium-input">
-                <option value="">County</option>
-                {KENYAN_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={shippingInfo.city} onChange={(e) => handleInputChange('city', e.target.value)} className="premium-input" disabled={!shippingInfo.county}>
-                <option value="">City</option>
-                {shippingInfo.county && KENYA_LOCATIONS[shippingInfo.county]?.map(city => <option key={city} value={city}>{city}</option>)}
-              </select>
-              <input type="tel" placeholder="Phone" value={shippingInfo.phone} onChange={(e) => handleInputChange('phone', e.target.value)} className="premium-input full-width" />
+              <div className={`input-group ${errors.firstName ? 'has-error' : ''}`}>
+                <input
+                  type="text"
+                  placeholder="First Name *"
+                  value={shippingInfo.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  className="premium-input"
+                />
+                {errors.firstName && <span className="error-text">{errors.firstName}</span>}
+              </div>
+
+              <div className={`input-group ${errors.lastName ? 'has-error' : ''}`}>
+                <input
+                  type="text"
+                  placeholder="Last Name *"
+                  value={shippingInfo.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  className="premium-input"
+                />
+                {errors.lastName && <span className="error-text">{errors.lastName}</span>}
+              </div>
+
+              <div className={`input-group full-width ${errors.email ? 'has-error' : ''}`}>
+                <input
+                  type="email"
+                  placeholder="Email Address *"
+                  value={shippingInfo.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className="premium-input"
+                />
+                {errors.email && <span className="error-text">{errors.email}</span>}
+              </div>
+
+              <div className={`input-group full-width ${errors.address ? 'has-error' : ''}`}>
+                <input
+                  type="text"
+                  placeholder="Delivery Address (Street, House No) *"
+                  value={shippingInfo.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  className="premium-input"
+                />
+                {errors.address && <span className="error-text">{errors.address}</span>}
+              </div>
+
+              <div className={`input-group ${errors.county ? 'has-error' : ''}`}>
+                <select
+                  value={shippingInfo.county}
+                  onChange={(e) => handleInputChange('county', e.target.value)}
+                  className="premium-input"
+                >
+                  <option value="">Select County *</option>
+                  {KENYAN_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                {errors.county && <span className="error-text">{errors.county}</span>}
+              </div>
+
+              <div className={`input-group ${errors.city ? 'has-error' : ''}`}>
+                <select
+                  value={shippingInfo.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  className="premium-input"
+                  disabled={!shippingInfo.county}
+                >
+                  <option value="">Select City/Area *</option>
+                  {shippingInfo.county && KENYA_LOCATIONS[shippingInfo.county]?.map(city => <option key={city} value={city}>{city}</option>)}
+                </select>
+                {errors.city && <span className="error-text">{errors.city}</span>}
+              </div>
+
+              <div className={`input-group full-width ${errors.phone ? 'has-error' : ''}`}>
+                <input
+                  type="tel"
+                  placeholder="Phone Number (e.g., +254 712 345 678) *"
+                  value={shippingInfo.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className="premium-input"
+                />
+                {errors.phone && <span className="error-text">{errors.phone}</span>}
+              </div>
             </div>
           </section>
 
           <section className="checkout-form-section">
-            <div className="section-head"><FaShieldAlt /> <h2>Payment</h2></div>
+            <div className="section-head">
+              <FaShieldAlt />
+              <h2>Payment Method</h2>
+            </div>
             <div className="payment-grid">
-              <div className={`payment-card ${paymentMethod === 'mpesa' ? 'active' : ''}`} onClick={() => setPaymentMethod('mpesa')}><FaPhone /> <h4>M-Pesa</h4></div>
-              <div className={`payment-card ${paymentMethod === 'card' ? 'active' : ''}`} onClick={() => setPaymentMethod('card')}><FaCreditCard /> <h4>Card</h4></div>
-              <div className={`payment-card ${paymentMethod === 'cod' ? 'active' : ''}`} onClick={() => setPaymentMethod('cod')}><FaMoneyBillWave /> <h4>COD</h4></div>
+              <div
+                className={`payment-card ${paymentMethod === 'mpesa' ? 'active' : ''}`}
+                onClick={() => setPaymentMethod('mpesa')}
+              >
+                <FaPhone />
+                <h4>M-Pesa</h4>
+              </div>
+              <div
+                className={`payment-card ${paymentMethod === 'card' ? 'active' : ''}`}
+                onClick={() => setPaymentMethod('card')}
+              >
+                <FaCreditCard />
+                <h4>Card</h4>
+              </div>
+              <div
+                className={`payment-card ${paymentMethod === 'cod' ? 'active' : ''}`}
+                onClick={() => setPaymentMethod('cod')}
+              >
+                <FaMoneyBillWave />
+                <h4>COD</h4>
+              </div>
             </div>
             {paymentMethod === 'mpesa' && (
               <div className="payment-detail-box">
-                <input type="tel" value={mpesaPhone} onChange={(e) => setMpesaPhone(e.target.value)} className="premium-input" placeholder="M-Pesa Number" />
+                <p className="text-sm mb-4">Please provide your M-Pesa registered number for the STK push.</p>
+                <input
+                  type="tel"
+                  value={mpesaPhone}
+                  onChange={(e) => setMpesaPhone(e.target.value)}
+                  className="premium-input"
+                  placeholder="M-Pesa Number"
+                />
               </div>
             )}
             {paymentMethod === 'cod' && (
-              <div className="payment-detail-box">
-                <label><input type="checkbox" checked={codConfirmed} onChange={(e) => setCodConfirmed(e.target.checked)} /> Confirm COD</label>
+              <div className={`payment-detail-box ${errors.cod ? 'has-error' : ''}`}>
+                <label className="sub-checkbox active">
+                  <input
+                    type="checkbox"
+                    checked={codConfirmed}
+                    onChange={(e) => setCodConfirmed(e.target.checked)}
+                  />
+                  <div className="checkbox-content">
+                    <strong>I confirm to pay upon delivery</strong>
+                  </div>
+                </label>
+                {errors.cod && <span className="error-text" style={{ marginTop: '0.5rem', display: 'block' }}>{errors.cod}</span>}
               </div>
             )}
           </section>
@@ -307,15 +443,15 @@ function Checkout() {
 
         <aside className="checkout-summary-sidebar">
           <div className="summary-glass-card">
-            <h3>Your Selection <span>{cart.length} items</span></h3>
+            <h3>Our Selection <span>{cart.length} items</span></h3>
             <div className="summary-items-list">
               {cart.map((item, i) => (
                 <div className="checkout-item" key={i}>
-                  <img src={item.images?.[0]?.url || '/default-product.jpg'} alt={item.name} />
+                  <img src={item.images?.[0]?.url || item.image || '/default-product.jpg'} alt={item.name} />
                   <div className="item-info">
                     <h5>{item.name}</h5>
-                    <p>{item.size} • Qty {item.quantity}</p>
-                    <div className="item-total">KSh {(item.price * item.quantity).toLocaleString()}</div>
+                    <p>{item.size} Edition • Qty {item.quantity}</p>
+                    <div className="item-total">KES {(item.price * item.quantity).toLocaleString()}</div>
                   </div>
                 </div>
               ))}
@@ -323,14 +459,23 @@ function Checkout() {
 
             <div className="subscription-opt-in">
               <label className={`sub-checkbox ${isSubscription ? 'active' : ''}`}>
-                <input type="checkbox" checked={isSubscription} onChange={(e) => setIsSubscription(e.target.checked)} />
-                <div className="checkbox-content text-sm">
+                <input
+                  type="checkbox"
+                  checked={isSubscription}
+                  onChange={(e) => setIsSubscription(e.target.checked)}
+                />
+                <div className="checkbox-content">
                   <FaSync className={isSubscription ? 'spin-slow' : ''} />
                   <strong>Subscribe & Save 5%</strong>
                 </div>
               </label>
               {isSubscription && (
-                <select value={subscriptionFrequency} onChange={(e) => setSubscriptionFrequency(e.target.value)} className="premium-select-mini">
+                <select
+                  value={subscriptionFrequency}
+                  onChange={(e) => setSubscriptionFrequency(e.target.value)}
+                  className="premium-input"
+                  style={{ marginTop: '1rem', padding: '0.75rem' }}
+                >
                   <option value="weekly">Weekly</option>
                   <option value="bi-weekly">Bi-Weekly</option>
                   <option value="monthly">Monthly</option>
@@ -340,19 +485,56 @@ function Checkout() {
 
             <div className="coupon-section">
               <div className="coupon-input-wrapper">
-                <input type="text" placeholder="Promo Code" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} disabled={!!couponData} />
-                <button onClick={couponData ? () => { setCouponData(null); setCouponCode(''); } : handleValidateCoupon}>{couponData ? 'Remove' : 'Apply'}</button>
+                <input
+                  type="text"
+                  placeholder="Promo Code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  disabled={!!couponData}
+                />
+                <button
+                  onClick={couponData ? () => { setCouponData(null); setCouponCode(''); } : handleValidateCoupon}
+                >
+                  {couponData ? 'Remove' : 'Apply'}
+                </button>
               </div>
+              {couponData && (
+                <div className="coupon-badge">
+                  <FaPercent /> Code Applied Successfully
+                </div>
+              )}
             </div>
 
             <div className="sidebar-totals">
-              <div className="sub-total-row"><span>Subtotal</span><span>KSh {subtotal.toLocaleString()}</span></div>
-              {discount > 0 && <div className="sub-total-row discount"><span>Discount</span><span>- KSh {discount.toLocaleString()}</span></div>}
-              <div className="sub-total-row"><span>Shipping</span><span>KSh {shippingCost.toLocaleString()}</span></div>
-              <div className="grand-total-row"><span>Total</span><div className="total-amount">KSh {total.toLocaleString()}</div></div>
+              <div className="sub-total-row"><span>Subtotal</span><span>KES {subtotal.toLocaleString()}</span></div>
+              {discount > 0 && <div className="sub-total-row discount"><span>Discount</span><span>- KES {discount.toLocaleString()}</span></div>}
+              <div className="sub-total-row"><span>Estate Delivery</span><span>KES {shippingCost.toLocaleString()}</span></div>
+              <div className="grand-total-row">
+                <span>Total</span>
+                <div className="total-amount">KES {total.toLocaleString()}</div>
+              </div>
             </div>
 
-            <button className="place-order-trigger" onClick={handlePlaceOrder} disabled={loading}>{loading ? 'Processing...' : 'Place Order'}</button>
+            <button
+              className="place-order-trigger"
+              onClick={handlePlaceOrder}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <FaSync className="spin-slow" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Complete Purchase
+                  <FaArrowRight />
+                </>
+              )}
+            </button>
+            <div className="safe-payment" style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.8rem', opacity: 0.6 }}>
+              <FaLock /> Your data is secured with bank-grade encryption.
+            </div>
           </div>
         </aside>
       </div>

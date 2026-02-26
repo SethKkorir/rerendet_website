@@ -1,4 +1,4 @@
-// routes/adminRoutes.js - UPDATED WITH PROPER SETTINGS & ANALYTICS
+// routes/adminRoutes.js - COMPLETE WITH ALL MISSING ENDPOINTS
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, admin } from '../middleware/authMiddleware.js';
@@ -16,15 +16,18 @@ import {
   getUsers,
   getContacts,
   updateContactStatus,
+  replyContact,
   deleteContact,
   getSettings,
   updateSettings,
   getSalesAnalytics,
   getActivityLogs,
   updateUserRole,
+  toggleUserStatus,
   deleteUser,
   testEmailConfig,
-  checkNewOrders
+  checkNewOrders,
+  getAdminOverview
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -32,8 +35,15 @@ const router = express.Router();
 // All routes require authentication and admin privileges
 router.use(protect, admin);
 
+// ==================== ADMIN OVERVIEW ====================
+router.get('/overview', getAdminOverview);
+
 // ==================== ADMIN DASHBOARD STATS ====================
 router.get('/dashboard/stats', adminAuth(['dashboard:view']), getDashboardStats);
+router.get('/dashboard', (req, res) => res.json({
+  success: true,
+  data: { welcome: 'Welcome to Rerendet Coffee Admin', version: '2.0.0' }
+}));
 
 // ==================== ORDER MANAGEMENT ====================
 router.get('/orders/status', adminAuth(['orders:manage']), checkNewOrders);
@@ -50,11 +60,13 @@ router.delete('/products/:id', adminAuth(['products:manage']), deleteProduct);
 // ==================== USER MANAGEMENT ====================
 router.get('/users', adminAuth(['users:view']), getUsers);
 router.put('/users/:id/role', adminAuth(['users:manage']), updateUserRole);
+router.put('/users/:id/status', adminAuth(['users:manage']), toggleUserStatus);
 router.delete('/users/:id', adminAuth(['users:manage']), deleteUser);
 
 // ==================== CONTACT MANAGEMENT ====================
 router.get('/contacts', adminAuth(['contacts:manage']), getContacts);
 router.put('/contacts/:id/status', adminAuth(['contacts:manage']), updateContactStatus);
+router.post('/contacts/:id/reply', adminAuth(['contacts:manage']), replyContact);
 router.delete('/contacts/:id', adminAuth(['contacts:manage']), deleteContact);
 
 // ==================== SETTINGS MANAGEMENT ====================
@@ -62,34 +74,12 @@ router.get('/settings', adminAuth(['settings:manage']), getSettings);
 router.put('/settings', adminAuth(['settings:manage']), updateSettings);
 router.post('/settings/test-email', adminAuth(['settings:manage']), testEmailConfig);
 router.post('/upload/logo', adminAuth(['settings:manage']), upload.single('logo'), asyncHandler(async (req, res) => {
-  if (!req.file) {
-    res.status(400);
-    throw new Error('No logo file uploaded');
-  }
-
-  const logoUrl = req.file.path;
-
-  res.json({
-    success: true,
-    message: 'Logo uploaded successfully',
-    data: { url: logoUrl }
-  });
+  if (!req.file) { res.status(400); throw new Error('No logo file uploaded'); }
+  res.json({ success: true, message: 'Logo uploaded successfully', data: { url: req.file.path } });
 }));
 
 // ==================== ANALYTICS ====================
 router.get('/analytics/sales', adminAuth(['analytics:view']), getSalesAnalytics);
-router.get('/logs', adminAuth(['logs:view']), getActivityLogs); // Restricted to higher level admins
-
-// ==================== ADMIN DASHBOARD ====================
-router.get('/dashboard', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Admin dashboard',
-    data: {
-      welcome: 'Welcome to Rerendet Coffee Admin Dashboard',
-      version: '1.0.0'
-    }
-  });
-});
+router.get('/logs', adminAuth(['logs:view']), getActivityLogs);
 
 export default router;

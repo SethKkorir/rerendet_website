@@ -1,4 +1,4 @@
-// utils/invoiceGenerator.js
+// utils/invoiceGenerator.js — Premium PDF Invoice
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,271 +6,251 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ── Colour palette ──────────────────────────────────────────────
+const C = {
+    coffeeDark: '#2C1810',
+    coffeeMid: '#6F4E37',
+    coffeeLight: '#A07828',
+    gold: '#D4AF37',
+    goldLight: '#F5E6B3',
+    bg: '#FDFAF6',
+    bgDark: '#F0EAE0',
+    white: '#FFFFFF',
+    textDark: '#1A0F08',
+    textMid: '#433029',
+    textLight: '#8C7B6E',
+    border: '#E8DDD4',
+    green: '#059669',
+};
+
+// ── Helper: draw horizontal rule ────────────────────────────────
+const hr = (doc, y, { color = C.border, thick = 0.5 } = {}) => {
+    doc.moveTo(50, y).lineTo(545, y).strokeColor(color).lineWidth(thick).stroke();
+};
+
+// ── Helper: right-aligned text in a column ───────────────────────
+const textRight = (doc, text, y, rightEdge = 545) => {
+    doc.text(text, rightEdge - 140, y, { width: 140, align: 'right' });
+};
+
 /**
- * Generate a professional PDF invoice for an order
- * @param {Object} order - The order object
- * @param {Object} [res] - Optional response object to stream PDF to. If null, returns a Promise<Buffer>
- * @returns {Promise<Buffer>|void}
+ * generateInvoice(order, res?)
+ * - streams PDF to res if provided
+ * - resolves Buffer otherwise (for email attachments)
  */
 export const generateInvoice = (order, res = null) => {
     return new Promise((resolve, reject) => {
         try {
-            // Create a new PDF document
-            const doc = new PDFDocument({
-                size: 'A4',
-                margin: 50,
-                bufferPages: true
-            });
-
+            const doc = new PDFDocument({ size: 'A4', margin: 0, bufferPages: true });
             const buffers = [];
 
-            // Output Handling
             if (res) {
-                // Stream to response (Download)
                 res.setHeader('Content-Type', 'application/pdf');
-                res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber}.pdf`);
+                res.setHeader('Content-Disposition', `attachment; filename="Rerendet-Invoice-${order.orderNumber}.pdf"`);
                 doc.pipe(res);
             } else {
-                // Buffer for Email Attachment
-                doc.on('data', buffers.push.bind(buffers));
-                doc.on('end', () => {
-                    const pdfData = Buffer.concat(buffers);
-                    resolve(pdfData);
-                });
+                doc.on('data', chunk => buffers.push(chunk));
+                doc.on('end', () => resolve(Buffer.concat(buffers)));
             }
 
+            const W = 595.28; // A4 width pts
+            const H = 841.89; // A4 height pts
+            const M = 50;     // margin
 
+            // ════════════════════════════════════════════════════════════
+            // 1. HEADER BAND — dark coffee background
+            // ════════════════════════════════════════════════════════════
+            doc.rect(0, 0, W, 130).fill(C.coffeeDark);
 
-            // --- Colors & Fonts ---
-            const primaryColor = '#6F4E37'; // Rerendet Coffee Brown
-            const secondaryColor = '#8D6E63';
-            const lightBg = '#F8F9FA';
-            const darkText = '#2D3436';
-            const lightText = '#636E72';
+            // Gold accent stripe under header
+            doc.rect(0, 130, W, 4).fill(C.gold);
 
-            // --- Header Section ---
-            // Logo
+            // Logo (left)
             const logoPath = path.join(__dirname, '../client/public/rerendet-logo.png');
             try {
-                doc.image(logoPath, 50, 45, { width: 80 });
-            } catch (e) {
-                console.error("Logo not found, skipping", e);
-                // Fallback text if logo missing
-                doc
-                    .fontSize(20)
-                    .font('Helvetica-Bold')
-                    .fillColor(primaryColor)
-                    .text('R', 50, 45);
+                doc.image(logoPath, M, 22, { height: 75 });
+            } catch {
+                doc.fontSize(22).font('Helvetica-Bold').fillColor(C.gold).text('RC', M, 42);
             }
 
-            // Company Info (Right Aligned Header)
+            // Company name & tagline (right side of header)
             doc
-                .fontSize(20)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('Rerendet Coffee', 0, 50, { align: 'right', indent: 50 }); // align right doesn't use x, but bounds.
-
-            // Reset position for company details
+                .font('Helvetica-Bold').fontSize(20).fillColor(C.gold)
+                .text('RERENDET COFFEE', M, 28, { align: 'right', width: W - M * 2 });
             doc
-                .fontSize(9)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text('Premium Ethiopian Coffee', 400, 80, { align: 'right' })
-                .text('Nairobi, Kenya', 400, 95, { align: 'right' })
-                .text('info@rerendetcoffee.com', 400, 110, { align: 'right' })
-                .text('+254 700 123 456', 400, 125, { align: 'right' });
+                .font('Helvetica').fontSize(9).fillColor('rgba(255,255,255,0.6)')
+                .text('Premium Fresh Coffee · Nairobi, Kenya', M, 54, { align: 'right', width: W - M * 2 })
+                .text('orders@rerendetcoffee.com  ·  +254 700 123 456', M, 68, { align: 'right', width: W - M * 2 });
 
-
-            // --- Invoice Badge & Status ---
-            // Draw a colored background for the invoice info
-            const invoiceInfoTop = 160;
-
+            // "INVOICE" watermark text in header
             doc
-                .save()
-                .roundedRect(50, invoiceInfoTop, 500, 70, 5)
-                .fill(lightBg)
-                .restore();
+                .font('Helvetica-Bold').fontSize(11).fillColor('rgba(255,255,255,0.25)')
+                .text('DIGITAL INVOICE', M, 103, { align: 'right', width: W - M * 2, characterSpacing: 4 });
 
-            // Left side of box: Invoice #
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('INVOICE NUMBER', 70, invoiceInfoTop + 15)
-                .fontSize(14)
-                .font('Helvetica-Bold')
-                .fillColor(darkText)
-                .text(`#${order.orderNumber}`, 70, invoiceInfoTop + 35);
+            // ════════════════════════════════════════════════════════════
+            // 2. INVOICE META BAND — light parchment
+            // ════════════════════════════════════════════════════════════
+            doc.rect(0, 134, W, 78).fill(C.bgDark);
 
-            // Middle of box: Date
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('DATE MARKED', 250, invoiceInfoTop + 15)
-                .fontSize(12)
-                .font('Helvetica')
-                .fillColor(darkText)
-                .text(new Date(order.createdAt).toLocaleDateString('en-GB', {
+            const metaY = 150;
+            // Invoice # column
+            doc.font('Helvetica-Bold').fontSize(7).fillColor(C.textLight)
+                .text('INVOICE NUMBER', M, metaY, { characterSpacing: 1.2 });
+            doc.font('Helvetica-Bold').fontSize(13).fillColor(C.coffeeDark)
+                .text(`#${order.orderNumber}`, M, metaY + 13);
+
+            // Date column
+            doc.font('Helvetica-Bold').fontSize(7).fillColor(C.textLight)
+                .text('DATE ISSUED', 220, metaY, { characterSpacing: 1.2 });
+            doc.font('Helvetica').fontSize(11).fillColor(C.coffeeDark)
+                .text(new Date(order.createdAt).toLocaleDateString('en-KE', {
                     year: 'numeric', month: 'long', day: 'numeric'
-                }), 250, invoiceInfoTop + 35);
+                }), 220, metaY + 13);
 
-            // Right side of box: Total Amount
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('TOTAL AMOUNT', 430, invoiceInfoTop + 15)
-                .fontSize(14)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text(`KSh ${order.total.toLocaleString()}`, 430, invoiceInfoTop + 35);
+            // Payment method column
+            doc.font('Helvetica-Bold').fontSize(7).fillColor(C.textLight)
+                .text('PAYMENT METHOD', 370, metaY, { characterSpacing: 1.2 });
+            const pmLabel = { mpesa: 'M-Pesa', card: 'Card', cod: 'Cash on Delivery' };
+            doc.font('Helvetica').fontSize(11).fillColor(C.coffeeDark)
+                .text(pmLabel[order.paymentMethod?.toLowerCase()] || order.paymentMethod?.toUpperCase() || '—', 370, metaY + 13);
 
+            // Status badge (paid / pending)
+            const statusPaid = order.paymentStatus === 'paid';
+            const badgeColor = statusPaid ? C.green : '#B45309';
+            const badgeLabel = statusPaid ? '✓ PAID' : '⏳ PENDING';
+            doc.roundedRect(M, metaY + 37, 60, 16, 4).fill(statusPaid ? '#ECFDF5' : '#FEF3C7');
+            doc.font('Helvetica-Bold').fontSize(7).fillColor(badgeColor)
+                .text(badgeLabel, M + 4, metaY + 42, { characterSpacing: 0.8 });
 
-            // --- Bill To / Ship To Section ---
-            const addressTop = 260;
+            // ════════════════════════════════════════════════════════════
+            // 3. ADDRESSES
+            // ════════════════════════════════════════════════════════════
+            const addrY = 230;
 
-            // Bill To
-            doc
-                .fontSize(11)
-                .font('Helvetica-Bold')
-                .fillColor(darkText)
-                .text('Billed To:', 50, addressTop);
+            // Left: Bill To
+            doc.font('Helvetica-Bold').fontSize(8).fillColor(C.gold)
+                .text('BILLED TO', M, addrY, { characterSpacing: 1.5 });
+            hr(doc, addrY + 12, { color: C.gold, thick: 1 });
 
-            doc
-                .fontSize(10)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text(`${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`, 50, addressTop + 20)
-                .text(order.shippingAddress.email, 50, addressTop + 35)
-                .text(order.shippingAddress.phone, 50, addressTop + 50);
+            const addr = order.shippingAddress || {};
+            doc.font('Helvetica-Bold').fontSize(11).fillColor(C.textDark)
+                .text(`${addr.firstName || ''} ${addr.lastName || ''}`.trim(), M, addrY + 20);
+            doc.font('Helvetica').fontSize(9.5).fillColor(C.textMid)
+                .text(addr.email || '', M, addrY + 35)
+                .text(addr.phone || '', M, addrY + 49);
 
-            // Ship To (if different? Assuming same for now but styled separately)
-            doc
-                .fontSize(11)
-                .font('Helvetica-Bold')
-                .fillColor(darkText)
-                .text('Shipped To:', 300, addressTop);
+            // Right: Ship To
+            const addrRX = 310;
+            doc.font('Helvetica-Bold').fontSize(8).fillColor(C.gold)
+                .text('SHIPPED TO', addrRX, addrY, { characterSpacing: 1.5 });
+            doc.moveTo(addrRX, addrY + 12).lineTo(545, addrY + 12)
+                .strokeColor(C.gold).lineWidth(1).stroke();
 
-            doc
-                .fontSize(10)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text(order.shippingAddress.address, 300, addressTop + 20)
-                .text(`${order.shippingAddress.city}, ${order.shippingAddress.county}`, 300, addressTop + 35)
-                .text(order.shippingAddress.country, 300, addressTop + 50);
+            doc.font('Helvetica-Bold').fontSize(11).fillColor(C.textDark)
+                .text(`${addr.firstName || ''} ${addr.lastName || ''}`.trim(), addrRX, addrY + 20);
+            doc.font('Helvetica').fontSize(9.5).fillColor(C.textMid)
+                .text(addr.address || '', addrRX, addrY + 35)
+                .text(`${addr.city || ''}, ${addr.county || ''}`, addrRX, addrY + 49)
+                .text(addr.country || 'Kenya', addrRX, addrY + 63);
 
+            // ════════════════════════════════════════════════════════════
+            // 4. ITEMS TABLE
+            // ════════════════════════════════════════════════════════════
+            const tableTop = addrY + 90;
 
-            // --- Items Table ---
-            const tableTop = 350;
+            // Table header row
+            doc.rect(M, tableTop, W - M * 2, 26).fill(C.coffeeMid);
+            doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.white)
+                .text('ITEM', M + 10, tableTop + 8)
+                .text('SIZE', 290, tableTop + 8)
+                .text('QTY', 355, tableTop + 8)
+                .text('UNIT PRICE', 400, tableTop + 8)
+                .text('TOTAL', 490, tableTop + 8);
 
-            // Table Header
-            doc
-                .rect(50, tableTop, 500, 30)
-                .fill(primaryColor);
+            // Table rows
+            let rowY = tableTop + 30;
+            doc.font('Helvetica').fontSize(9.5);
 
-            doc
-                .fontSize(10)
-                .font('Helvetica-Bold')
-                .fillColor('#FFFFFF')
-                .text('Item Request', 65, tableTop + 10)
-                .text('Size', 280, tableTop + 10)
-                .text('Qty', 350, tableTop + 10)
-                .text('Price Check', 420, tableTop + 10)
-                .text('Total', 490, tableTop + 10);
+            (order.items || []).forEach((item, i) => {
+                const isEven = i % 2 === 0;
+                const rowH = 32;
+                const lineTotal = (item.price || 0) * (item.quantity || 1);
 
-            // Table Rows
-            let y = tableTop + 40;
-            doc.font('Helvetica').fontSize(10);
+                // Alternating row tint
+                if (isEven) {
+                    doc.rect(M, rowY - 4, W - M * 2, rowH).fill('#FAF6F1').stroke(C.border);
+                }
 
-            order.items.forEach((item, i) => {
-                const isLast = i === order.items.length - 1;
-                const itemTotal = item.price * item.quantity;
+                doc.fillColor(C.textDark)
+                    .text(item.name || '—', M + 10, rowY)
+                    .text(item.size || '—', 290, rowY)
+                    .text((item.quantity || 0).toString(), 355, rowY)
+                    .text(`KSh ${(item.price || 0).toLocaleString()}`, 400, rowY)
+                    .font('Helvetica-Bold')
+                    .text(`KSh ${lineTotal.toLocaleString()}`, 490, rowY)
+                    .font('Helvetica');
 
-                // Zebra striping (optional, let's keep it clean white with border)
-                // Bottom border
-                doc
-                    .moveTo(50, y + 20)
-                    .lineTo(550, y + 20)
-                    .strokeColor('#EEEEEE')
-                    .lineWidth(1)
-                    .stroke();
-
-                doc
-                    .fillColor(darkText)
-                    .text(item.name, 65, y - 5)
-                    .text(item.size, 280, y - 5)
-                    .text(item.quantity.toString(), 350, y - 5)
-                    .text(item.price.toLocaleString(), 420, y - 5)
-                    .font('Helvetica-Bold') // Bold total
-                    .text(itemTotal.toLocaleString(), 490, y - 5)
-                    .font('Helvetica'); // Reset font
-
-                y += 35;
+                rowY += rowH;
             });
 
-            // --- Totals Section ---
-            const footerStart = y + 20;
+            // Table bottom border
+            hr(doc, rowY + 4, { color: C.coffeeMid, thick: 1.5 });
 
-            // Summary Box (Right Aligned)
-            const summaryX = 350;
+            // ════════════════════════════════════════════════════════════
+            // 5. TOTALS BLOCK
+            // ════════════════════════════════════════════════════════════
+            let totY = rowY + 20;
+            const totLX = 350; // label column x
+            const totVX = 460; // value column x
 
-            doc
-                .fontSize(10)
-                .font('Helvetica')
-                .fillColor(lightText)
-                .text('Subtotal:', summaryX, footerStart)
-                .text(`KSh ${order.subtotal.toLocaleString()}`, 490, footerStart, { align: 'left' });
+            const totRow = (label, value, { bold = false, large = false, highlight = false } = {}) => {
+                if (highlight) {
+                    doc.rect(M, totY - 5, W - M * 2, 30).fill(C.goldLight);
+                }
+                doc.font(bold ? 'Helvetica-Bold' : 'Helvetica')
+                    .fontSize(large ? 12 : 9.5)
+                    .fillColor(highlight ? C.coffeeDark : (bold ? C.textDark : C.textLight))
+                    .text(label, totLX, totY)
+                    .font('Helvetica-Bold')
+                    .fontSize(large ? 13 : 9.5)
+                    .fillColor(highlight ? C.coffeeMid : (bold ? C.textDark : C.textLight))
+                    .text(value, totVX, totY - (large ? 1 : 0), { width: 90, align: 'right' });
+                totY += large ? 34 : 22;
+            };
 
-            doc
-                .text('Shipping:', summaryX, footerStart + 20)
-                .text(`KSh ${order.shippingCost.toLocaleString()}`, 490, footerStart + 20, { align: 'left' });
-
-            const tax = order.total - order.subtotal - order.shippingCost;
-            if (tax > 0) {
-                doc
-                    .text('VAT (16%):', summaryX, footerStart + 40)
-                    .text(`KSh ${tax.toLocaleString()}`, 490, footerStart + 40, { align: 'left' });
+            totRow('Subtotal', `KSh ${(order.subtotal || 0).toLocaleString()}`);
+            totRow('Shipping & Handling', `KSh ${(order.shippingCost || 0).toLocaleString()}`);
+            if ((order.discountAmount || 0) > 0) {
+                totRow('Discount', `−KSh ${(order.discountAmount || 0).toLocaleString()}`);
             }
+            totRow('Grand Total', `KSh ${(order.total || 0).toLocaleString()}`,
+                { bold: true, large: true, highlight: true });
 
-            // Grand Total Highlight
-            const grandTotalY = footerStart + 65;
-            doc
-                .rect(summaryX - 10, grandTotalY - 10, 210, 40)
-                .fill(lightBg);
+            // ════════════════════════════════════════════════════════════
+            // 6. FOOTER
+            // ════════════════════════════════════════════════════════════
+            // Gold bottom stripe
+            doc.rect(0, H - 56, W, 3).fill(C.gold);
 
-            doc
-                .fontSize(12)
-                .font('Helvetica-Bold')
-                .fillColor(primaryColor)
-                .text('Grand Total:', summaryX, grandTotalY)
-                .fontSize(14)
-                .text(`KSh ${order.total.toLocaleString()}`, 490, grandTotalY - 2, { align: 'left' });
+            // Footer band
+            doc.rect(0, H - 53, W, 53).fill(C.coffeeDark);
 
+            doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.gold)
+                .text('Thank you for choosing Rerendet Coffee', 0, H - 42, { align: 'center', width: W });
+            doc.font('Helvetica').fontSize(7.5).fillColor('rgba(255,255,255,0.5)')
+                .text('This is a computer-generated document. No signature is required.', 0, H - 28, { align: 'center', width: W })
+                .text('For queries contact orders@rerendetcoffee.com', 0, H - 17, { align: 'center', width: W });
 
-            // --- Footer ---
-            const pageHeight = 841.89; // A4 height in points
-
-            doc
-                .fontSize(9)
-                .font('Helvetica')
-                .fillColor('#999')
-                .text('Thank you for choosing Rerendet Coffee.', 50, pageHeight - 70, { align: 'center', width: 500 })
-                .text('Payment Status: ' + order.paymentStatus.toUpperCase(), 50, pageHeight - 55, { align: 'center', width: 500 });
-
-            // Finalize
+            // ════════════════════════════════════════════════════════════
             doc.end();
+            if (!res) doc.on('error', reject);
 
-        } catch (error) {
-            console.error('Invoice generation error:', error);
-            if (res && !res.headersSent) {
-                res.status(500).send('Error generating invoice');
-            }
-            if (!res) {
-                reject(error);
-            }
+        } catch (err) {
+            console.error('❌ Invoice generation error:', err);
+            if (res && !res.headersSent) res.status(500).send('Error generating invoice');
+            else reject(err);
         }
-    }); // End Promise
+    });
 };
 
 export default generateInvoice;

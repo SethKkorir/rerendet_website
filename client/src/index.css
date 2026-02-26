@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Outfit:wght@100..900&display=swap');
+
 :root {
   /* --- Brand Identity (Luxury Gold & Coffee) --- */
   --color-primary: #D4AF37;
@@ -6,40 +8,52 @@
   --color-secondary: #0f172a;
   --color-accent: #6f4e37;
 
-  /* --- Semantic Workspace (Light Mode) --- */
-  --bg-home: #f8fafc;
-  --bg-deep: #f1f5f9;
-  --bg-surface: #ffffff;
+  /* --- Semantic Workspace (Light Mode: Warm Parchment) --- */
+  --bg-home: #F9F7F2;
+  /* Warm Creamy Parchment */
+  --bg-deep: #F1EBE4;
+  /* Sophisticated Oatmeal */
+  --bg-surface: #FBFAF8;
   --bg-card: #ffffff;
   --bg-input: #ffffff;
-  --bg-glass: rgba(255, 255, 255, 0.7);
-  --bg-overlay: rgba(15, 23, 42, 0.1);
+  --bg-glass: rgba(249, 247, 242, 0.9);
+  /* Matching warm glass */
+  --bg-overlay: rgba(111, 78, 55, 0.12);
+  /* Subtle Coffee tint */
 
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-dim: #94a3b8;
-  --text-on-dark: #f8fafc;
+  --text-main: #111111;
+  /* Pitch black for maximum clarity */
+  --text-muted: #555555;
+  /* Darker grey */
+  --text-dim: #718096;
+  /* Darker dim text */
+  --text-on-dark: #FDFCFB;
   --text-gold: #B5952F;
 
-  --border-light: #f1f5f9;
-  --border-main: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --border-glass: rgba(255, 255, 255, 0.3);
+  --border-light: #E9EDF2;
+  --border-main: #D1D9E6;
+  /* Much stronger border for light mode visibility */
+  --border-strong: #A3AFBF;
+  /* Very visible borders */
+  --border-glass: rgba(0, 0, 0, 0.12);
+  /* Visible glass borders in light mode */
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
 
   /* Shared Extensions */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-xl: 32px;
-  --font-main: 'Inter', 'Poppins', sans-serif;
+  --font-heading: 'Playfair Display', serif;
+  --font-body: 'Outfit', sans-serif;
+  --font-main: var(--font-body);
   --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  --glass-blur: blur(12px);
+  --transition-smooth: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-blur: blur(16px);
 }
 
 [data-theme='dark'] {
@@ -94,6 +108,30 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* --- Semantic Layout Control --- */
+.container {
+  width: 100%;
+  max-width: 1600px;
+  /* Enhanced for wide TV screens */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(1rem, 5vw, 4rem);
+  padding-right: clamp(1rem, 5vw, 4rem);
+}
+
+/* Fluid Typography */
+h1 {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+}
+
+h2 {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+}
+
+h3 {
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--bg-home);
@@ -102,6 +140,8 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   transition: background-color 0.4s ease, color 0.4s ease;
+  font-size: clamp(0.9rem, 1vw + 0.5rem, 1.1rem);
+  /* Adaptive base text */
 }
 
 /* Global Form Resets */
@@ -111,11 +151,13 @@ select {
   background-color: var(--bg-input);
   color: var(--text-main);
   border: 1px solid var(--border-main);
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.25rem;
   border-radius: var(--radius-md);
   font-family: inherit;
   font-size: 1rem;
   transition: var(--transition-fast);
+  width: 100%;
+  /* Better for mobile-first */
 }
 
 input:focus,
@@ -126,18 +168,26 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
 }
 
+::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
 button {
   cursor: pointer;
   border: none;
   font-family: inherit;
   transition: var(--transition-fast);
+  touch-action: manipulation;
+  /* Improved mobile interaction */
 }
 
 label {
   color: var(--text-main);
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
   display: inline-block;
+  font-size: 0.9rem;
 }
 
 /* --- Premium Utility Classes --- */
@@ -167,15 +217,52 @@ label {
 .btn-premium {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: white;
-  padding: 0.875rem 1.75rem;
+  padding: 1rem 2.5rem;
   border-radius: 9999px;
   font-weight: 700;
-  box-shadow: 0 10px 15px -3px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 10px 15px -3px rgba(212, 175, 55, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   text-decoration: none;
+  transition: var(--transition-smooth);
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.btn-premium:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(212, 175, 55, 0.3);
+  /* Styles moved to global index.css for reuse in Register and other pages */
+}
+
+.btn-ghost-premium {
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+  padding: 1rem 2.5rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.btn-ghost-premium:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(212, 175, 55, 0.05);
+  transform: translateY(-2px);
 }
 
 .btn-premium:hover {
@@ -234,4 +321,417 @@ label {
 
 .fade-in {
   animation: fadeIn 0.5s ease forwards;
+}
+
+/* ════════════════════════════════════════════════════════
+   ADMIN THEME TOKENS — Explicit Light / Dark overrides
+   These guarantee contrast in every admin component
+   regardless of the base theme palette changes.
+════════════════════════════════════════════════════════ */
+
+/* ── LIGHT MODE ── */
+:root,
+[data-theme='light'] {
+  /* Admin surface hierarchy — clearly separated steps */
+  --admin-bg: #F4F1EC;
+  /* page background — warm parchment       */
+  --admin-surface: #FFFFFF;
+  /* card / panel background                 */
+  --admin-surface-alt: #F8F6F2;
+  /* sidebar tabs, section headers           */
+  --admin-deep: #EDE9E2;
+  /* hover states, inset areas               */
+
+  /* Borders — clearly visible in light mode */
+  --admin-border: #D0C9BE;
+  /* standard borders                        */
+  --admin-border-lt: #E6E1D8;
+  /* subtle dividers                         */
+  --admin-border-strong: #B8AFA2;
+  /* emphasized borders, focused inputs      */
+
+  /* Text — max legibility on parchment */
+  --admin-text: #111111;
+  /* primary text                            */
+  --admin-text-muted: #575350;
+  /* secondary / labels                      */
+  --admin-text-dim: #857F78;
+  /* placeholders, hints                     */
+
+  /* Inputs */
+  --admin-input-bg: #FFFFFF;
+  --admin-input-border: #C8C0B5;
+
+  /* Table */
+  --admin-row-hover: #F0EDE6;
+  --admin-row-selected: #FEF9EC;
+  --admin-thead-bg: #EDEAE4;
+
+  /* Status badge backgrounds in light mode */
+  --admin-badge-default-bg: rgba(111, 78, 55, 0.08);
+  --admin-badge-default-text: #5a3e28;
+}
+
+/* ── DARK MODE ── */
+[data-theme='dark'] {
+  --admin-bg: #020617;
+  --admin-surface: #111827;
+  --admin-surface-alt: #1e293b;
+  --admin-deep: #0b0f1a;
+
+  --admin-border: #374151;
+  --admin-border-lt: #1f2937;
+  --admin-border-strong: #4B5563;
+
+  --admin-text: #F1F5F9;
+  --admin-text-muted: #94A3B8;
+  --admin-text-dim: #64748B;
+
+  --admin-input-bg: #0f172a;
+  --admin-input-border: #374151;
+
+  --admin-row-hover: #1e293b;
+  --admin-row-selected: rgba(212, 175, 55, 0.06);
+  --admin-thead-bg: #0b0f1a;
+
+  --admin-badge-default-bg: rgba(212, 175, 55, 0.08);
+  --admin-badge-default-text: #D4AF37;
+}
+
+/* ────────────────────────────────────────────────────
+   ADMIN-SCOPED EXPLICIT OVERRIDES
+   Applied to admin component class names only —
+   the public storefront theme is never affected.
+──────────────────────────────────────────────────── */
+
+/* Remap core tokens INSIDE .admin-layout only */
+[data-theme='light'] .admin-layout,
+[data-theme='light'] .admin-main,
+[data-theme='light'] .admin-content {
+  --bg-home: #F4F1EC;
+  --bg-surface: #FFFFFF;
+  --bg-deep: #EDE9E2;
+  --bg-card: #FFFFFF;
+  --bg-input: #FFFFFF;
+
+  --border-main: #D0C9BE;
+  --border-light: #E6E1D8;
+  --border-strong: #B8AFA2;
+  --border-glass: rgba(0, 0, 0, 0.10);
+
+  --text-main: #111111;
+  --text-muted: #575350;
+  --text-dim: #857F78;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.10);
+}
+
+[data-theme='dark'] .admin-layout,
+[data-theme='dark'] .admin-main,
+[data-theme='dark'] .admin-content {
+  --bg-home: #020617;
+  --bg-surface: #111827;
+  --bg-deep: #0b0f1a;
+  --bg-card: #111827;
+  --bg-input: #0f172a;
+
+  --border-main: #374151;
+  --border-light: #1f2937;
+  --border-strong: #4b5563;
+  --border-glass: rgba(255, 255, 255, 0.08);
+
+  --text-main: #F1F5F9;
+  --text-muted: #94A3B8;
+  --text-dim: #64748B;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Light: admin content area background ── */
+[data-theme='light'] .admin-content,
+[data-theme='light'] .dashboard,
+[data-theme='light'] .users-management,
+[data-theme='light'] .orders-management,
+[data-theme='light'] .analytics-dashboard,
+[data-theme='light'] .settings,
+[data-theme='light'] .contacts-management,
+[data-theme='light'] .marketing-dashboard,
+[data-theme='light'] .products-management {
+  background: #F4F1EC;
+  color: #111111;
+}
+
+
+/* Cards / panels always white in light */
+[data-theme='light'] .um-stat-card,
+[data-theme='light'] .om-stat-card,
+[data-theme='light'] .an-stat-card,
+[data-theme='light'] .db-kpi-card,
+[data-theme='light'] .db-chart-card,
+[data-theme='light'] .db-panel,
+[data-theme='light'] .db-quick-actions,
+[data-theme='light'] .db-mini-kpis,
+[data-theme='light'] .st-section,
+[data-theme='light'] .setting-section,
+[data-theme='light'] .an-chart-card,
+[data-theme='light'] .cm-list-panel,
+[data-theme='light'] .cm-thread-panel,
+[data-theme='light'] .mk-compose-panel,
+[data-theme='light'] .mk-preview-panel {
+  background: #ffffff;
+  border-color: #D0C9BE;
+}
+
+/* Table rows in light — clearly on white */
+[data-theme='light'] .um-table-row,
+[data-theme='light'] .om-table-row,
+[data-theme='light'] .db-orders-row,
+[data-theme='light'] .mk-sub-row {
+  background: #ffffff;
+  border-bottom-color: #E6E1D8;
+}
+
+[data-theme='light'] .um-table-row:hover,
+[data-theme='light'] .om-table-row:hover,
+[data-theme='light'] .db-orders-row:hover,
+[data-theme='light'] .mk-sub-row:hover {
+  background: #F0EDE6;
+}
+
+/* Table head always slightly off-white */
+[data-theme='light'] .um-table-head,
+[data-theme='light'] .om-table-head,
+[data-theme='light'] .db-orders-thead,
+[data-theme='light'] .mk-sub-thead {
+  background: #EDEAE4;
+  color: #575350;
+}
+
+/* Inputs in light — white with visible border */
+[data-theme='light'] .st-input,
+[data-theme='light'] .st-textarea,
+[data-theme='light'] .st-policy-textarea,
+[data-theme='light'] input.st-input,
+[data-theme='light'] select.st-input,
+[data-theme='light'] .um-search,
+[data-theme='light'] .om-search,
+[data-theme='light'] .cm-search,
+[data-theme='light'] .mk-search {
+  background: #ffffff;
+  border-color: #C8C0B5;
+  color: #111111;
+}
+
+[data-theme='light'] .st-input:focus,
+[data-theme='light'] .st-textarea:focus,
+[data-theme='light'] .st-policy-textarea:focus {
+  border-color: #D4AF37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18);
+}
+
+/* Sidebar tabs in settings */
+[data-theme='light'] .settings-sidebar,
+[data-theme='light'] .db-tabs,
+[data-theme='light'] .db-tf-pills,
+[data-theme='light'] .an-tab-nav,
+[data-theme='light'] .an-timeframe-pills,
+[data-theme='light'] .st-policy-tabs,
+[data-theme='light'] .cm-status-tabs,
+[data-theme='light'] .mk-tabs {
+  background: #ffffff;
+  border-color: #D0C9BE;
+}
+
+[data-theme='light'] .tab-btn:not(.active),
+[data-theme='light'] .db-tab:not(.active),
+[data-theme='light'] .db-tf-pill:not(.active),
+[data-theme='light'] .an-tab:not(.active),
+[data-theme='light'] .an-tf-pill:not(.active),
+[data-theme='light'] .st-policy-tab:not(.active),
+[data-theme='light'] .cm-status-tab:not(.active),
+[data-theme='light'] .mk-tab:not(.active) {
+  color: #575350;
+}
+
+[data-theme='light'] .tab-btn:not(.active):hover,
+[data-theme='light'] .db-tab:not(.active):hover,
+[data-theme='light'] .db-tf-pill:not(.active):hover {
+  background: #EDE9E2;
+  color: #111111;
+}
+
+/* Section headers in settings */
+[data-theme='light'] .st-section-head,
+[data-theme='light'] .db-panel-head,
+[data-theme='light'] .db-chart-head,
+[data-theme='light'] .an-chart-header,
+[data-theme='light'] .modal-header,
+[data-theme='light'] .modal-footer {
+  background: #F0EDE6;
+  border-color: #D0C9BE;
+}
+
+/* Security cards */
+[data-theme='light'] .st-sec-card,
+[data-theme='light'] .security-card {
+  background: #F8F6F2;
+  border-color: #D0C9BE;
+}
+
+/* Notify & maintenance banners */
+[data-theme='light'] .st-notify-banner {
+  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+[data-theme='light'] .st-maintenance-warning {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+/* SERP preview card */
+[data-theme='light'] .st-serp-card {
+  background: #F8F6F2;
+  border-color: #D0C9BE;
+}
+
+/* Payment method cards */
+[data-theme='light'] .st-pay-card {
+  background: #F8F6F2;
+  border-color: #D0C9BE;
+}
+
+[data-theme='light'] .st-pay-card.active {
+  background: rgba(212, 175, 55, 0.06);
+  border-color: #D4AF37;
+}
+
+/* Policy editor */
+[data-theme='light'] .st-policy-toolbar {
+  background: #EDE9E2;
+  border-color: #D0C9BE;
+}
+
+[data-theme='light'] .st-toolbar-btn {
+  background: #ffffff;
+  border-color: #C8C0B5;
+  color: #575350;
+}
+
+[data-theme='light'] .st-policy-preview-body {
+  background: #F8F6F2;
+  border-color: #D0C9BE;
+  color: #111111;
+}
+
+/* Dashboard quick actions */
+[data-theme='light'] .db-qa-btn {
+  background: #F8F6F2;
+  border-color: #D0C9BE;
+  color: #111111;
+}
+
+[data-theme='light'] .db-mini-kpi {
+  border-color: #E6E1D8;
+}
+
+/* Contact inbox panels */
+[data-theme='light'] .cm-contact-card {
+  background: #ffffff;
+  border-color: #E6E1D8;
+}
+
+[data-theme='light'] .cm-contact-card:hover,
+[data-theme='light'] .cm-contact-card.active {
+  background: #F4F1EC;
+}
+
+/* Chart tooltip */
+[data-theme='light'] .db-chart-tooltip {
+  background: #ffffff;
+  border-color: #D0C9BE;
+  color: #111111;
+}
+
+/* ── Dark: ensure black inputs don't become invisible ── */
+[data-theme='dark'] .st-input,
+[data-theme='dark'] .st-textarea,
+[data-theme='dark'] .st-policy-textarea {
+  background: #0f172a;
+  border-color: #374151;
+  color: #F1F5F9;
+}
+
+[data-theme='dark'] .st-input::placeholder,
+[data-theme='dark'] .st-textarea::placeholder {
+  color: #64748B;
+}
+
+[data-theme='dark'] .st-hours-row:hover {
+  background: #1e293b;
+  padding: 0.9rem 1.5rem;
+  margin: 0 -1.5rem;
+}
+
+/* Dark: modal */
+[data-theme='dark'] .modal-content {
+  background: #111827;
+  border-color: #374151;
+}
+
+[data-theme='dark'] .modal-header,
+[data-theme='dark'] .modal-footer {
+  background: #0b0f1a;
+  border-color: #374151;
+}
+
+/* Dark: chart tooltip */
+[data-theme='dark'] .db-chart-tooltip {
+  background: #111827;
+  border-color: #374151;
+}
+
+/* --- Global Verification Grid --- */
+.verification-grid {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.verification-digit {
+  width: 48px !important;
+  height: 60px !important;
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  text-align: center;
+  border: 1px solid var(--border-main);
+  border-radius: 12px;
+  background: var(--bg-deep);
+  color: var(--text-main);
+  transition: var(--transition-fast);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.verification-digit:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background: var(--bg-surface);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 600px) {
+  .verification-digit {
+    width: 40px !important;
+    height: 52px !important;
+    font-size: 1.3rem !important;
+    border-radius: 8px;
+  }
 }

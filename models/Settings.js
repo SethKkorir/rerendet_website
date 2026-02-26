@@ -38,7 +38,7 @@ const settingsSchema = new mongoose.Schema({
   payment: {
     currency: { type: String, default: 'KES' },
     currencySymbol: { type: String, default: 'KSh' },
-    taxRate: { type: Number, default: 0.16 }, // 16% VAT
+    taxRate: { type: Number, default: 0 }, // No VAT
     freeShippingThreshold: { type: Number, default: 5000 },
     shippingPrice: { type: Number, default: 500 },
     paymentMethods: {
@@ -104,8 +104,34 @@ const settingsSchema = new mongoose.Schema({
     social: {
       facebook: { type: String, default: '' },
       instagram: { type: String, default: 'https://www.instagram.com/rerendetcoffee?igsh=amdyZDYzd2w1dndq' },
-      twitter: { type: String, default: '' }
+      twitter: { type: String, default: '' },
+      whatsapp: { type: String, default: '' },
+      tiktok: { type: String, default: '' },
+      youtube: { type: String, default: '' }
     }
+  },
+
+  // Analytics / Tracking
+  analytics: {
+    ga4MeasurementId: { type: String, default: '' },
+    fbPixelId: { type: String, default: '' },
+    hotjarId: { type: String, default: '' },
+    enableTracking: { type: Boolean, default: false }
+  },
+
+  // WhatsApp Support Widget
+  whatsappSupport: {
+    enabled: { type: Boolean, default: true },
+    phoneNumber: { type: String, default: '' },
+    message: { type: String, default: 'Hello! I have a question about Rerendet Coffee.' }
+  },
+
+  // Marketing / Newsletter Branding
+  newsletter: {
+    fromName: { type: String, default: 'Rerendet Coffee' },
+    headerColor: { type: String, default: '#D4AF37' },
+    footerText: { type: String, default: 'You are receiving this email because you subscribed to Rerendet Coffee.' },
+    unsubscribeText: { type: String, default: 'Unsubscribe' }
   },
 
   // Policies

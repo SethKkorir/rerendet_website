@@ -8,7 +8,7 @@ import { forgotPassword, resetPassword, verifyEmail, resendVerification } from '
 import './AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
-    const { login, register, loginWithGoogle, verify2FA, loading: authLoading, showSuccess, showError } = useContext(AppContext);
+    const { login, register, loginWithGoogle, verify2FA, verifyEmail, loading: authLoading, showSuccess, showError } = useContext(AppContext);
 
     // Views: login, signup, forgot-password, reset-password, verify-email
     const [view, setView] = useState(initialView);
@@ -139,22 +139,13 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
             const email = view === 'reset-password' ? forgotEmail : signupData.email || loginData.email;
 
             if (view === 'reset-password') {
-                // Just validating code locally? No, for reset flow we typically submit this form
-                // Check "RESET PASSWORD" flow below. This block is for email verification only.
+                // handleVerification logic for reset password would go here if not handled in handleResetPassword
             }
 
             // Email Verification
-            const response = await verifyEmail({ email, code });
-            showSuccess(response.data.message);
+            await verifyEmail(email, code);
+            onClose(); // Auto-login and close modal on success
 
-            // Auto login if token returned (new implementation of verifyEmail does this)
-            if (response.data.data?.token) {
-                // Ideally we should setAuth here, but we can just ask user to login or use the token.
-                // Let's assume the user needs to login to be safe unless we update context to accept token manual set
-                // Actually, context.verifyEmail doesn't exist, we used API directly. 
-                // Let's just switch to login view for safety.
-                setView('login');
-            }
         } catch (err) {
             setErrors({ general: err.response?.data?.message || 'Verification failed' });
         } finally {
@@ -164,10 +155,30 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
 
     const handleVerificationInput = (index, value) => {
         if (!/^\d*$/.test(value)) return;
+
         const newCode = [...verificationCode];
-        newCode[index] = value;
+        newCode[index] = value.slice(-1); // Only take last digit if pasted/repeated
         setVerificationCode(newCode);
-        if (value && index < 5) document.getElementById(`v-${index + 1}`).focus();
+
+        // Auto move to next input
+        if (value && index < 5) {
+            const nextInput = document.getElementById(`v-${index + 1}`);
+            if (nextInput) nextInput.focus();
+        }
+
+        // AUTO-SUBMIT once 6 digits are reached
+        const fullCode = newCode.join('');
+        if (fullCode.length === 6) {
+            // Determine which flow we are in
+            if (view === 'verify-email') {
+                handleVerification({ preventDefault: () => { } });
+            } else if (view === 'reset-password') {
+                // handleResetPassword also uses the code, but wait for user to click 
+                // because they need to enter a new password too.
+            } else if (view === '2fa-login') {
+                handle2FASubmit({ preventDefault: () => { } });
+            }
+        }
     };
 
     // FORGOT PASSWORD
@@ -261,24 +272,40 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                     exit="exit"
                     onClick={e => e.stopPropagation()}
                 >
-                    <button className="close-auth-btn" onClick={onClose}><FaTimes /></button>
+                    <button className="close-auth-btn" onClick={onClose} aria-label="Close modal"><FaTimes /></button>
+
+                    {(view !== 'login' && view !== '2fa-login' && (view !== 'signup' || signupStep > 1)) && (
+                        <button
+                            className="back-btn"
+                            onClick={() => {
+                                if (view === 'signup' && signupStep > 1) {
+                                    setSignupStep(s => s - 1);
+                                } else {
+                                    setView('login');
+                                    setSignupStep(1);
+                                }
+                            }}
+                            aria-label="Go back"
+                        >
+                            <FaArrowLeft />
+                        </button>
+                    )}
 
                     <div className="auth-content">
-                        {/* Header */}
+                        {/* Header Section */}
                         <div className="auth-header">
                             <div className="auth-logo">
-                                <img src="/rerendet-logo.png" alt="Rerendet Logo" style={{ height: '100px', marginBottom: '1rem' }} />
+                                <img src="/rerendet-logo.png" alt="Rerendet" />
                             </div>
-                            <h2>
+                            <h2 className="premium-title">
                                 {view === 'login' && 'Welcome Back'}
                                 {view === 'signup' && 'Create Account'}
                                 {view === 'forgot-password' && 'Reset Password'}
                                 {view === 'verify-email' && 'Verify Email'}
-                                {view === 'verify-email' && 'Verify Email'}
                                 {view === 'reset-password' && 'New Password'}
                                 {view === '2fa-login' && 'Two-Factor Auth'}
                             </h2>
-                            <p>
+                            <p className="auth-subtitle">
                                 {view === 'login' && 'Login to access your personalized coffee journey'}
                                 {view === 'signup' && 'Join us for the best coffee experience'}
                                 {view === 'forgot-password' && "Don't worry, we'll help you get back in"}
@@ -367,21 +394,24 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     className="auth-form"
                                     onSubmit={signupStep === 4 ? handleSignupSubmit : handleSignupNext}
                                 >
-                                    {signupStep > 1 && (
-                                        <button type="button" className="back-btn" onClick={() => setSignupStep(s => s - 1)}>
-                                            <FaArrowLeft />
-                                        </button>
-                                    )}
+                                    <div className="signup-progress">
+                                        {[1, 2, 3, 4].map(step => (
+                                            <div key={step} className={`progress-dot ${signupStep >= step ? 'active' : ''}`} />
+                                        ))}
+                                    </div>
 
                                     {/* Step 1: Email */}
                                     {signupStep === 1 && (
                                         <div className="form-group">
                                             <label>Email Address</label>
-                                            <input
-                                                name="email" type="email" className="form-input"
-                                                value={signupData.email} onChange={handleInputChange(setSignupData)}
-                                                placeholder="hello@example.com" autoFocus
-                                            />
+                                            <div className="form-input-wrapper">
+                                                <input
+                                                    name="email" type="email" className="form-input"
+                                                    value={signupData.email} onChange={handleInputChange(setSignupData)}
+                                                    placeholder="hello@example.com" autoFocus
+                                                />
+                                                <FaEnvelope className="input-icon-btn" />
+                                            </div>
                                             {errors.email && <span className="error-text">{errors.email}</span>}
                                         </div>
                                     )}
@@ -390,21 +420,28 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     {signupStep === 2 && (
                                         <>
                                             <div className="form-group">
-                                                <label>Create Password</label>
-                                                <input
-                                                    name="password" type="password" className="form-input"
-                                                    value={signupData.password} onChange={handleInputChange(setSignupData)}
-                                                    placeholder="••••••••" autoFocus
-                                                />
+                                                <label>Password</label>
+                                                <div className="form-input-wrapper">
+                                                    <input
+                                                        name="password" type={showPassword ? 'text' : 'password'} className="form-input"
+                                                        value={signupData.password} onChange={handleInputChange(setSignupData)}
+                                                        placeholder="••••••••" autoFocus
+                                                    />
+                                                    <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)}>
+                                                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                                    </button>
+                                                </div>
                                                 {errors.password && <span className="error-text">{errors.password}</span>}
                                             </div>
                                             <div className="form-group">
                                                 <label>Confirm Password</label>
-                                                <input
-                                                    name="confirmPassword" type="password" className="form-input"
-                                                    value={signupData.confirmPassword} onChange={handleInputChange(setSignupData)}
-                                                    placeholder="••••••••"
-                                                />
+                                                <div className="form-input-wrapper">
+                                                    <input
+                                                        name="confirmPassword" type={showPassword ? 'text' : 'password'} className="form-input"
+                                                        value={signupData.confirmPassword} onChange={handleInputChange(setSignupData)}
+                                                        placeholder="••••••••"
+                                                    />
+                                                </div>
                                                 {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
                                             </div>
                                         </>
@@ -415,19 +452,25 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                         <>
                                             <div className="form-group">
                                                 <label>First Name</label>
-                                                <input
-                                                    name="firstName" className="form-input"
-                                                    value={signupData.firstName} onChange={handleInputChange(setSignupData)}
-                                                    placeholder="John" autoFocus
-                                                />
+                                                <div className="form-input-wrapper">
+                                                    <input
+                                                        name="firstName" className="form-input"
+                                                        value={signupData.firstName} onChange={handleInputChange(setSignupData)}
+                                                        placeholder="John" autoFocus
+                                                    />
+                                                    <FaUser className="input-icon-btn" />
+                                                </div>
                                             </div>
                                             <div className="form-group">
                                                 <label>Last Name</label>
-                                                <input
-                                                    name="lastName" className="form-input"
-                                                    value={signupData.lastName} onChange={handleInputChange(setSignupData)}
-                                                    placeholder="Doe"
-                                                />
+                                                <div className="form-input-wrapper">
+                                                    <input
+                                                        name="lastName" className="form-input"
+                                                        value={signupData.lastName} onChange={handleInputChange(setSignupData)}
+                                                        placeholder="Doe"
+                                                    />
+                                                    <FaUser className="input-icon-btn" />
+                                                </div>
                                             </div>
                                         </>
                                     )}
@@ -443,20 +486,21 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                                     <option value="female">Female</option>
                                                 </select>
                                             </div>
-                                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '15px', marginTop: '1rem' }}>
                                                 <input
                                                     type="checkbox" name="agreeTerms"
                                                     checked={signupData.agreeTerms} onChange={handleInputChange(setSignupData)}
+                                                    style={{ width: '20px', height: '20px', accentColor: 'var(--color-primary)' }}
                                                 />
-                                                <label style={{ fontSize: '0.8rem' }}>
-                                                    I agree to <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Terms & Conditions</a>
+                                                <label style={{ fontSize: '0.85rem', textTransform: 'none', letterSpacing: 'normal', fontWeight: '500', padding: 0 }}>
+                                                    I agree to <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: '700' }}>Terms & Conditions</a>
                                                 </label>
                                             </div>
                                             {errors.agreeTerms && <span className="error-text">{errors.agreeTerms}</span>}
                                         </>
                                     )}
 
-                                    <button type="submit" className="primary-btn" disabled={loading}>
+                                    <button type="submit" className="primary-btn" disabled={loading} style={{ marginTop: '1rem' }}>
                                         {loading ? 'Processing...' : (signupStep === 4 ? 'Create Account' : 'Continue')}
                                     </button>
 
@@ -477,8 +521,6 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     className="auth-form"
                                     onSubmit={handleForgotPassword}
                                 >
-                                    <button type="button" className="back-btn" onClick={() => setView('login')}><FaArrowLeft /></button>
-
                                     <div className="form-group">
                                         <label>Enter your email</label>
                                         <input
@@ -504,15 +546,17 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     className="auth-form"
                                     onSubmit={view === 'reset-password' ? handleResetPassword : (view === '2fa-login' ? handle2FASubmit : handleVerification)}
                                 >
-                                    {view === 'verify-email' && (
-                                        <p style={{ textAlign: 'center', fontSize: '0.9rem' }}>Code sent to {signupData.email || loginData.email}</p>
-                                    )}
-                                    {view === '2fa-login' && (
-                                        <p style={{ textAlign: 'center', fontSize: '0.9rem' }}>Code sent to {loginData.email}</p>
-                                    )}
-                                    {view === 'reset-password' && (
-                                        <p style={{ textAlign: 'center', fontSize: '0.9rem' }}>Enter code sent to {forgotEmail}</p>
-                                    )}
+                                    <div className="verification-info" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                                        {view === 'verify-email' && (
+                                            <p className="auth-subtitle">Code sent to <strong>{signupData.email || loginData.email}</strong></p>
+                                        )}
+                                        {view === '2fa-login' && (
+                                            <p className="auth-subtitle">Code sent to <strong>{loginData.email}</strong></p>
+                                        )}
+                                        {view === 'reset-password' && (
+                                            <p className="auth-subtitle">Enter code sent to <strong>{forgotEmail}</strong></p>
+                                        )}
+                                    </div>
 
                                     <div className="verification-grid">
                                         {verificationCode.map((digit, i) => (
@@ -522,33 +566,40 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                                 value={digit}
                                                 maxLength={1}
                                                 onChange={e => handleVerificationInput(i, e.target.value)}
+                                                autoFocus={i === 0}
                                             />
                                         ))}
                                     </div>
-                                    {errors.code && <div className="error-text" style={{ textAlign: 'center' }}>{errors.code}</div>}
+                                    {errors.code && <div className="error-text" style={{ textAlign: 'center', marginBottom: '1rem' }}>{errors.code}</div>}
 
                                     {view === 'reset-password' && (
                                         <>
                                             <div className="form-group">
                                                 <label>New Password</label>
-                                                <input
-                                                    type="password" className="form-input"
-                                                    value={resetData.newPassword}
-                                                    onChange={e => setResetData(prev => ({ ...prev, newPassword: e.target.value }))}
-                                                />
+                                                <div className="form-input-wrapper">
+                                                    <input
+                                                        type="password" className="form-input"
+                                                        value={resetData.newPassword}
+                                                        onChange={e => setResetData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                                        placeholder="••••••••"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="form-group">
                                                 <label>Confirm Password</label>
-                                                <input
-                                                    type="password" className="form-input"
-                                                    value={resetData.confirmPassword}
-                                                    onChange={e => setResetData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                                />
+                                                <div className="form-input-wrapper">
+                                                    <input
+                                                        type="password" className="form-input"
+                                                        value={resetData.confirmPassword}
+                                                        onChange={e => setResetData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                                        placeholder="••••••••"
+                                                    />
+                                                </div>
                                             </div>
                                         </>
                                     )}
 
-                                    <button type="submit" className="primary-btn" disabled={loading}>
+                                    <button type="submit" className="primary-btn" disabled={loading} style={{ marginTop: '1rem' }}>
                                         {loading ? 'Verifying...' : (view === 'reset-password' ? 'Reset Password' : 'Verify')}
                                     </button>
 

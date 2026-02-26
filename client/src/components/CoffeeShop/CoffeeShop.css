@@ -1,8 +1,9 @@
 .coffee-shop {
   background-color: var(--bg-home);
-  padding: 6rem 0;
+  padding: 8rem 0;
   min-height: 100vh;
   position: relative;
+  overflow: hidden;
 }
 
 .coffee-shop::before {
@@ -11,87 +12,94 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 400px;
-  background: radial-gradient(circle at top, rgba(212, 175, 55, 0.08), transparent);
+  height: 600px;
+  background: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08), transparent 70%);
   pointer-events: none;
 }
 
 .section-title {
   text-align: center;
-  font-size: 3.5rem;
-  font-weight: 800;
-  margin-bottom: 0.5rem;
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 900;
+  margin-bottom: 1rem;
   color: var(--text-main);
-  letter-spacing: -0.04em;
-  background: linear-gradient(135deg, var(--text-main), var(--color-primary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .section-subtitle {
   text-align: center;
   color: var(--text-muted);
-  font-size: 1.1rem;
-  max-width: 600px;
-  margin: 0 auto 4rem;
+  font-size: 1.15rem;
+  max-width: 650px;
+  margin: 0 auto 5rem;
+  line-height: 1.6;
 }
 
 .coffee-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 2.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 3rem;
   padding: 0 1rem;
+  perspective: 1500px;
+  /* Essential for 3D effects */
+}
+
+.coffee-card-wrapper {
+  padding: 10px;
 }
 
 .coffee-card {
-  background: var(--bg-glass);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: var(--bg-surface);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  border: 1px solid var(--border-glass);
-  transition: var(--transition-smooth);
+  border: 1px solid var(--border-main);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
   position: relative;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  transform-style: preserve-3d;
 }
 
 .coffee-card:hover {
-  transform: translateY(-12px) scale(1.02);
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-premium);
+  border-color: var(--color-primary-light);
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.08);
 }
 
 .coffee-image-container {
-  height: 280px;
+  height: 320px;
   position: relative;
   overflow: hidden;
   background: var(--bg-deep);
+  margin: 1.5rem;
+  border-radius: var(--radius-lg);
+  transform: translateZ(20px);
 }
 
 .coffee-image-container img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  /* Better for product bags */
+  padding: 2rem;
   transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .coffee-card:hover .coffee-image-container img {
-  transform: scale(1.1) rotate(2deg);
+  transform: scale(1.1) translateY(-10px);
 }
 
 .card-overlay-actions {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   transition: opacity 0.3s ease;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(2px);
   z-index: 10;
 }
 
@@ -102,159 +110,145 @@
 .premium-view-btn {
   background: white;
   color: var(--color-secondary);
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
-  box-shadow: var(--shadow-lg);
+  font-size: 1.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  transition: var(--transition-fast);
-  transform: translateY(20px);
-}
-
-.coffee-card:hover .premium-view-btn {
-  transform: translateY(0);
+  transition: var(--transition-smooth);
 }
 
 .premium-view-btn:hover {
   background: var(--color-primary);
   color: white;
-  transform: scale(1.1);
+  transform: scale(1.1) rotate(10deg);
 }
 
 .coffee-badge {
   position: absolute;
-  top: 1.5rem;
-  left: 1.5rem;
+  top: 1rem;
+  right: 1rem;
   background: var(--color-primary);
   color: white;
   padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   z-index: 5;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.fresh-badge-glow {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-accent);
+  padding: 0.4rem 0.8rem;
+  border-radius: 99px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(212, 175, 55, 0.2);
 }
 
 .coffee-info {
-  padding: 2rem;
+  padding: 0 2.5rem 2.5rem;
   flex: 1;
   display: flex;
   flex-direction: column;
+  transform: translateZ(40px);
 }
 
 .coffee-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .coffee-title {
-  font-size: 1.4rem;
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
   font-weight: 800;
   color: var(--text-main);
-  margin: 0;
-  line-height: 1.2;
+  flex: 1;
+}
+
+.price-tag-compact {
+  font-family: var(--font-body);
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  font-size: 1.25rem;
+  white-space: nowrap;
 }
 
 .coffee-origin {
   color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+  letter-spacing: 0.02em;
 }
 
 .flavor-notes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.6rem;
   margin-bottom: 2rem;
 }
 
 .flavor-pill {
-  background: var(--bg-deep);
+  background: transparent;
   color: var(--text-muted);
-  padding: 0.4rem 0.9rem;
-  border-radius: 9999px;
+  padding: 0.35rem 0.85rem;
+  border-radius: 99px;
   font-size: 0.75rem;
   font-weight: 600;
   border: 1px solid var(--border-main);
-  transition: var(--transition-fast);
+  transition: var(--transition-smooth);
 }
 
 .coffee-card:hover .flavor-pill {
-  background: rgba(212, 175, 55, 0.1);
   border-color: var(--color-primary-light);
   color: var(--color-primary-dark);
+  background: rgba(212, 175, 55, 0.03);
 }
 
-.card-footer {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-glass);
-}
-
-.price-tag {
-  display: flex;
-  flex-direction: column;
-}
-
-.price-currency {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.price-amount {
-  font-size: 1.75rem;
-  font-weight: 900;
-  color: var(--color-primary);
-  line-height: 1;
-}
-
-.quick-add-btn {
-  background: var(--color-secondary);
+.btn-premium-add {
+  width: 100%;
+  padding: 1.1rem;
+  background: linear-gradient(135deg, var(--color-secondary), #1e293b);
   color: white;
-  width: 54px;
-  height: 54px;
   border-radius: 16px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
-  cursor: pointer;
+  gap: 1rem;
   transition: var(--transition-smooth);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+  cursor: pointer;
 }
 
-.quick-add-btn:hover {
-  background: var(--color-primary);
-  transform: rotate(90deg) scale(1.1);
-  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+.btn-premium-add:hover {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(212, 175, 55, 0.3);
 }
 
-/* Modal Improvements */
-.premium-modal-overlay {
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(10px);
-}
-
-.premium-modal-content {
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-glass);
-  box-shadow: var(--shadow-premium);
+.btn-premium-add.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--text-dim);
 }
 
 @media (max-width: 768px) {
@@ -264,5 +258,231 @@
 
   .coffee-grid {
     grid-template-columns: 1fr;
+    perspective: none;
+  }
+
+  .coffee-card {
+    transform: none !important;
+  }
+}
+
+/* Premium Quick View Modal */
+.premium-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(12px) saturate(180%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.premium-modal-content {
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 1100px;
+  height: min(800px, 90vh);
+  border-radius: 32px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  box-shadow: 0 50px 100px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.close-modal-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.05);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: var(--transition-smooth);
+  color: var(--text-main);
+  font-size: 1.25rem;
+}
+
+.close-modal-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  transform: rotate(90deg);
+}
+
+.modal-content-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.modal-image {
+  background: var(--bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.modal-image img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.3));
+}
+
+.modal-image-glow {
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
+  z-index: 1;
+  pointer-events: none;
+  animation: pulse 8s infinite alternate ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+
+  100% {
+    transform: scale(1.2);
+    opacity: 0.6;
+  }
+}
+
+.modal-details {
+  padding: 4rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-badge {
+  display: inline-block;
+  padding: 0.5rem 1.25rem;
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--color-primary-dark);
+  border: 1px solid var(--color-primary);
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+  width: fit-content;
+}
+
+.modal-details h2 {
+  font-family: var(--font-heading);
+  font-size: 3rem;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+  line-height: 1.1;
+}
+
+.modal-origin {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  font-weight: 500;
+}
+
+.modal-price {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-desc {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  margin-bottom: 2.5rem;
+}
+
+.price-badge-small {
+  background: var(--color-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.modal-details::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-details::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-details::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+}
+
+.modal-details::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.4);
+}
+
+.modal-flavors strong {
+  display: block;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--text-main);
+  letter-spacing: 1px;
+  margin-bottom: 1rem;
+}
+
+.modal-chart-wrap {
+  background: var(--bg-deep);
+  padding: 2rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-main);
+}
+
+@media (max-width: 968px) {
+  .premium-modal-content {
+    flex-direction: column;
+    height: 95vh;
+    border-radius: 24px;
+    max-width: 600px;
+  }
+
+  .modal-content-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .modal-image {
+    height: 350px;
+  }
+
+  .modal-details {
+    padding: 2.5rem;
+  }
+
+  .modal-details h2 {
+    font-size: 2rem;
   }
 }

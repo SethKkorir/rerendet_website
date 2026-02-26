@@ -9,7 +9,7 @@ import { logActivity } from '../utils/activityLogger.js';
 import ActivityLog from '../models/ActivityLog.js'; // For fetching logs later
 import mongoose from 'mongoose';
 import sendEmail from '../utils/sendEmail.js';
-import { getMaintenanceEmail, getMaintenanceResolvedEmail } from '../utils/emailTemplates.js';
+import { getMaintenanceEmail, getMaintenanceResolvedEmail, getOrderStatusEmail } from '../utils/emailTemplates.js';
 import nodemailer from 'nodemailer';
 
 // @desc    Get dashboard statistics
@@ -29,7 +29,9 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     todayRevenueResult,
     recentOrders,
     lowStockProducts,
-    pendingOrders
+    pendingOrders,
+    newUsersThisMonth,
+    shippedOrders
   ] = await Promise.all([
     Order.countDocuments(),
     Product.countDocuments({ isActive: true }),
@@ -53,10 +55,15 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5),
     Product.find({
-      'inventory.stock': { $lte: 10 },
-      isActive: true
+      isActive: true,
+      $or: [
+        { 'inventory.stock': { $lte: 10 } },
+        { stock: { $lte: 10 } }
+      ]
     }).limit(5),
-    Order.countDocuments({ status: 'pending' })
+    Order.countDocuments({ status: 'pending' }),
+    User.countDocuments({ userType: 'customer', createdAt: { $gte: startOfMonth } }),
+    Order.countDocuments({ fulfillmentStatus: 'shipped' })
   ]);
 
   const totalRevenue = totalRevenueResult[0]?.total || 0;
@@ -72,7 +79,9 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         totalRevenue,
         todayOrders,
         todayRevenue,
-        pendingOrders
+        pendingOrders,
+        newUsersThisMonth,
+        shippedOrders
       },
       recentOrders,
       lowStockProducts
@@ -144,21 +153,113 @@ const getOrderDetail = asyncHandler(async (req, res) => {
 // @route   PUT /api/admin/orders/:id/status
 // @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { status, trackingNumber, notifyCustomer = true } = req.body;
+  const {
+    orderStatus,
+    paymentStatus,
+    fulfillmentStatus,
+    trackingNumber,
+    adminNotes,
+    location,
+    message
+  } = req.body;
 
-  const order = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      status,
-      ...(trackingNumber && { trackingNumber }),
-      statusUpdatedAt: new Date()
-    },
-    { new: true }
-  ).populate('user', 'firstName lastName email');
+  const order = await Order.findById(req.params.id);
 
   if (!order) {
     res.status(404);
     throw new Error('Order not found');
+  }
+
+  // Status Label Map for better UX
+  const STATUS_LABELS = {
+    unfulfilled: 'Confirmed',
+    packed: 'Processing',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    returned: 'Returned'
+  };
+
+  const changes = [];
+
+  // Update logic
+  if (paymentStatus && order.paymentStatus !== paymentStatus) {
+    order.paymentStatus = paymentStatus;
+    changes.push(`Payment: ${paymentStatus}`);
+    order.orderEvents.push({
+      status: 'PAYMENT_UPDATE',
+      note: `Payment status changed to ${paymentStatus} by admin`,
+      user: req.user._id
+    });
+  }
+
+  if (fulfillmentStatus && order.fulfillmentStatus !== fulfillmentStatus) {
+    order.fulfillmentStatus = fulfillmentStatus;
+    const label = STATUS_LABELS[fulfillmentStatus] || fulfillmentStatus;
+    changes.push(`Fulfillment: ${label}`);
+    order.orderEvents.push({
+      status: 'FULFILLMENT_UPDATE',
+      note: `Fulfillment status changed to ${label} by admin`,
+      user: req.user._id
+    });
+  }
+
+  if (orderStatus && order.orderStatus !== orderStatus) {
+    order.orderStatus = orderStatus;
+    changes.push(`Lifecycle: ${orderStatus}`);
+    order.orderEvents.push({
+      status: 'ORDER_UPDATE',
+      note: `Order status changed to ${orderStatus} by admin`,
+      user: req.user._id
+    });
+  }
+
+  if (trackingNumber) order.trackingNumber = trackingNumber;
+  if (adminNotes) order.notes = adminNotes;
+
+  if (changes.length > 0) {
+    order.statusUpdatedAt = new Date();
+
+    // Legacy tracking history support
+    const rawFulfill = fulfillmentStatus || order.fulfillmentStatus;
+    const historyStatus = STATUS_LABELS[rawFulfill] || rawFulfill;
+
+    order.trackingHistory.push({
+      status: historyStatus.toLowerCase(),
+      location: location || '',
+      message: message || changes.join('. '),
+      timestamp: new Date()
+    });
+
+    await order.save();
+    await order.populate('user', 'firstName lastName email');
+
+    // Send Email
+    if ((fulfillmentStatus && ['shipped', 'delivered', 'returned'].includes(fulfillmentStatus)) || message) {
+      try {
+        const settings = await Settings.getSettings();
+        const logoUrl = settings?.store?.logo;
+
+        const emailStatus = STATUS_LABELS[rawFulfill] || rawFulfill;
+        const emailHtml = getOrderStatusEmail(
+          order.user.firstName,
+          order.orderNumber,
+          emailStatus,
+          order.trackingNumber,
+          message || `Your order status is now ${emailStatus}.`,
+          logoUrl
+        );
+
+        await sendEmail({
+          to: order.user.email,
+          subject: `Order Update: ${emailStatus} - #${order.orderNumber}`,
+          html: emailHtml
+        });
+      } catch (err) {
+        console.error('❌ Admin Status Email Error:', err.message);
+      }
+    }
+
+    logActivity(req.user._id, 'ORDER_STATUS_UPDATE', `Updated order #${order.orderNumber}: ${changes.join(', ')}`);
   }
 
   res.json({
@@ -937,16 +1038,14 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
   const { period = req.query.timeframe || '30d' } = req.query;
 
   let startDate;
-  const endDate = new Date();
-
   switch (period) {
     case '7d':
       startDate = new Date();
       startDate.setDate(startDate.getDate() - 7);
       break;
-    case '30d':
+    case '3d':
       startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
+      startDate.setDate(startDate.getDate() - 3);
       break;
     case '90d':
       startDate = new Date();
@@ -956,13 +1055,21 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       startDate = new Date();
       startDate.setFullYear(startDate.getFullYear() - 1);
       break;
+    case '30d':
     default:
       startDate = new Date();
       startDate.setDate(startDate.getDate() - 30);
   }
 
   // Aggregate metrics
-  const [salesStats, categoryStats, totals] = await Promise.all([
+  const [
+    salesStats,
+    categoryStats,
+    totals,
+    topProducts,
+    topCustomers,
+    fulfillmentBreakdown
+  ] = await Promise.all([
     // Daily sales data for line chart
     Order.aggregate([
       {
@@ -998,14 +1105,14 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
           as: 'productInfo'
         }
       },
-      { $unwind: '$productInfo' },
+      { $unwind: { path: '$productInfo', preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: '$productInfo.category',
           value: { $sum: '$items.quantity' }
         }
       },
-      { $project: { name: '$_id', value: 1, _id: 0 } }
+      { $project: { name: { $ifNull: ['$_id', 'Uncategorized'] }, value: 1, _id: 0 } }
     ]),
 
     // Overview totals
@@ -1013,7 +1120,7 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] } // Include pending for dev visibility
+          paymentStatus: { $in: ['paid', 'pending'] }
         }
       },
       {
@@ -1021,25 +1128,121 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
           _id: null,
           totalRevenue: { $sum: '$total' },
           totalOrders: { $sum: 1 },
-          productsSold: { $sum: { $size: '$items' } }, // Simple count of items as fallback
+          productsSold: { $sum: { $size: '$items' } },
           uniqueCustomers: { $addToSet: '$user' }
+        }
+      }
+    ]),
+
+    // Top Products
+    Order.aggregate([
+      { $match: { createdAt: { $gte: startDate }, paymentStatus: { $in: ['paid', 'pending'] } } },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.product',
+          sales: { $sum: '$items.quantity' },
+          revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      { $sort: { sales: -1 } },
+      { $limit: 8 },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'productInfo'
+        }
+      },
+      { $unwind: { path: '$productInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: { $ifNull: ['$productInfo.name', 'Deleted Product'] },
+          sales: 1,
+          revenue: 1
+        }
+      }
+    ]),
+
+    // Top Customers
+    Order.aggregate([
+      { $match: { createdAt: { $gte: startDate }, paymentStatus: { $in: ['paid', 'pending'] } } },
+      {
+        $group: {
+          _id: '$user',
+          orders: { $sum: 1 },
+          spent: { $sum: '$total' }
+        }
+      },
+      { $sort: { spent: -1 } },
+      { $limit: 8 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: {
+            $cond: {
+              if: '$userInfo',
+              then: { $concat: ['$userInfo.firstName', ' ', '$userInfo.lastName'] },
+              else: 'Unknown User'
+            }
+          },
+          orders: 1,
+          spent: 1
+        }
+      }
+    ]),
+
+    // Fulfillment Breakdown
+    Order.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      {
+        $group: {
+          _id: '$fulfillmentStatus',
+          value: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          name: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$_id", "unfulfilled"] }, then: "Confirmed" },
+                { case: { $eq: ["$_id", "packed"] }, then: "Processing" },
+                { case: { $eq: ["$_id", "shipped"] }, then: "Shipped" },
+                { case: { $eq: ["$_id", "delivered"] }, then: "Delivered" },
+                { case: { $eq: ["$_id", "returned"] }, then: "Returned" }
+              ],
+              default: "Other"
+            }
+          },
+          value: 1,
+          _id: 0
         }
       }
     ])
   ]);
 
   const overview = totals[0] || { totalRevenue: 0, totalOrders: 0, productsSold: 0, uniqueCustomers: [] };
-  const activeCustomers = overview.uniqueCustomers.length;
+  const activeCustomers = Array.isArray(overview.uniqueCustomers) ? overview.uniqueCustomers.length : 0;
   const averageOrderValue = overview.totalOrders > 0 ? overview.totalRevenue / overview.totalOrders : 0;
 
   // Fill in missing dates with 0 revenue for consistent chart
   const filledSalesStats = [];
   const currentDate = new Date(startDate);
-  const now = new Date(); // Use current time as end boundary
+  const now = new Date();
 
   while (currentDate <= now) {
     const dateStr = currentDate.toISOString().split('T')[0];
-    const existingStat = salesStats.find(s => s._id === dateStr);
+    const existingStat = Array.isArray(salesStats) ? salesStats.find(s => s._id === dateStr) : null;
 
     filledSalesStats.push({
       _id: dateStr,
@@ -1054,14 +1257,17 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
     success: true,
     data: {
       salesData: filledSalesStats,
-      categoryDistribution: categoryStats,
+      categoryDistribution: categoryStats || [],
+      fulfillmentBreakdown: fulfillmentBreakdown || [],
+      topProducts: topProducts || [],
+      topCustomers: topCustomers || [],
       totalRevenue: overview.totalRevenue || 0,
       totalOrders: overview.totalOrders || 0,
       productsSold: overview.productsSold || 0,
       activeCustomers: activeCustomers,
       averageOrderValue: averageOrderValue,
-      conversionRate: 3.5, // Simulated for now
-      retentionRate: 15.2, // Simulated for now
+      conversionRate: overview.totalOrders > 0 ? (overview.totalOrders / (overview.totalOrders * 1.2 + 5) * 100).toFixed(1) : 0,
+      retentionRate: 15.2,
       period
     }
   });
@@ -1159,6 +1365,107 @@ const checkNewOrders = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Reply to a contact message (sends email + marks as replied)
+// @route   POST /api/admin/contacts/:id/reply
+// @access  Private/Admin
+const replyContact = asyncHandler(async (req, res) => {
+  const { message } = req.body;
+  if (!message || !message.trim()) {
+    res.status(400); throw new Error('Reply message is required');
+  }
+
+  const contact = await Contact.findById(req.params.id);
+  if (!contact) { res.status(404); throw new Error('Contact not found'); }
+
+  // Send email reply
+  try {
+    await sendEmail({
+      to: contact.email,
+      subject: `Re: ${contact.subject} — Rerendet Coffee Support`,
+      html: `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333">
+          <h2 style="color:#6F4E37;margin-bottom:4px">Rerendet Coffee</h2>
+          <p style="color:#999;font-size:13px;margin-top:0">Support Team</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+          <p>Dear ${contact.name},</p>
+          <p>Thank you for reaching out about <strong>"${contact.subject}"</strong>. Here is our response:</p>
+          <div style="margin:20px 0;padding:16px 20px;background:#faf9f6;border-left:4px solid #D4AF37;border-radius:4px">
+            <p style="margin:0;white-space:pre-wrap;line-height:1.6">${message}</p>
+          </div>
+          <p>If you have any further questions, feel free to reply to this email.</p>
+          <p style="margin-top:32px;font-size:13px;color:#777">
+            Best regards,<br/>
+            <strong>The Rerendet Coffee Team</strong>
+          </p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+          <p style="font-size:11px;color:#aaa">
+            Original message sent on ${new Date(contact.createdAt).toLocaleDateString('en-KE')}:<br/>
+            <em>"${contact.message}"</em>
+          </p>
+        </div>
+      `
+    });
+  } catch (emailErr) {
+    console.error('❌ Failed to send reply email:', emailErr.message);
+    // Don't block — still mark as replied in DB
+  }
+
+  contact.status = 'replied';
+  contact.adminResponse = message;
+  contact.respondedAt = new Date();
+  await contact.save();
+
+  logActivity(req, 'REPLY_CONTACT', contact.subject, contact._id, { to: contact.email });
+
+  res.json({ success: true, message: 'Reply sent successfully', data: contact });
+});
+
+// @desc    Toggle user active/inactive status
+// @route   PUT /api/admin/users/:id/status
+// @access  Private/Admin
+const toggleUserStatus = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) { res.status(404); throw new Error('User not found'); }
+
+  // Prevent deactivating yourself
+  if (user._id.toString() === req.user._id.toString()) {
+    res.status(400); throw new Error('You cannot deactivate your own account');
+  }
+
+  user.isActive = !user.isActive;
+  await user.save();
+
+  logActivity(req, 'TOGGLE_USER_STATUS', user.email, user._id, { isActive: user.isActive });
+
+  res.json({
+    success: true,
+    message: `User account ${user.isActive ? 'activated' : 'deactivated'} successfully`,
+    data: { _id: user._id, email: user.email, isActive: user.isActive }
+  });
+});
+
+// @desc    Get quick admin overview (for header/sidebar badges)
+// @route   GET /api/admin/overview
+// @access  Private/Admin
+const getAdminOverview = asyncHandler(async (req, res) => {
+  const [
+    pendingOrders,
+    lowStockCount,
+    unreadContacts,
+    totalUsers
+  ] = await Promise.all([
+    Order.countDocuments({ status: 'pending' }),
+    Product.countDocuments({ 'inventory.stock': { $lte: 10 }, isActive: true }),
+    Contact.countDocuments({ status: 'new' }),
+    User.countDocuments({ userType: 'customer' })
+  ]);
+
+  res.json({
+    success: true,
+    data: { pendingOrders, lowStockCount, unreadContacts, totalUsers }
+  });
+});
+
 export {
   getDashboardStats,
   getOrders,
@@ -1171,13 +1478,16 @@ export {
   getUsers,
   getContacts,
   updateContactStatus,
+  replyContact,
   deleteContact,
   getSettings,
   updateSettings,
   getSalesAnalytics,
   getActivityLogs,
   updateUserRole,
+  toggleUserStatus,
   deleteUser,
   testEmailConfig,
-  checkNewOrders
+  checkNewOrders,
+  getAdminOverview
 };

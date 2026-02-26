@@ -8,31 +8,31 @@ const OrdersTab = ({ orders, loading }) => {
     // Helper to determine active step based on fulfillment and order status
     const getStepStatus = (order, step) => {
         const { fulfillmentStatus, paymentStatus, orderStatus } = order;
+        const currentStatus = order.status; // from virtual
 
-        // Handle cancelled orders
         if (orderStatus === 'cancelled') return 'cancelled';
 
-        // 1. Placed (Always active if not cancelled)
-        if (step === 'placed') return 'completed';
+        // 1. Confirmed (Always completed if order exists)
+        if (step === 'confirmed') return 'completed';
 
         // 2. Processing (Payment Paid OR Packed)
         if (step === 'processing') {
-            if (fulfillmentStatus === 'packed' || fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') return 'completed';
-            if (paymentStatus === 'paid') return 'active'; // Processing starts when paid
+            if (['packed', 'shipped', 'delivered'].includes(fulfillmentStatus)) return 'completed';
+            if (paymentStatus === 'paid' || currentStatus === 'processing') return 'active';
             return 'pending';
         }
 
         // 3. Shipped
         if (step === 'shipped') {
-            if (fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') return 'completed';
-            if (fulfillmentStatus === 'packed') return 'pending'; // Ready to ship
+            if (['shipped', 'delivered'].includes(fulfillmentStatus)) return 'completed';
+            if (fulfillmentStatus === 'packed' || currentStatus === 'processing') return 'active';
             return 'pending';
         }
 
         // 4. Delivered
         if (step === 'delivered') {
             if (fulfillmentStatus === 'delivered') return 'completed';
-            if (fulfillmentStatus === 'shipped') return 'active'; // On the way
+            if (fulfillmentStatus === 'shipped') return 'active';
             return 'pending';
         }
 
@@ -41,11 +41,6 @@ const OrdersTab = ({ orders, loading }) => {
 
     return (
         <div className="modern-dashboard-tab">
-            <div className="tab-header">
-                <h2>My Orders</h2>
-                <p>Track and manage your recent purchases</p>
-            </div>
-
             {loading ? (
                 <div className="loading-spinner-container">
                     <div className="loading-spinner"></div>
@@ -62,8 +57,11 @@ const OrdersTab = ({ orders, loading }) => {
                                 <div className="order-amount">
                                     <span className="amount">KES {order.total?.toLocaleString()}</span>
                                     <div className="status-badges">
-                                        <span className={`status-badge ${order.paymentStatus === 'paid' ? 'paid' : order.paymentStatus === 'failed' ? 'failed' : 'pending'}`}>
-                                            {order.paymentStatus}
+                                        <span className={`status-badge ${order.status}`}>
+                                            {order.status}
+                                        </span>
+                                        <span className={`status-badge payment ${order.paymentStatus === 'paid' ? 'paid' : 'pending'}`}>
+                                            {order.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
                                         </span>
                                     </div>
                                 </div>
@@ -71,10 +69,10 @@ const OrdersTab = ({ orders, loading }) => {
 
                             {/* Granular Tracking Stepper */}
                             <div className="order-tracking-preview">
-                                {/* Step 1: Placed */}
-                                <div className={`track-step ${getStepStatus(order, 'placed')}`}>
+                                {/* Step 1: Confirmed */}
+                                <div className={`track-step ${getStepStatus(order, 'confirmed')}`}>
                                     <div className="step-dot"><FaCheckCircle /></div>
-                                    <span className="step-label">Placed</span>
+                                    <span className="step-label">Confirmed</span>
                                 </div>
                                 <div className={`track-line ${getStepStatus(order, 'processing') === 'completed' || getStepStatus(order, 'processing') === 'active' ? 'active' : ''}`}></div>
 

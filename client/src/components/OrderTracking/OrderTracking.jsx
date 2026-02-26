@@ -2,7 +2,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
-import { FaBox, FaTruck, FaCheckCircle, FaClock, FaMapMarkerAlt, FaCalendarAlt, FaChevronLeft } from 'react-icons/fa';
+import {
+    FaBox, FaTruck, FaCheckCircle, FaClock, FaMapMarkerAlt,
+    FaCalendarAlt, FaChevronLeft, FaPhoneAlt, FaFileAlt,
+    FaHistory, FaSync
+} from 'react-icons/fa';
 import './OrderTracking.css';
 
 const OrderTracking = () => {
@@ -12,14 +16,25 @@ const OrderTracking = () => {
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState(new Date());
 
+    // Initial fetch
     useEffect(() => {
-        fetchOrderDetails();
+        fetchOrderDetails(true);
     }, [id]);
 
-    const fetchOrderDetails = async () => {
+    // REAL-TIME POLLING: Fetch every 10 seconds for "Live" experience
+    useEffect(() => {
+        const pollInterval = setInterval(() => {
+            fetchOrderDetails(false);
+        }, 10000);
+
+        return () => clearInterval(pollInterval);
+    }, [id]);
+
+    const fetchOrderDetails = async (isInitial = false) => {
         try {
-            setLoading(true);
+            if (isInitial) setLoading(true);
             const response = await fetch(`/api/orders/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -31,61 +46,77 @@ const OrderTracking = () => {
 
             const result = await response.json();
             if (result.success) {
+                // Only update state if data changed to prevent unnecessary re-renders
                 setOrder(result.data);
-            } else {
-                throw new Error(result.message);
+                setLastUpdated(new Date());
             }
         } catch (error) {
             console.error('Fetch order error:', error);
-            showNotification('Failed to load tracking details', 'error');
-            navigate('/account');
+            if (isInitial) {
+                showNotification('Failed to load tracking details', 'error');
+                navigate('/account');
+            }
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     };
 
     const getStatusIcon = (status) => {
-        switch (status) {
-            case 'confirmed': return <FaCheckCircle className="icon confirmed" />;
-            case 'processing': return <FaClock className="icon processing" />;
-            case 'shipped': return <FaTruck className="icon shipped" />;
-            case 'delivered': return <FaBox className="icon delivered" />;
-            default: return <FaClock className="icon" />;
-        }
+        const s = status?.toLowerCase();
+        if (s === 'confirmed' || s === 'unfulfilled') return <FaCheckCircle className="icon confirmed" />;
+        if (s === 'processing' || s === 'packed') return <FaClock className="icon processing" />;
+        if (s === 'shipped') return <FaTruck className="icon shipped" />;
+        if (s === 'delivered') return <FaBox className="icon delivered" />;
+        if (s === 'returned') return <FaHistory className="icon returned" />;
+        return <FaClock className="icon" />;
     };
 
     const getStatusLabel = (status) => {
-        return status.charAt(0).toUpperCase() + status.slice(1);
+        const s = status?.toLowerCase();
+        if (s === 'unfulfilled') return 'Confirmed';
+        if (s === 'packed') return 'Processing';
+        return s.charAt(0).toUpperCase() + s.slice(1);
     };
 
     if (loading) {
         return (
             <div className="tracking-loading">
                 <div className="loader"></div>
-                <p>Fetching your order status...</p>
+                <p>Establishing live connection...</p>
             </div>
         );
     }
 
     if (!order) return null;
 
-    const currentStatusIndex = ['confirmed', 'processing', 'shipped', 'delivered'].indexOf(order.status);
+    // Map the new granular fulfillmentStatus to progress bar
+    const fStatus = order.fulfillmentStatus;
+    const currentStatusIndex = fStatus === 'delivered' ? 3 : fStatus === 'shipped' ? 2 : fStatus === 'packed' ? 1 : 0;
+
     const progressSteps = [
-        { id: 'confirmed', label: 'Confirmed', icon: <FaCheckCircle /> },
-        { id: 'processing', label: 'Processing', icon: <FaClock /> },
-        { id: 'shipped', label: 'Shipped', icon: <FaTruck /> },
-        { id: 'delivered', label: 'Delivered', icon: <FaBox /> }
+        { id: 'unfulfilled', label: 'Confirmed', icon: <FaCheckCircle /> },
+        { id: 'packed', label: 'Packed & Ready', icon: <FaClock /> },
+        { id: 'shipped', label: 'On its Way', icon: <FaTruck /> },
+        { id: 'delivered', label: 'Arrived', icon: <FaBox /> }
     ];
 
     return (
-        <div className="order-tracking-container">
+        <div className="order-tracking-container fade-in">
             <div className="tracking-header">
-                <button className="back-btn" onClick={() => navigate(-1)}>
-                    <FaChevronLeft /> Back
-                </button>
-                <h1>Track Your Order</h1>
-                <div className="order-number-badge">
-                    Order #{order.orderNumber}
+                <div className="header-top">
+                    <button className="back-btn" onClick={() => navigate(-1)}>
+                        <FaChevronLeft /> <span>Account</span>
+                    </button>
+                    <div className="live-status-indicator">
+                        <span className="pulse-dot"></span>
+                        Live Tracking Active
+                    </div>
+                </div>
+                <div className="header-main">
+                    <h1>Order #{order.orderNumber}</h1>
+                    <div className="last-update">
+                        Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </div>
                 </div>
             </div>
 
@@ -116,7 +147,12 @@ const OrderTracking = () => {
                 <div className="tracking-details-grid">
                     {/* Timeline Section */}
                     <div className="timeline-section">
-                        <h3>Tracking History</h3>
+                        <div className="section-title-wrap">
+                            <h3>Tracking History</h3>
+                            <button className="btn-refresh-mini" onClick={() => fetchOrderDetails(false)} title="Force Refresh">
+                                <FaSync />
+                            </button>
+                        </div>
                         <div className="tracking-timeline">
                             {order.trackingHistory && order.trackingHistory.length > 0 ? (
                                 order.trackingHistory.slice().reverse().map((event, index) => (
@@ -146,27 +182,28 @@ const OrderTracking = () => {
                                     </div>
                                 ))
                             ) : (
-                                <p className="no-history">No tracking history available yet.</p>
+                                <div className="no-history">
+                                    <FaClock />
+                                    <p>We're preparing your shipment. History events will appear here once processed.</p>
+                                </div>
                             )}
                         </div>
                     </div>
 
                     {/* Info Section */}
                     <div className="tracking-info-sidebar">
-                        <div className="info-card">
-                            <h4>Shipping Details</h4>
-                            <div className="info-item">
-                                <FaBox />
-                                <div>
-                                    <label>Status</label>
-                                    <span>{getStatusLabel(order.status)}</span>
+                        <div className="info-card premium">
+                            <h4>Current Parcel Status</h4>
+                            <div className="info-item highlight">
+                                <div className={`status-pill ${order.fulfillmentStatus}`}>
+                                    {getStatusLabel(order.fulfillmentStatus)}
                                 </div>
                             </div>
                             {order.trackingNumber && (
-                                <div className="info-item">
-                                    <FaTruck />
+                                <div className="info-item courier-box">
+                                    <div className="courier-icon"><FaTruck /></div>
                                     <div>
-                                        <label>Tracking Number</label>
+                                        <label>Tracking ID</label>
                                         <span className="tracking-number">{order.trackingNumber}</span>
                                     </div>
                                 </div>
@@ -175,7 +212,7 @@ const OrderTracking = () => {
                                 <div className="info-item">
                                     <FaCalendarAlt />
                                     <div>
-                                        <label>Estimated Delivery</label>
+                                        <label>Expected Arrival</label>
                                         <span>{new Date(order.estimatedDeliveryDate).toLocaleDateString('en-US', {
                                             weekday: 'long',
                                             month: 'long',
@@ -189,16 +226,15 @@ const OrderTracking = () => {
                         <div className="info-card">
                             <h4>Delivery Address</h4>
                             <div className="address-display">
-                                <p><strong>{order.shippingAddress.firstName} {order.shippingAddress.lastName}</strong></p>
-                                <p>{order.shippingAddress.address}</p>
-                                <p>{order.shippingAddress.city}, {order.shippingAddress.county}</p>
-                                <p>{order.shippingAddress.country}</p>
-                                <p>{order.shippingAddress.phone}</p>
+                                <p className="customer-name">{order.shippingAddress.firstName} {order.shippingAddress.lastName}</p>
+                                <p className="address-line">{order.shippingAddress.address}</p>
+                                <p className="address-line">{order.shippingAddress.city}, {order.shippingAddress.county}</p>
+                                <p className="phone-line"><FaPhoneAlt /> {order.shippingAddress.phone}</p>
                             </div>
                         </div>
 
-                        <button className="btn-receipt" onClick={() => navigate(`/orders/${order._id}`)}>
-                            View Full Receipt
+                        <button className="btn-receipt-modern" onClick={() => navigate(`/orders/${order._id}`)}>
+                            <FaFileAlt /> Download Receipt
                         </button>
                     </div>
                 </div>

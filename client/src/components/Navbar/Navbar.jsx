@@ -23,7 +23,8 @@ function Navbar() {
     setMobileMenuOpen,
     logout,
     publicSettings,
-    fetchPublicSettings
+    fetchPublicSettings,
+    showNotification
   } = useContext(AppContext);
 
   const navigate = useNavigate();
@@ -93,9 +94,19 @@ function Navbar() {
 
   const navLinks = [
     { name: 'Shop', href: '#coffee-shop' },
+    { name: 'Blog', href: '#blog', isComingSoon: true },
     { name: 'About', href: '#about' },
     { name: 'Contact', href: '#contact' },
   ];
+
+  const handleNavClick = (link) => {
+    if (link.isComingSoon) {
+      showNotification('The Rerendet Coffee Editorial is coming soon. Stay tuned for highland stories!', 'info');
+      setMobileMenuOpen(false);
+      return;
+    }
+    scrollToSection(link.href);
+  };
 
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || "697141801323-d2uc6n2f7b2kcckpk1kk6he1du30l1kn.apps.googleusercontent.com"}>
@@ -108,9 +119,10 @@ function Navbar() {
                 src={publicSettings?.store?.logo || "/rerendet-logo.png"}
                 alt={publicSettings?.store?.name || "Rerendet Coffee"}
                 className="header__logo-img"
-                style={{ height: '70px' }}
               />
-              <span className="header__logo-text">Rerendet Coffee</span>
+              <span className="header__logo-text">
+                Rerendet <span>Coffee</span>
+              </span>
             </div>
 
             {/* Desktop Navigation */}
@@ -118,7 +130,7 @@ function Navbar() {
               {navLinks.map((link) => (
                 <button
                   key={link.name}
-                  onClick={() => scrollToSection(link.href)}
+                  onClick={() => handleNavClick(link)}
                   className="header__nav-link"
                 >
                   {link.name}
@@ -169,7 +181,7 @@ function Navbar() {
               {navLinks.map((link) => (
                 <button
                   key={link.name}
-                  onClick={() => scrollToSection(link.href)}
+                  onClick={() => handleNavClick(link)}
                   className="header__mobile-nav-link"
                 >
                   {link.name}

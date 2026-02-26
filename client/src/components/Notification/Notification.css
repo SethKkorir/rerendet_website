@@ -1,129 +1,141 @@
+/* Notification.css - Prestige Cinematic Notification System */
 .notifications-container {
   position: fixed;
-  top: 24px;
-  right: 24px;
+  top: 32px;
+  right: 32px;
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   pointer-events: none;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
 }
 
 .notification-toast {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   pointer-events: auto;
-  min-width: 320px;
-  border: 1px solid var(--border-glass);
-  box-shadow: var(--shadow-premium);
-  background: var(--bg-glass);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  min-width: 340px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-main);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: var(--transition-smooth);
+}
+
+/* Highland Mist consistency */
+.notification-toast::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("https://www.transparenttextures.com/patterns/p6.png");
+  opacity: 0.02;
+  pointer-events: none;
 }
 
 .notification-content {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
 }
 
 .notification-icon-wrapper {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-light);
+  font-size: 1.25rem;
+  box-shadow: var(--shadow-sm);
 }
 
-/* Color variations using theme variables or explicit brand colors */
-.notification-toast.success .notification-icon-wrapper {
-  background: rgba(16, 185, 129, 0.1);
-}
-
+/* Precise Icon Colors */
 .icon-success {
   color: #10b981;
-}
-
-.notification-toast.error .notification-icon-wrapper {
-  background: rgba(239, 68, 68, 0.1);
 }
 
 .icon-error {
   color: #ef4444;
 }
 
-.notification-toast.warning .notification-icon-wrapper {
-  background: rgba(245, 158, 11, 0.1);
-}
-
 .icon-warning {
   color: #f59e0b;
 }
 
-.notification-toast.info .notification-icon-wrapper {
-  background: rgba(59, 130, 246, 0.1);
+.icon-info {
+  color: var(--color-primary);
 }
 
-.icon-info {
-  color: #3b82f6;
+.notification-toast.info .notification-icon-wrapper {
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.notification-toast.success .notification-icon-wrapper {
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .notification-text {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  /* Center message vertically against icon */
+  min-height: 44px;
+  /* Match icon wrapper height */
 }
 
 .notification-message {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-main);
-  line-height: 1.4;
-}
-
-.notification-time {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-top: 2px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .notification-close-btn {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  color: var(--text-muted);
+  padding: 8px;
+  border-radius: 50%;
+  color: var(--text-dim);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: var(--transition-fast);
-  opacity: 0.6;
+  margin-top: -4px;
+  margin-right: -8px;
 }
 
 .notification-close-btn:hover {
   background: var(--bg-deep);
   color: var(--text-main);
-  opacity: 1;
+  transform: rotate(90deg);
 }
 
+/* Prestige Progress Bar */
 .notification-progress {
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 3px;
+  height: 2px;
   background: var(--color-primary);
-  opacity: 0.4;
+  width: 100%;
 }
 
-/* Variation progress colors */
+.notification-toast.info .notification-progress {
+  background: var(--gradient-gold);
+}
+
 .notification-toast.success .notification-progress {
   background: #10b981;
 }
@@ -132,19 +144,16 @@
   background: #ef4444;
 }
 
-.notification-toast.warning .notification-progress {
-  background: #f59e0b;
-}
-
-.notification-toast.info .notification-progress {
-  background: #3b82f6;
-}
-
 @media (max-width: 480px) {
   .notifications-container {
-    top: 16px;
+    top: auto;
+    bottom: 24px;
     right: 16px;
     left: 16px;
     max-width: calc(100% - 32px);
+  }
+
+  .notification-toast {
+    min-width: 0;
   }
 }

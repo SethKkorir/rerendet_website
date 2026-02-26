@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import { motion } from 'framer-motion';
 import { FaShoppingBag, FaArrowLeft, FaLeaf, FaShieldAlt, FaTruck } from 'react-icons/fa';
-import FlavorChart from './FlavorChart';
+// import FlavorChart from './FlavorChart'; // hidden for now
 import './ProductDetail.css';
 
 const ProductDetail = () => {
@@ -126,12 +126,14 @@ const ProductDetail = () => {
 
                 {/* Bottom Sections */}
                 <div className="product-extra-info">
-                    {product.flavorProfiles && (
-                        <div className="flavor-profile-section">
-                            <h2>Flavor Radar</h2>
-                            <FlavorChart flavorProfiles={product.flavorProfiles} />
-                        </div>
-                    )}
+                    {/* Flavor profile hidden for now
+                {product.flavorProfiles && (
+                    <div className="flavor-profile-section">
+                        <h2>Flavor Radar</h2>
+                        <FlavorChart flavorProfiles={product.flavorProfiles} />
+                    </div>
+                )}
+                */}
                 </div>
             </div>
         </motion.div>

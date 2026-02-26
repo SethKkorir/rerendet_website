@@ -22,13 +22,6 @@ const WalletTab = () => {
 
     return (
         <div className="modern-dashboard-tab">
-            <div className="tab-header">
-                <div>
-                    <h2>Wallet & Payment</h2>
-                    <p>Manage your saved payment methods.</p>
-                </div>
-            </div>
-
             <div className="payment-methods-grid">
                 {/* M-Pesa Card */}
                 <div className="payment-method-card mpesa-card">

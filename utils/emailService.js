@@ -27,12 +27,19 @@ const transporter = nodemailer.createTransport({
 export const sendEmail = async (options) => {
     try {
         const { to, subject, templateName, data } = options;
+        let html = options.html;
 
-        // Load and compile template
-        const templatePath = path.join(__dirname, '../templates/emails', `${templateName}.hbs`);
-        const templateSource = fs.readFileSync(templatePath, 'utf8');
-        const template = handlebars.compile(templateSource);
-        const html = template(data);
+        // Load and compile template if provided
+        if (templateName && !html) {
+            const templatePath = path.join(__dirname, '../templates/emails', `${templateName}.hbs`);
+            const templateSource = fs.readFileSync(templatePath, 'utf8');
+            const template = handlebars.compile(templateSource);
+            html = template(data);
+        }
+
+        if (!html) {
+            throw new Error('Email HTML content or templateName is required');
+        }
 
         // Email options
         const mailOptions = {

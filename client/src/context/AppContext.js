@@ -1,5 +1,5 @@
 // context/AppContext.js - COMPLETE REWRITTEN VERSION
-import React, { createContext, useCallback, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import API, {
   login as apiLogin,
   loginAdmin as apiLoginAdmin,
@@ -64,6 +64,35 @@ export function AppProvider({ children }) {
 
   const [publicSettings, setPublicSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [globalMaintenance, setGlobalMaintenance] = useState(false);
+
+  // Response interceptor to handle auth errors and maintenance
+  useEffect(() => {
+    const interceptor = API.interceptors.response.use(
+      (response) => {
+        // If we get a successful response and were in maintenance, maybe we are back?
+        // But we usually want the explicit settings fetch to decide
+        return response;
+      },
+      (error) => {
+        // Handle Maintenance Mode (503 Service Unavailable)
+        if (error.response?.status === 503) {
+          console.warn('🚧 Server reported Maintenance Mode (503)');
+          setGlobalMaintenance(true);
+        }
+
+        if (error.response?.status === 401) {
+          localStorage.removeItem('auth');
+          if (window.location.pathname.startsWith('/admin')) {
+            window.location.href = '/admin/login';
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => API.interceptors.response.eject(interceptor);
+  }, []);
 
   // ==================== IDLE SESSION MANAGEMENT ====================
   const [isLocked, setIsLocked] = useState(false);
@@ -669,6 +698,30 @@ export function AppProvider({ children }) {
     }
   }, [showSuccess, showError]);
 
+  // Verify email (Registration)
+  const verifyEmail = useCallback(async (email, code) => {
+    setLoading(true);
+    try {
+      const response = await API.post('/auth/verify-email', { email, code });
+      const { user: userData, token: authToken } = response.data.data;
+
+      if (!validateToken(authToken)) throw new Error('Invalid token received');
+
+      setAuth(userData, authToken, 'customer');
+      showSuccess('Email verified! You are now logged in.');
+      return response.data;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Verification failed';
+      showError(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [setAuth, validateToken, showSuccess, showError]);
+
+  // Alias for backward compatibility or specific use cases
+  const loginCustomer = login;
+
   // Logout
   const logout = useCallback(async () => {
     try {
@@ -772,21 +825,15 @@ export function AppProvider({ children }) {
           let hasUpdates = false;
 
           recentOrders.forEach(order => {
-            const lastStatus = knownStatusRef[order._id];
+            // Create a composite hash to detect ANY change in status or fulfillment
+            const orderStateHash = `${order.status}|${order.fulfillmentStatus}|${order.paymentStatus}`;
+            const lastState = knownStatusRef[order._id];
 
-            // If we have seen this order before AND status is different
-            if (lastStatus && lastStatus !== order.status) {
-              console.log(`🔔 Order Update: ${order.orderNumber} ${lastStatus} -> ${order.status}`);
+            // If we have seen this order before AND state is different
+            if (lastState && lastState !== orderStateHash) {
+              console.log(`🔔 Order Update: ${order.orderNumber} changed states.`);
 
-              // Import dynamically if needed or assume we added import
-              // Since I can't add imports easily at top without potentially breaking things
-              // I will rely on the PlaySound logic being available or imported
-              // Wait, I should add the import at the top of file first? 
-              // unique replace_file_content call for import? No, I am in this tool.
-              // I will assume I can add the polling logic here.
-              // I'll assume `playNotificationSound` is imported. 
-              // If not, I'll add logic to play it inline or I will Add import next.
-
+              // Play subtle notification sound
               const AudioContext = window.AudioContext || window.webkitAudioContext;
               if (AudioContext) {
                 const ctx = new AudioContext();
@@ -803,16 +850,20 @@ export function AppProvider({ children }) {
                 osc.stop(ctx.currentTime + 0.5);
               }
 
-              showInfo(`Update: Order #${order.orderNumber} is now ${order.status.toUpperCase()}`);
+              // Format display status
+              const displayStatus = order.fulfillmentStatus !== 'unfulfilled'
+                ? order.fulfillmentStatus.toUpperCase()
+                : order.status.toUpperCase();
+
+              showInfo(`Update: Order #${order.orderNumber} is now ${displayStatus}`);
               hasUpdates = true;
             }
 
-            // Update known status
-            knownStatusRef[order._id] = order.status;
+            // Update known status with the hash
+            knownStatusRef[order._id] = orderStateHash;
           });
 
           if (hasUpdates) {
-            // Maybe refresh dashboard if needed
             setOrderRefreshTrigger(prev => prev + 1);
           }
 
@@ -822,7 +873,7 @@ export function AppProvider({ children }) {
       };
 
       checkOrders(); // Initial run
-      interval = setInterval(checkOrders, 15000); // Poll every 15 seconds
+      interval = setInterval(checkOrders, 10000); // Poll every 10 seconds for real-time feel
     }
 
     return () => {
@@ -935,19 +986,39 @@ export function AppProvider({ children }) {
       console.log('✅ Public settings fetched:', response.data.success);
       if (response.data.success) {
         setPublicSettings(response.data.data);
+        // If settings say enabled, make sure global state matches
+        if (response.data.data.maintenance?.enabled) {
+          setGlobalMaintenance(true);
+        } else {
+          setGlobalMaintenance(false);
+        }
       }
     } catch (error) {
-      console.error('❌ Failed to fetch public settings:', error);
-      // Fallback settings to avoid blocking app
-      setPublicSettings({
-        maintenance: { enabled: false }
-      });
+      console.error('❌ Failed to fetch public settings:', error.message);
+
+      if (error.response?.status === 503) {
+        setGlobalMaintenance(true);
+        // We set dummy settings object to satisfy maintenance checks
+        setPublicSettings({
+          maintenance: { enabled: true, message: error.response.data?.message }
+        });
+      } else {
+        // Fallback settings to avoid blocking app if server is just being weird
+        setPublicSettings({
+          maintenance: { enabled: false }
+        });
+      }
     }
-    // Note: We do NOT set settingsLoading(false) here anymore to prevent premature rendering before auth check
   }, []);
+
+  // Ref to track if initialization has already run
+  const hasInitialized = useRef(false);
 
   // Initialize auth from localStorage
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const initializeAuth = async () => {
       try {
         // Fetch public settings on mount
@@ -1062,11 +1133,12 @@ export function AppProvider({ children }) {
 
     // Auth methods
     login,
+    loginCustomer,
     verify2FA,
     loginAdmin,
     loginWithGoogle,
-    loginAdmin,
     register,
+    verifyEmail,
     logout,
     clearAuth,
     updateUserProfile,
@@ -1106,6 +1178,8 @@ export function AppProvider({ children }) {
     publicSettings,
     settingsLoading,
     fetchPublicSettings,
+    globalMaintenance,
+    setGlobalMaintenance,
     orderRefreshTrigger,
     refreshOrders
   }), [
@@ -1115,10 +1189,11 @@ export function AppProvider({ children }) {
     addNotification, removeNotification, clearNotifications, showSuccess, showError, showWarning, showInfo,
     showAlert, hideAlert,
     login, loginWithGoogle, loginAdmin, register, logout, clearAuth,
-    updateUserProfile, changeUserPassword, fetchUserOrders,
+    updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
     addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartItemCount,
     openCart, closeCart, toggleCart, setMobileMenuOpenState,
-    updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
+    fetchDashboardStats, fetchSalesAnalytics, fetchAdminUsers, updateUserRole, deleteUser, fetchAdminOrders, fetchAdminProducts,
+    publicSettings, settingsLoading, fetchPublicSettings, globalMaintenance,
     orderRefreshTrigger, refreshOrders,
     isLocked, unlockSession
   ]);

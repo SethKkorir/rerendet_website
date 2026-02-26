@@ -23,7 +23,7 @@ const Footer = () => {
   const social = publicSettings?.seo?.social || {};
 
   return (
-    <footer className="footer-premium">
+    <footer className="footer-premium fade-in">
       {/* Decorative Gradient Background */}
       <div className="footer-glow" />
 
@@ -33,14 +33,14 @@ const Footer = () => {
           {/* Brand & Story Section */}
           <div className="footer-section brand-section">
             <Link to="/" className="footer-logo">
-              {store.name ? (
-                <span>{store.name}</span>
-              ) : (
-                <>RERENDET<span className="logo-dot">.</span>COFFEE</>
-              )}
+              <img
+                src="/rerendet-logo.png"
+                alt="Rerendet"
+                style={{ height: '60px', width: 'auto' }}
+              />
             </Link>
             <p className="footer-mission">
-              {store.description || 'Crafting excellence from the Kenyan highlands to your ritual. We are more than coffee; we are a legacy of artisanal roasting and sustainable farming.'}
+              {store.description || 'Crafting excellence from the Kenyan highlands to your cup. We are more than coffee — we are a legacy of quality roasting and sustainable farming.'}
             </p>
             <div className="social-orchestra">
               {social.facebook && <a href={social.facebook} target="_blank" rel="noopener noreferrer" className="orchestra-link" aria-label="Facebook"><FaFacebookF /></a>}

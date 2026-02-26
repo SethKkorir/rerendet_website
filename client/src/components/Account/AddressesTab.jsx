@@ -36,23 +36,16 @@ const AddressesTab = () => {
 
     return (
         <div className="modern-dashboard-tab">
-            <div className="tab-header">
-                <div>
-                    <h2>Address Book</h2>
-                    <p>Manage your shipping addresses for faster checkout.</p>
-                </div>
-                {!isEditing && (
-                    <button
-                        className="btn-primary btn-sm"
-                        onClick={() => setIsEditing(true)}
-                    >
-                        <FaPlus /> {user?.shippingInfo?.address ? 'Edit Address' : 'Add New Address'}
-                    </button>
-                )}
-            </div>
-
             {!isEditing ? (
                 <div className="addresses-grid">
+                    {/* Add New Trigger Card */}
+                    <div className="modern-address-card add-new-trigger" onClick={() => setIsEditing(true)} style={{ cursor: 'pointer', borderStyle: 'dashed', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <FaPlus style={{ fontSize: '2rem', marginBottom: '1rem', color: 'var(--color-primary)' }} />
+                            <h4 style={{ color: 'white' }}>{user?.shippingInfo?.address ? 'Update Address' : 'Add New Address'}</h4>
+                        </div>
+                    </div>
+
                     {user?.shippingInfo?.address ? (
                         <div className="modern-address-card default">
                             <div className="address-card-header">

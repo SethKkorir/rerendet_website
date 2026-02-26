@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  FaCheckCircle, FaHome, FaShoppingBag, FaWhatsapp, 
+import {
+  FaCheckCircle, FaHome, FaShoppingBag, FaWhatsapp,
   FaLock, FaShareAlt, FaRegClock, FaShippingFast
 } from 'react-icons/fa';
 import './Confirmation.css';
@@ -10,7 +10,7 @@ function Confirmation() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { orderDetails, paymentMethod, orderTotal } = state || {};
-  
+
   // State for interactive elements
   const [upgradeExpired, setUpgradeExpired] = useState(false);
   const [sharedCount, setSharedCount] = useState(0);
@@ -45,10 +45,10 @@ function Confirmation() {
             <FaCheckCircle />
             {/* <div className="confetti"></div> */}
           </div>
-          
+
           <h1>Order Confirmed! 🎉</h1>
           <p className="confirmation-message">
-            {orderDetails?.firstName || 'Dear customer'}, your artisanal coffee is being 
+            {orderDetails?.firstName || 'Dear customer'}, your fresh coffee is being
             hand-packed now! Expected dispatch: <strong>Tomorrow by 3PM EAT</strong>
           </p>
 
@@ -60,14 +60,14 @@ function Confirmation() {
               </div>
               <div className="step-label">Preparing</div>
             </div>
-            
+
             <div className={`progress-step ${orderProgress.shipped ? 'completed' : ''}`}>
               <div className="step-icon">
                 {orderProgress.shipped ? '✓' : '2'}
               </div>
               <div className="step-label">Shipped</div>
             </div>
-            
+
             <div className={`progress-step ${orderProgress.delivered ? 'completed' : ''}`}>
               <div className="step-icon">
                 {orderProgress.delivered ? '✓' : '3'}
@@ -162,7 +162,7 @@ function Confirmation() {
           </div>
         </div>
       </div>
-      
+
     </div>
   );
 }

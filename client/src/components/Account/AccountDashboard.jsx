@@ -3,7 +3,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
 import {
   FaUser, FaShoppingBag, FaMapMarkerAlt, FaCreditCard,
-  FaSignOutAlt, FaLock
+  FaSignOutAlt, FaLock, FaTimes
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import './AccountDashboard.css';
@@ -19,7 +19,8 @@ function AccountDashboard() {
   const {
     user,
     logout,
-    fetchUserOrders
+    fetchUserOrders,
+    orderRefreshTrigger
   } = useContext(AppContext);
 
   const navigate = useNavigate();
@@ -41,12 +42,23 @@ function AccountDashboard() {
   // Load orders only when Orders tab is active or on mount if active
   useEffect(() => {
     if (user && activeTab === 'orders') {
-      loadOrders();
+      loadOrders(true);
     }
+  }, [user, activeTab, orderRefreshTrigger]);
+
+  // LIVE POLLING: Refresh order list every 20 seconds
+  useEffect(() => {
+    let pollInterval;
+    if (user && activeTab === 'orders') {
+      pollInterval = setInterval(() => {
+        loadOrders(false);
+      }, 20000);
+    }
+    return () => clearInterval(pollInterval);
   }, [user, activeTab]);
 
-  const loadOrders = async () => {
-    setOrdersLoading(true);
+  const loadOrders = async (showLoading = true) => {
+    if (showLoading) setOrdersLoading(true);
     try {
       const data = await fetchUserOrders(1);
       if (data?.data?.orders) {
@@ -55,7 +67,7 @@ function AccountDashboard() {
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
-      setOrdersLoading(false);
+      if (showLoading) setOrdersLoading(false);
     }
   };
 
@@ -111,14 +123,28 @@ function AccountDashboard() {
         {/* Main Content */}
         <main className="modern-main-content">
           <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-            <FaUser />
+            {isSidebarOpen ? <FaTimes /> : <FaUser />}
           </button>
 
-          {activeTab === 'orders' && <OrdersTab orders={orders} loading={ordersLoading} />}
-          {activeTab === 'addresses' && <AddressesTab />}
-          {activeTab === 'wallet' && <WalletTab />}
-          {activeTab === 'profile' && <ProfileTab />}
-          {activeTab === 'security' && <SecurityTab />}
+          {/* Grand Welcome Section - Only shows on main view or as part of tabs */}
+          <div className="tab-header">
+            <p>Member Dashboard</p>
+            <h2>
+              {activeTab === 'orders' && 'Orders'}
+              {activeTab === 'addresses' && 'Addresses'}
+              {activeTab === 'wallet' && 'Wallet'}
+              {activeTab === 'profile' && 'Profile'}
+              {activeTab === 'security' && 'Security'}
+            </h2>
+          </div>
+
+          <div className="dashboard-view-container">
+            {activeTab === 'orders' && <OrdersTab orders={orders} loading={ordersLoading} />}
+            {activeTab === 'addresses' && <AddressesTab />}
+            {activeTab === 'wallet' && <WalletTab />}
+            {activeTab === 'profile' && <ProfileTab />}
+            {activeTab === 'security' && <SecurityTab />}
+          </div>
         </main>
       </div>
     </div>

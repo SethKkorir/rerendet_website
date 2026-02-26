@@ -14,10 +14,12 @@ import Footer from './components/Footer/Footer';
 import CartSidebar from './components/Cart/CartSidebar';
 import { MpesaModal, CardModal } from './components/Modals/PaymentModal';
 import BackToTop from './components/BackToTop/BackToTop';
+import { FaTools, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import AdminLayout from './components/Admin/AdminLayout';
 import AdminRoute from './components/Admin/AdminRoute';
 import Notification from './components/Notification/Notification';
 import SessionLock from './components/Auth/SessionLock';
+import WhatsAppSupport from './components/UI/WhatsAppSupport';
 import ProductDetail from './components/Product/ProductDetail';
 import Dashboard from './components/Admin/Dashboard';
 import OrdersManagement from './components/Admin/OrdersManagement';
@@ -101,21 +103,49 @@ function App() {
   }
 
   // 1. If Maintenance is ON and user is NOT an Admin, SHOW OVERLAY
-  // But always allow the Admin Login page to be reachable
+  // Visitors (unauthenticated) and Customers (authenticated non-admins) will both see this.
   const isLoginPage = location.pathname.includes('/admin/login');
+  const isMaintenanceRoute = maintenanceEnabled && !isActualAdmin && !isLoginPage;
 
-  if (maintenanceEnabled && !isActualAdmin && !isLoginPage) {
+  if (isMaintenanceRoute) {
     return (
       <div className="maintenance-overlay">
-        <div className="maintenance-content">
-          <div className="maintenance-icon">🛠️</div>
-          <h1>Service Temporarily Offline</h1>
-          <p>{publicSettings?.maintenance?.message || "We are currently performing scheduled maintenance to improve our service. We'll be back shortly!"}</p>
+        <div className="maintenance-content" data-aos="zoom-in">
+          <div className="maintenance-header">
+            <div className="maintenance-logo">
+              {publicSettings?.store?.logo ? (
+                <img src={publicSettings.store.logo} alt="Rerendet Coffee" />
+              ) : (
+                <div className="logo-placeholder">☕</div>
+              )}
+            </div>
+          </div>
+
+          <div className="maintenance-body">
+            <div className="premium-badge">Digital Estate Refresh</div>
+            <div className="maintenance-icon-wrap">
+              <FaTools className="main-icon" />
+              <div className="icon-pulse"></div>
+            </div>
+            <h1>Polishing the Peak</h1>
+            <div className="maintenance-message">
+              <p>{publicSettings?.maintenance?.message || "We're currently roasting some fresh updates for you! Our storefront is temporarily offline while we prepare something special. We'll be back online shortly."}</p>
+            </div>
+          </div>
+
           <div className="maintenance-footer">
-            <p>Thank you for your patience.</p>
-            <p className="maintenance-team">— Rerendet Coffee Maintenance Team</p>
+            <div className="social-links">
+              {publicSettings?.seo?.social?.instagram && (
+                <a href={publicSettings.seo.social.instagram} target="_blank" rel="noreferrer"><FaInstagram /></a>
+              )}
+              {publicSettings?.seo?.social?.whatsapp && (
+                <a href={publicSettings.seo.social.whatsapp} target="_blank" rel="noreferrer"><FaWhatsapp /></a>
+              )}
+            </div>
+            <p className="signature">— The Rerendet Coffee Team</p>
           </div>
         </div>
+
         <style>{`
           .maintenance-overlay {
             position: fixed;
@@ -123,44 +153,136 @@ function App() {
             left: 0;
             width: 100%;
             height: 100%;
-            background: #faf7f2;
+            background: #0B0F1A; /* Deep Estate Blue */
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
-            padding: 20px;
-            text-align: center;
+            z-index: 10000;
+            font-family: 'Outfit', sans-serif;
+            overflow: hidden;
+          }
+          .maintenance-overlay::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: url('https://www.transparenttextures.com/patterns/dust.png');
+            opacity: 0.1;
+            animation: drift 60s linear infinite;
+          }
+          @keyframes drift {
+            from { transform: translate(-25%, -25%); }
+            to { transform: translate(0, 0); }
           }
           .maintenance-content {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(111, 78, 55, 0.1);
-            max-width: 500px;
-            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            padding: 60px 40px;
+            border-radius: 40px;
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            z-index: 2;
           }
-          .maintenance-icon {
-            font-size: 60px;
-            margin-bottom: 20px;
-          }
-          .maintenance-content h1 {
-            color: #6F4E37;
-            margin-bottom: 15px;
-            font-size: 2rem;
-          }
-          .maintenance-content p {
-            color: #6d7280;
-            line-height: 1.6;
+          .premium-badge {
+            display: inline-block;
+            background: rgba(212, 175, 55, 0.1);
+            color: #D4AF37;
+            padding: 8px 20px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
             margin-bottom: 25px;
+            border: 1px solid rgba(212, 175, 55, 0.2);
           }
-          .maintenance-footer {
-            border-top: 1px solid #eee;
-            padding-top: 20px;
+          .maintenance-logo img {
+            height: 80px;
+            margin-bottom: 40px;
+            filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.3));
           }
-          .maintenance-team {
+          .logo-placeholder {
+            font-size: 60px;
+            margin-bottom: 30px;
+          }
+          .maintenance-icon-wrap {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            margin: 0 auto 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #6F4E37, #2c1810);
+            border-radius: 50%;
+            color: #D4AF37;
+            font-size: 45px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+          }
+          .icon-pulse {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid #D4AF37;
+            opacity: 0.5;
+            animation: ripple 2.5s ease-out infinite;
+          }
+          @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(1.6); opacity: 0; }
+          }
+          .maintenance-body h1 {
+            color: #FFFFFF;
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 400;
+            margin-bottom: 25px;
+            letter-spacing: -1px;
+          }
+          .maintenance-message {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+          }
+          .maintenance-message p {
+            color: #ADB5BD;
+            line-height: 1.8;
+            font-size: 1.15rem;
+            margin: 0;
+            font-weight: 300;
+          }
+          .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin-bottom: 30px;
+          }
+          .social-links a {
+            color: #D4AF37;
+            font-size: 26px;
+            transition: all 0.3s;
+            opacity: 0.8;
+          }
+          .social-links a:hover {
+            opacity: 1;
+            transform: translateY(-5px);
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+          }
+          .signature {
             font-weight: 700;
-            color: #6F4E37 !important;
-            margin-top: 10px;
+            color: #6F4E37;
+            margin: 0;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
           }
         `}</style>
       </div>
@@ -262,6 +384,7 @@ function App() {
           <MpesaModal />
           <CardModal />
           <BackToTop />
+          <WhatsAppSupport />
         </>
       )}
     </div>

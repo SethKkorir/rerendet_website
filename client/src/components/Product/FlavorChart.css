@@ -1,16 +1,66 @@
+/* FlavorChart.css — Theme-aware flavor profile chart */
+
 .flavor-chart-container {
-    background: white;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
     padding: 1.5rem;
     border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
     margin-bottom: 1.5rem;
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .chart-title {
     font-family: 'Outfit', sans-serif;
-    color: #4A3E31;
-    font-size: 1.25rem;
+    color: var(--text-main);
+    font-size: 1.1rem;
     font-weight: 700;
     margin-bottom: 1rem;
     text-align: center;
+    letter-spacing: -0.01em;
+}
+
+/* Flavor bars row (shown below chart) */
+.flavor-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 1rem;
+}
+
+.flavor-bar-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 28px;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.flavor-bar-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.flavor-bar-track {
+    height: 6px;
+    background: var(--bg-deep);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.flavor-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--color-primary), #a07828);
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flavor-bar-value {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    text-align: right;
 }

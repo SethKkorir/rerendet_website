@@ -1,385 +1,767 @@
-/* OrderConfirmation Premium Design System */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* OrderConfirmation.css — Premium v2 */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-:root {
-    --coffee-900: #2C1810;
-    --coffee-800: #3D2B1F;
-    --coffee-700: #4B3621;
-    --coffee-600: #6F4E37;
-    --accent-gold: #D4AF37;
-    --success: #10B981;
-    --radius-lg: 24px;
-    --shadow-premium: 0 20px 50px rgba(44, 24, 16, 0.1);
-}
-
-.order-confirmation {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 6rem 2rem;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    background: radial-gradient(circle at top right, #F5F1ED, #FFFFFF);
+/* ══ Page shell ══════════════════════════════════════════════════ */
+.oc-page {
     min-height: 100vh;
+    background: var(--bg-home);
+    padding: 5rem 1rem 4rem;
+    position: relative;
+    overflow-x: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text-main);
 }
 
-/* Success Header */
-.confirmation-header {
-    text-align: center;
-    margin-bottom: 5rem;
-}
-
-.success-icon {
-    font-size: 100px;
-    color: var(--success);
-    margin-bottom: 2rem;
-    filter: drop-shadow(0 10px 20px rgba(16, 185, 129, 0.2));
-}
-
-.confirmation-header h1 {
-    font-family: 'Outfit', sans-serif;
-    color: var(--coffee-900);
-    font-size: 3.5rem;
-    font-weight: 800;
-    margin-bottom: 1rem;
-    letter-spacing: -0.04em;
-}
-
-.confirmation-message {
-    font-size: 1.2rem;
-    color: var(--coffee-700);
-    max-width: 650px;
+.oc-container {
+    max-width: 900px;
     margin: 0 auto;
-    line-height: 1.6;
-    opacity: 0.8;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
 }
 
-/* Order Badge Premium */
-.order-number-box {
-    background: var(--coffee-900);
+/* ══ Loading ════════════════════════════════════════════════════ */
+.oc-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 1.5rem;
+    color: var(--text-muted);
+    font-family: 'Outfit', sans-serif;
+}
+
+.oc-spinner {
+    width: 44px;
+    height: 44px;
+    border: 3px solid var(--border-main);
+    border-top-color: #D4AF37;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ══ Confetti ═══════════════════════════════════════════════════ */
+.oc-confetti-wrap {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.oc-particle {
+    position: absolute;
+    top: -12px;
+    border-radius: 2px;
+    animation: fall linear forwards;
+}
+
+@keyframes fall {
+    0% {
+        transform: translateY(-10px) rotate(0deg);
+        opacity: 1;
+    }
+
+    80% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(110vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+/* ══ HERO HEADER ════════════════════════════════════════════════ */
+.oc-hero {
+    text-align: center;
+    padding: 3.5rem 2rem 2.5rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.oc-hero-glow {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 340px;
+    height: 200px;
+    background: radial-gradient(ellipse, rgba(212, 175, 55, 0.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Check ring */
+.oc-check-ring {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.75rem;
+}
+
+.oc-check-icon {
+    font-size: 72px;
+    color: #10B981;
+    filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.35));
+    position: relative;
+    z-index: 2;
+}
+
+.oc-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(16, 185, 129, 0.2);
+    animation: pulse-ring 2.4s ease-out infinite;
+}
+
+.oc-ring-1 {
+    width: 100px;
+    height: 100px;
+    animation-delay: 0s;
+}
+
+.oc-ring-2 {
+    width: 136px;
+    height: 136px;
+    animation-delay: 0.5s;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.85);
+        opacity: 0.7;
+    }
+
+    60% {
+        transform: scale(1.15);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1.15);
+        opacity: 0;
+    }
+}
+
+.oc-headline {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    color: var(--text-main);
+    letter-spacing: -0.04em;
+    margin: 0 0 0.6rem;
+    background: linear-gradient(135deg, var(--text-main) 40%, #D4AF37);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.oc-subline {
+    font-size: 1rem;
+    color: var(--text-muted);
+    max-width: 520px;
+    margin: 0 auto 2rem;
+    line-height: 1.65;
+}
+
+/* Order number pill */
+.oc-order-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: #0f172a;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 16px;
+    padding: 0.85rem 1.6rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='light'] .oc-order-pill {
+    background: #1e293b;
+}
+
+.oc-pill-icon {
+    font-size: 1.4rem;
+    color: #D4AF37;
+}
+
+.oc-pill-label {
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+}
+
+.oc-pill-number {
+    display: block;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
     color: white;
-    padding: 4rem;
-    border-radius: var(--radius-lg);
+    letter-spacing: 0.02em;
+}
+
+/* ══ STEPPER CARD ════════════════════════════════════════════════ */
+.oc-stepper-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 20px;
+    padding: 2.25rem 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.oc-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0 0 2rem;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.oc-stepper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+}
+
+.oc-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.oc-step-bubble {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--bg-deep);
+    border: 2px solid var(--border-main);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 3rem;
-    margin-bottom: 4rem;
-    box-shadow: 0 40px 80px -20px rgba(44, 24, 16, 0.3);
+    font-size: 1rem;
+    color: var(--text-dim);
+    transition: all 0.4s ease;
+    flex-shrink: 0;
+}
+
+.oc-step.done .oc-step-bubble {
+    color: white;
+}
+
+.oc-step.current .oc-step-bubble {
+    box-shadow: 0 0 0 6px rgba(212, 175, 55, 0.15);
+}
+
+.oc-step-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.2rem;
+}
+
+.oc-step-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.oc-step-desc {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+.oc-step-connector {
+    flex: 1;
+    padding-top: 22px;
+    /* align with bubble center */
+}
+
+.oc-step-line {
+    height: 2px;
+    background: var(--border-main);
+    border-radius: 99px;
     position: relative;
     overflow: hidden;
 }
 
-.order-number-box::after {
-    content: 'THANK YOU';
-    position: absolute;
-    font-size: 8rem;
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.03);
-    right: -2rem;
-    bottom: -2rem;
-    pointer-events: none;
+.oc-step-connector.filled .oc-step-line {
+    background: linear-gradient(90deg, #10B981, #D4AF37);
 }
 
-.receipt-icon {
-    font-size: 50px;
-    color: var(--accent-gold);
-}
-
-.order-number {
-    font-size: 3.5rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    font-family: 'Outfit', sans-serif;
-}
-
-/* Info Cards */
-.order-details-grid {
+/* ══ INFO CARDS ROW ════════════════════════════════════════════ */
+.oc-cards-row {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2.5rem;
-    margin-bottom: 4rem;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.25rem;
 }
 
-.info-card {
-    background: white;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-premium);
-    padding: 2.5rem;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    border: 1px solid rgba(0, 0, 0, 0.03);
-}
-
-.info-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 30px 60px rgba(44, 24, 16, 0.15);
-}
-
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: 1.2rem;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 2px solid #F5F1ED;
-}
-
-.card-header svg {
-    font-size: 1.5rem;
-    color: var(--coffee-600);
-}
-
-.card-header h3 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--coffee-900);
-    margin: 0;
-}
-
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 1rem 0;
-    border-bottom: 1px solid #F8F9FA;
-}
-
-.info-label {
-    font-weight: 600;
-    color: var(--coffee-400);
-    font-size: 0.95rem;
-}
-
-.info-value {
-    font-weight: 700;
-    color: var(--coffee-800);
-}
-
-.info-value.amount {
-    color: var(--coffee-600);
-    font-size: 1.5rem;
-    font-weight: 800;
-}
-
-/* Status Premium */
-.status-badge {
-    padding: 0.5rem 1.2rem;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 800;
-    text-transform: uppercase;
-}
-
-.status-badge.paid {
-    background: #ECFDF5;
-    color: #059669;
-}
-
-/* Items List */
-.order-items-section {
-    background: white;
-    border-radius: var(--radius-lg);
-    padding: 4rem;
-    box-shadow: var(--shadow-premium);
-    margin-bottom: 4rem;
-}
-
-.order-item {
-    display: flex;
-    gap: 2.5rem;
-    padding: 2rem 0;
-    border-bottom: 1px solid #F5F1ED;
-}
-
-.item-image {
-    width: 120px;
-    height: 120px;
-    border-radius: 20px;
-    border: 1px solid #F5F1ED;
-}
-
-.item-details h4 {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: var(--coffee-900);
-    margin-bottom: 0.5rem;
-}
-
-.order-summary {
-    background: var(--coffee-50);
-    padding: 2.5rem;
-    border-radius: var(--radius-lg);
-    margin-top: 3rem;
-}
-
-.summary-row.total {
-    border-top: 2px dashed var(--coffee-200);
-    padding-top: 1.5rem;
-    color: var(--coffee-900);
-    font-size: 2rem;
-    font-weight: 800;
-}
-
-/* Actions */
-.confirmation-actions {
-    display: flex;
-    gap: 1.5rem;
-    justify-content: center;
-    margin-bottom: 6rem;
-}
-
-.btn-primary,
-.btn-outline {
-    padding: 1.5rem 3rem;
-    border-radius: 40px;
-    font-weight: 800;
-    font-family: inherit;
-    font-size: 1.1rem;
-    transition: all 0.4s ease;
-}
-
-.btn-primary {
-    background: var(--coffee-600);
-    color: white;
-    box-shadow: 0 20px 40px rgba(111, 78, 55, 0.2);
-}
-
-.btn-primary:hover {
-    background: var(--coffee-900);
-    transform: translateY(-5px);
-}
-
-/* Roadmap Journey Section */
-.roadmap-section {
-    background: white;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-premium);
-    padding: 3.5rem;
-    margin-bottom: 2.5rem;
-    text-align: center;
-}
-
-.roadmap-title {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: var(--coffee-900);
-    margin-bottom: 3rem;
-    font-family: 'Outfit', sans-serif;
-}
-
-.roadmap-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    position: relative;
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.roadmap-step {
-    flex: 1;
+.oc-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 18px;
+    padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 1.5rem;
-    z-index: 2;
+    gap: 1rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
-.step-point {
-    width: 48px;
-    height: 48px;
-    background: white;
-    border: 3px solid #F5F1ED;
-    border-radius: 50%;
+.oc-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.oc-card-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
-    color: var(--coffee-300);
-    transition: all 0.5s ease;
-}
-
-.roadmap-step.active .step-point {
-    background: var(--coffee-600);
-    border-color: var(--coffee-600);
-    color: white;
-    box-shadow: 0 0 20px rgba(111, 78, 55, 0.3);
-}
-
-.roadmap-line {
-    position: absolute;
-    top: 24px;
-    left: 15%;
-    right: 15%;
-    height: 3px;
-    background: #F5F1ED;
-    z-index: 1;
-}
-
-.step-info h4 {
-    margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--coffee-800);
+    flex-shrink: 0;
 }
 
-.step-info p {
+.oc-card-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0 0 0.35rem;
+}
+
+.oc-card-text {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.55;
     margin: 0;
-    font-size: 0.9rem;
-    color: var(--coffee-400);
-    line-height: 1.4;
-    padding: 0 1rem;
 }
 
-/* Curated Footer Items */
-.curated-footer {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2rem;
-    margin-top: 4rem;
+.oc-card-addr {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 0 0 0.75rem;
 }
 
-.footer-card {
-    background: white;
-    padding: 2.5rem;
-    border-radius: var(--radius-lg);
-    text-align: center;
-    box-shadow: var(--shadow-premium);
-    transition: transform 0.3s ease;
+/* Payment info rows */
+.oc-info-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
-.footer-card:hover {
-    transform: translateY(-5px);
+.oc-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: 0.82rem;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-muted);
 }
 
-.footer-card svg {
-    font-size: 2.5rem;
-    color: var(--accent-gold);
-    margin-bottom: 1.5rem;
+.oc-info-row:last-child {
+    border-bottom: none;
 }
 
-.footer-card h4 {
+.oc-info-row.total-row {
+    padding-top: 0.7rem;
+}
+
+.oc-total-amt {
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: #D4AF37;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Badge */
+.oc-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.oc-badge.paid {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10B981;
+}
+
+.oc-badge.pending {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+}
+
+/* ETA pill */
+.oc-eta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 99px;
+    padding: 0.3rem 0.8rem;
+}
+
+/* ══ ORDER ITEMS CARD ═══════════════════════════════════════════ */
+.oc-items-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.oc-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 1.75rem 1.25rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.oc-items-count {
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: var(--bg-deep);
+    color: var(--text-muted);
+    padding: 0.3rem 0.75rem;
+    border-radius: 99px;
+}
+
+.oc-items-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.oc-item {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem 1.75rem;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.2s;
+}
+
+.oc-item:last-child {
+    border-bottom: none;
+}
+
+.oc-item:hover {
+    background: var(--bg-hover);
+}
+
+.oc-item-img-wrap {
+    width: 72px;
+    height: 72px;
+    border-radius: 14px;
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--bg-deep);
+}
+
+.oc-item-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.oc-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.oc-item-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0 0 0.4rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.oc-item-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.oc-item-tag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: var(--bg-deep);
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--border-light);
+}
+
+.oc-item-price {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.oc-item-unit {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-bottom: 0.2rem;
+}
+
+.oc-item-total {
+    font-size: 1rem;
+    font-weight: 900;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-main);
+}
+
+/* Summary strip */
+.oc-summary-strip {
+    background: var(--bg-deep);
+    border-top: 1px solid var(--border-main);
+    padding: 1.25rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.oc-sum-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.oc-sum-row.discount {
+    color: #10B981;
+}
+
+.oc-sum-row.grand-total {
+    padding-top: 0.65rem;
+    border-top: 1px dashed var(--border-main);
+    margin-top: 0.25rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.oc-sum-row.grand-total strong {
     font-family: 'Outfit', sans-serif;
     font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--coffee-900);
-    margin-bottom: 0.75rem;
+    color: #D4AF37;
 }
 
-.footer-card p {
-    font-size: 0.95rem;
-    color: var(--coffee-600);
-    line-height: 1.6;
+/* ══ CTA BUTTONS ════════════════════════════════════════════════ */
+.oc-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-@media (max-width: 900px) {
-    .order-details-grid {
+.oc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.9rem 1.8rem;
+    border-radius: 14px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    transition: all 0.22s ease;
+}
+
+.oc-btn.primary {
+    background: linear-gradient(135deg, #6F4E37, #4B3621);
+    color: white;
+    box-shadow: 0 8px 24px rgba(111, 78, 55, 0.3);
+}
+
+.oc-btn.primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(111, 78, 55, 0.35);
+}
+
+.oc-btn.outline {
+    background: transparent;
+    color: var(--text-main);
+    border: 2px solid var(--border-main);
+}
+
+.oc-btn.outline:hover {
+    background: var(--bg-surface);
+    transform: translateY(-3px);
+}
+
+.oc-btn.ghost {
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border-light);
+}
+
+.oc-btn.ghost:hover {
+    color: var(--text-main);
+    transform: translateY(-3px);
+}
+
+/* ══ TRUST CARDS ════════════════════════════════════════════════ */
+.oc-trust-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.1rem;
+}
+
+.oc-trust-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.22s ease;
+}
+
+.oc-trust-card:hover {
+    transform: translateY(-4px);
+}
+
+.oc-trust-icon {
+    font-size: 1.6rem;
+    color: #D4AF37;
+    margin-bottom: 0.85rem;
+}
+
+.oc-trust-card h4 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0 0 0.45rem;
+}
+
+.oc-trust-card p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* ══ RESPONSIVE ═════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .oc-page {
+        padding: 4rem 0.75rem 3rem;
+    }
+
+    .oc-cards-row {
         grid-template-columns: 1fr;
     }
 
-    .order-number-box {
-        padding: 2rem;
-        gap: 1rem;
+    .oc-trust-row {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
     }
 
-    .order-number {
-        font-size: 2rem;
+    .oc-stepper {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.25rem;
+    }
+
+    .oc-step {
+        flex-direction: row;
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .oc-step-text {
+        align-items: flex-start;
+    }
+
+    .oc-step-connector {
+        display: none;
+    }
+
+    .oc-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .oc-btn {
+        justify-content: center;
+    }
+
+    .oc-hero {
+        padding: 2.5rem 1.25rem 2rem;
+    }
+
+    .oc-check-icon {
+        font-size: 56px;
+    }
+
+    .oc-headline {
+        font-size: 1.9rem;
+    }
+
+    .oc-item {
+        flex-wrap: wrap;
+    }
+
+    .oc-item-price {
+        width: 100%;
+        text-align: left;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .oc-stepper-card,
+    .oc-items-card,
+    .oc-card {
+        border-radius: 14px;
+    }
+
+    .oc-order-pill {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+
+    .oc-pill-number {
+        font-size: 1rem;
     }
 }

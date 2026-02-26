@@ -21,9 +21,6 @@ const ProfileTab = () => {
 
     return (
         <div className="modern-dashboard-tab">
-            <div className="tab-header">
-                <h2>My Profile</h2>
-            </div>
             <div className="content-card">
                 <form className="modern-form" onSubmit={handleSubmit}>
                     <div className="form-grid-2">

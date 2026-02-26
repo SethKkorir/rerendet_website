@@ -19,9 +19,25 @@ dotenv.config();
 const verify2FALogin = asyncHandler(async (req, res) => {
   const { email, code } = req.body;
 
+  console.log(`🔐 2FA Attempt for: ${email} | Code Received: [${code}]`);
+
   const user = await User.findOne({ email }).select('+verificationCode +verificationCodeExpires +role +userType +isVerified +wallet +shippingInfo +cart +twoFactorEnabled +adminPermissions');
 
-  if (!user || user.verificationCode !== code || user.verificationCodeExpires < Date.now()) {
+  if (!user) {
+    console.error(`❌ 2FA Failure: User ${email} not found`);
+    res.status(400);
+    throw new Error('Invalid or expired verification code');
+  }
+
+  // Coerce both to string and trim to prevent type/whitespace mismatch
+  const dbCode = String(user.verificationCode || '').trim();
+  const inputCode = String(code || '').trim();
+  const isExpired = user.verificationCodeExpires < Date.now();
+
+  console.log(`🔍 2FA Match Check: Input:[${inputCode}] | DB:[${dbCode}] | Expired: ${isExpired}`);
+
+  if (dbCode !== inputCode || isExpired) {
+    console.error(`❌ 2FA Failure: Code mismatch or expired for ${email}`);
     res.status(400);
     throw new Error('Invalid or expired verification code');
   }
@@ -44,7 +60,9 @@ const verify2FALogin = asyncHandler(async (req, res) => {
   user.verificationCode = undefined;
   user.verificationCodeExpires = undefined;
   user.lastLoginAt = new Date();
-  await user.save();
+  await user.save({ validateBeforeSave: false });
+
+  console.log(`✅ 2FA Success for: ${email}`);
 
   const token = generateToken(user._id);
 
@@ -434,11 +452,20 @@ const loginCustomer = asyncHandler(async (req, res) => {
     const verificationCode = user.generateVerificationCode();
     await user.save({ validateBeforeSave: false });
 
+    // Fetch store logo for email
+    let logoUrl;
+    try {
+      const settings = await Settings.getSettings();
+      logoUrl = settings?.store?.logo;
+    } catch (error) {
+      console.error('Error fetching settings for email logo:', error);
+    }
+
     try {
       await sendEmail({
         to: user.email,
         subject: 'Verification Required - Rerendet Coffee',
-        html: `Your verification code: <strong>${verificationCode}</strong>`
+        html: getVerificationEmail(user.firstName, verificationCode, logoUrl)
       });
     } catch (emailError) {
       console.error('Failed to resend verification:', emailError);

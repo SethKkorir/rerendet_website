@@ -20,6 +20,7 @@ import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import { startCronJobs } from './utils/cronJobs.js';
+import maintenanceMode from './middleware/maintenanceMiddleware.js';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -35,10 +36,12 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
+import marketingRoutes from './routes/marketingRoutes.js';
 
 // Import models
 import User from './models/User.js';
 import Product from './models/Product.js';
+import Order from './models/Order.js';
 import Contact from './models/Contact.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,9 +50,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // 1. Basic Middlewares & Security
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
+app.set('trust proxy', 1);
 
 // Global rate limiting
 const apiLimiter = rateLimit({
@@ -161,9 +162,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 1.5 Maintenance Mode (Global Check)
+app.use('/api/', maintenanceMode);
+
 // 2. API Routes
-// Mount specific routes first
-// Mount specific routes first
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -178,6 +180,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/newsletter', subscriberRoutes);
+app.use('/api/marketing', marketingRoutes);
 
 // Custom public routes with rate limiting
 app.post('/api/contact', contactLimiter, async (req, res, next) => {

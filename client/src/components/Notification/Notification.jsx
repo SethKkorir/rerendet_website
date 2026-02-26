@@ -26,15 +26,11 @@ const Notification = () => {
 
   const getIcon = (type) => {
     switch (type) {
-      case 'success':
-        return <CheckCircle2 className="icon-success" size={20} />;
-      case 'error':
-        return <XCircle className="icon-error" size={20} />;
-      case 'warning':
-        return <AlertCircle className="icon-warning" size={20} />;
+      case 'success': return <CheckCircle2 className="icon-success" size={20} />;
+      case 'error': return <XCircle className="icon-error" size={20} />;
+      case 'warning': return <AlertCircle className="icon-warning" size={20} />;
       case 'info':
-      default:
-        return <Info className="icon-info" size={20} />;
+      default: return <Info className="icon-info" size={20} />;
     }
   };
 
@@ -44,11 +40,12 @@ const Notification = () => {
         {notifications.map((notification) => (
           <motion.div
             key={notification.id}
-            initial={{ opacity: 0, x: 100, scale: 0.9, y: -20 }}
+            initial={{ opacity: 0, x: 50, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.85, x: 50, transition: { duration: 0.2 } }}
+            exit={{ opacity: 0, scale: 0.95, x: 20, transition: { duration: 0.2 } }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             layout
-            className={`notification-toast ${notification.type} premium-glass`}
+            className={`notification-toast ${notification.type}`}
           >
             <div className="notification-content">
               <div className="notification-icon-wrapper">
@@ -59,15 +56,14 @@ const Notification = () => {
                 <span className="notification-message">
                   {notification.message}
                 </span>
-                <span className="notification-time">Just now</span>
               </div>
 
               <button
                 className="notification-close-btn"
                 onClick={() => removeNotification(notification.id)}
-                aria-label="Close notification"
+                aria-label="Close"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 

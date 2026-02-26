@@ -128,10 +128,6 @@ const SecurityTab = () => {
 
     return (
         <div className="modern-dashboard-tab">
-            <div className="tab-header">
-                <h2>Security Settings</h2>
-            </div>
-
             {/* Two-Factor Authentication */}
             <div className="content-card mb-4">
                 <div className="security-section">
