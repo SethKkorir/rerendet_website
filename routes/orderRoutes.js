@@ -7,7 +7,8 @@ import {
   getOrders,
   updateOrderStatus,
   calculateShippingCost,
-  generateOrderInvoice
+  generateOrderInvoice,
+  validateCoupon
 } from '../controllers/orderController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { checkoutLimiter } from '../middleware/checkoutRateLimit.js';
@@ -23,6 +24,7 @@ router.use(protect);
 
 
 // Customer routes - Apply rate limiting to checkout
+router.post('/validate-coupon', validateCoupon);
 router.post('/', checkoutLimiter, createOrder);
 router.get('/my', getUserOrders);
 router.get('/:id', getOrderById);

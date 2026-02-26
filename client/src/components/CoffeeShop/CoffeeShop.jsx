@@ -1,7 +1,11 @@
 import React, { useContext, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
-import { FaEye, FaTimes, FaShoppingBag } from 'react-icons/fa';
+import { FaEye, FaTimes, FaPlus, FaLeaf, FaShoppingBag } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import FlavorChart from '../Product/FlavorChart';
+import FloatingBeans from '../UI/FloatingBeans';
+import { isFreshlyRoasted } from '../../utils/productHelpers';
 import './CoffeeShop.css';
 
 const CoffeeShop = () => {
@@ -10,45 +14,33 @@ const CoffeeShop = () => {
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showBeans, setShowBeans] = useState(false);
 
-  // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
         const response = await fetch('/api/products?category=coffee-beans&inStock=true');
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
-
+        if (!response.ok) throw new Error('Failed to fetch products');
         const result = await response.json();
 
         if (result.success && result.data && Array.isArray(result.data.products)) {
-          // Generate all product variations with different sizes - FIXED ID ISSUE
           const allProducts = [];
           result.data.products.forEach(product => {
-            // Only process products that have sizes
             if (product.sizes && product.sizes.length > 0) {
               product.sizes.forEach(sizeOption => {
                 allProducts.push({
-                  // Preserve all original product data
                   ...product,
-                  // KEEP THE ORIGINAL _id - don't modify it!
-                  _id: product._id, // Keep original MongoDB ObjectId
+                  _id: product._id,
                   size: sizeOption.size,
                   price: sizeOption.price,
                   displayName: `${product.name} - ${sizeOption.size}`,
-                  // Store size separately for cart operations
                   selectedSize: sizeOption.size,
-                  // Ensure images array is preserved
                   images: product.images || [],
-                  // Add a unique key for React rendering only (not for database operations)
                   variationKey: `${product._id}-${sizeOption.size.replace('g', '')}`
                 });
               });
             } else {
-              // If product has no sizes, add it as-is with default values
               allProducts.push({
                 ...product,
                 size: '250g',
@@ -60,82 +52,56 @@ const CoffeeShop = () => {
               });
             }
           });
-
           setProducts(allProducts);
         } else {
-          // If no products found, set empty array
           setProducts([]);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
         showAlert('Failed to load products. Please try again later.', 'error');
-        // Set empty array on error so UI doesn't break
         setProducts([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProducts();
   }, [showAlert]);
 
-  // Helper function to get product image
   const getProductImage = (product) => {
     if (product.images && product.images.length > 0 && product.images[0].url) {
       return product.images[0].url;
     }
-    // Fallback to the old image property if images array doesn't exist
-    if (product.image) {
-      return product.image;
-    }
-    // Final fallback - placeholder
-    return `https://via.placeholder.com/300x300/6F4E37/ffffff?text=${encodeURIComponent(product.name)}`;
+    if (product.image) return product.image;
+    return `https://via.placeholder.com/600x600/6F4E37/ffffff?text=${encodeURIComponent(product.name)}`;
   };
 
-  // Helper function to check stock
   const isInStock = (product) => {
-    // Use inventory.stock if available, otherwise use countInStock or inStock
     if (product.inventory && product.inventory.stock !== undefined) {
       return product.inventory.stock > 0;
-    }
-    if (product.countInStock !== undefined) {
-      return product.countInStock > 0;
     }
     return product.inStock !== false;
   };
 
-  // Helper function to get stock count
-  const getStockCount = (product) => {
-    if (product.inventory && product.inventory.stock !== undefined) {
-      return product.inventory.stock;
-    }
-    if (product.countInStock !== undefined) {
-      return product.countInStock;
-    }
-    return product.inStock ? 10 : 0; // Default to 10 if inStock is true but no count
-  };
-
   const handleAddToCart = async (product) => {
     setAddingToCart(product.variationKey);
+    setShowBeans(true);
+    setTimeout(() => setShowBeans(false), 2000);
     try {
-      // Create a clean product object for the cart that includes sizes array
       const cartProduct = {
-        _id: product._id, // Use the original MongoDB ObjectId
+        _id: product._id,
         name: product.name,
-        price: product.price, // Include the pre-calculated price
-        size: product.selectedSize || product.size, // Include the selected size
+        price: product.price,
+        size: product.selectedSize || product.size,
         images: product.images || [],
         category: product.category,
         roastLevel: product.roastLevel,
         origin: product.origin,
         flavorNotes: product.flavorNotes,
         badge: product.badge,
-        // Include the sizes array for price validation
         sizes: product.sizes || []
       };
-
       await addToCart(cartProduct, 1, product.selectedSize || product.size);
-      if (selectedProduct) setSelectedProduct(null); // Close modal if open
+      if (selectedProduct) setSelectedProduct(null);
     } catch (error) {
       console.error('Error adding to cart:', error);
       showAlert('Failed to add product to cart', 'error');
@@ -143,13 +109,20 @@ const CoffeeShop = () => {
       setAddingToCart(null);
     }
   };
+
   if (loading) {
     return (
       <section id="coffee-shop" className="coffee-shop">
         <div className="container">
-          <div className="loading">
-            <div className="loading-spinner"></div>
-            Loading our premium coffees...
+          <div className="loading-state">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="loading-icon-wrap"
+            >
+              <FaShoppingBag style={{ fontSize: '3rem', color: 'var(--color-primary)' }} />
+            </motion.div>
+            <p>Curating our finest roasts...</p>
           </div>
         </div>
       </section>
@@ -158,105 +131,118 @@ const CoffeeShop = () => {
 
   return (
     <section id="coffee-shop" className="coffee-shop">
+      <FloatingBeans isVisible={showBeans} />
       <div className="container">
-        <h2 className="section-title">Shop Our Premium Coffee Blends</h2>
-        <p className="section-subtitle">
-          Carefully crafted blends roasted to perfection. Available in 250g, 500g, and 1000g packages.
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <h2 className="section-title">Artisanal Coffee Collection</h2>
+          <p className="section-subtitle">
+            Experience the journey from bean to cup with our sustainably sourced,
+            hand-roasted Kenyan specialties.
+          </p>
+        </motion.div>
 
-        <div className="coffee-grid">
+        <motion.div
+          className="coffee-grid"
+          layout
+        >
           {products.map((product, index) => {
             const productInStock = isInStock(product);
-            const stockCount = getStockCount(product);
+            const fresh = isFreshlyRoasted(product.roastDate);
 
             return (
               <motion.div
-                key={product.variationKey} // Use variationKey for React rendering
+                key={product.variationKey}
                 className="coffee-card"
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: index * 0.05, duration: 0.5 }}
+                whileHover={{ y: -10 }}
               >
-                <div className="coffee-image">
-                  <img
-                    src={getProductImage(product)}
-                    alt={product.displayName || product.name}
-                    onError={(e) => {
-                      // If image fails to load, use placeholder
-                      e.target.src = `https://via.placeholder.com/300x300/6F4E37/ffffff?text=${encodeURIComponent(product.name)}`;
-                    }}
-                  />
+                <div className="coffee-image-container">
+                  <Link to={`/product/${product.seo?.slug || product._id}`} className="image-link">
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.displayName || product.name}
+                      onError={(e) => {
+                        e.target.src = `https://via.placeholder.com/600x600/6F4E37/ffffff?text=${encodeURIComponent(product.name)}`;
+                      }}
+                    />
+                  </Link>
 
-                  {/* Overlays */}
-                  <div className="image-overlay-actions">
-                    <button
-                      className="quick-view-btn"
+                  <div className="card-overlay-actions">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="premium-view-btn"
                       onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); }}
-                      title="Quick View"
                     >
                       <FaEye />
-                    </button>
+                    </motion.button>
                   </div>
 
-                  {product.badge && (
-                    <div className="coffee-badge">{product.badge}</div>
+                  {fresh && (
+                    <div className="fresh-badge-glow">
+                      <FaLeaf className="fresh-icon" /> FRESHLY ROASTED
+                    </div>
                   )}
-                  {!productInStock && (
-                    <div className="out-of-stock-badge">Out of Stock</div>
-                  )}
-                  {productInStock && stockCount <= 5 && (
-                    <div className="low-stock-badge">Low Stock</div>
-                  )}
+                  {product.badge && <div className="coffee-badge">{product.badge}</div>}
+                  {!productInStock && <div className="out-of-stock-badge">Sold Out</div>}
                 </div>
 
                 <div className="coffee-info">
                   <div className="coffee-header">
                     <h3 className="coffee-title">{product.name}</h3>
                   </div>
-
-                  <p className="coffee-origin">{product.origin} • {product.roastLevel} • {product.size}</p>
+                  <p className="coffee-origin">{product.origin} • {product.size}</p>
 
                   <div className="flavor-notes">
-                    {product.flavorNotes && product.flavorNotes.slice(0, 3).map((note, idx) => (
-                      <span key={idx} className="flavor-tag">{note}</span>
+                    {product.flavorNotes?.slice(0, 3).map((note, idx) => (
+                      <span key={idx} className="flavor-pill">{note}</span>
                     ))}
                   </div>
 
-                  <div className="coffee-footer-row">
-                    <div className="coffee-price-large">
-                      <small>KES</small> {product.price.toLocaleString()}
+                  <div className="card-footer">
+                    <div className="price-tag">
+                      <span className="price-currency">KES</span>
+                      <span className="price-amount">{product.price.toLocaleString()}</span>
                     </div>
-                    <button
-                      className={`btn-add-large ${!productInStock || addingToCart === product.variationKey ? 'disabled' : ''}`}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className={`quick-add-btn ${!productInStock || addingToCart === product.variationKey ? 'disabled' : ''}`}
                       onClick={() => handleAddToCart(product)}
                       disabled={!productInStock || addingToCart === product.variationKey}
                     >
-                      {addingToCart === product.variationKey ? 'Adding...' : 'Add to Cart'}
-                    </button>
+                      {addingToCart === product.variationKey ? <div className="loader-mini" /> : <FaPlus />}
+                    </motion.button>
                   </div>
-
                 </div>
               </motion.div>
             );
           })}
-        </div>
+        </motion.div>
 
-        {/* Quick View Modal */}
         <AnimatePresence>
           {selectedProduct && (
             <motion.div
-              className="modal-overlay"
+              className="modal-overlay premium-modal-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedProduct(null)}
             >
               <motion.div
-                className="quick-view-modal"
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
+                className="quick-view-modal premium-modal-content"
+                initial={{ scale: 0.9, opacity: 0, y: 50 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 50 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button className="close-modal-btn" onClick={() => setSelectedProduct(null)}><FaTimes /></button>
@@ -268,39 +254,41 @@ const CoffeeShop = () => {
                   <div className="modal-details">
                     <span className="modal-badge">{selectedProduct.roastLevel} Roast</span>
                     <h2>{selectedProduct.name}</h2>
-                    <p className="modal-origin">{selectedProduct.origin}</p>
+                    <p className="modal-origin">{selectedProduct.origin} • {selectedProduct.selectedSize}</p>
                     <div className="modal-price">KES {selectedProduct.price.toLocaleString()}</div>
                     <p className="modal-desc">{selectedProduct.description}</p>
 
                     <div className="modal-flavors">
                       <strong>Flavor Notes:</strong>
-                      <div className="flavor-tags">
+                      <div className="flavor-notes" style={{ marginTop: '0.5rem' }}>
                         {selectedProduct.flavorNotes?.map((note, i) => (
-                          <span key={i} className="flavor-tag">{note}</span>
+                          <span key={i} className="flavor-pill">{note}</span>
                         ))}
                       </div>
                     </div>
 
-                    <button
-                      className="modal-add-btn"
+                    {selectedProduct.flavorProfiles && (
+                      <div className="modal-chart-wrap" style={{ margin: '1.5rem 0' }}>
+                        <FlavorChart flavorProfiles={selectedProduct.flavorProfiles} />
+                      </div>
+                    )}
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="btn-premium"
                       onClick={() => handleAddToCart(selectedProduct)}
                       disabled={addingToCart === selectedProduct.variationKey}
+                      style={{ width: '100%' }}
                     >
-                      {addingToCart === selectedProduct.variationKey ? 'Adding...' : 'Add to Cart'}
-                    </button>
+                      {addingToCart === selectedProduct.variationKey ? 'Adding to Brew...' : 'Add to Cart'}
+                    </motion.button>
                   </div>
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {!loading && products.length === 0 && (
-          <div className="empty-state">
-            <p>No coffee products found at the moment.</p>
-            <p>Please check back later or contact us for availability.</p>
-          </div>
-        )}
       </div>
     </section>
   );

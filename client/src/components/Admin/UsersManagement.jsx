@@ -127,6 +127,11 @@ const UsersManagement = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
+  // Initial fetch and filter updates
+  useEffect(() => {
+    fetchUsers();
+  }, [filters]);
+
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };

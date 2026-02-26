@@ -78,17 +78,6 @@ const Hero = () => {
             </button>
           </motion.div>
 
-          <motion.div className="hero-trust-badges" variants={itemVariants}>
-            <div className="trust-badge">
-              <strong>4.9/5</strong> Rating
-            </div>
-            <div className="trust-badge">
-              <strong>Fast</strong> Delivery
-            </div>
-            <div className="trust-badge">
-              <strong>Eco</strong> Friendly
-            </div>
-          </motion.div>
         </motion.div>
 
         <motion.div

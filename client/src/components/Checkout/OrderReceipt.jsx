@@ -112,12 +112,7 @@ export default function OrderReceipt() {
               <span>Shipping</span>
               <span>KES {order.shippingCost.toLocaleString()}</span>
             </div>
-            {order.tax > 0 && (
-              <div className="total-row">
-                <span>Tax (16% VAT)</span>
-                <span>KES {order.tax.toLocaleString()}</span>
-              </div>
-            )}
+
             <div className="total-row grand-total">
               <span>Total</span>
               <span>KES {order.total.toLocaleString()}</span>

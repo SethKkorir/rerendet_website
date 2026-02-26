@@ -100,7 +100,7 @@ const Testimonials = () => {
   };
 
   // Safe checks for rendering
-  const currentItem = displayTestimonials[currentTestimonial] || defaultTestimonials[0];
+  const currentItem = displayTestimonials[currentTestimonial];
 
   return (
     <section className="testimonials">
@@ -114,7 +114,7 @@ const Testimonials = () => {
           )}
         </div>
 
-        {displayTestimonials.length > 0 ? (
+        {displayTestimonials.length > 0 && currentItem ? (
           <>
             <div className="testimonial-slider">
               <AnimatePresence mode="wait">

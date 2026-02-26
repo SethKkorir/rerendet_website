@@ -2,7 +2,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
-import { FaCheckCircle, FaBox, FaCalendar, FaCreditCard, FaTruck, FaDownload, FaHome, FaReceipt } from 'react-icons/fa';
+import {
+    FaCheckCircle, FaBox, FaCalendar, FaCreditCard,
+    FaTruck, FaDownload, FaHome, FaReceipt, FaCoffee,
+    FaEnvelope, FaStar, FaLeaf, FaMagic, FaArrowRight
+} from 'react-icons/fa';
 import './OrderConfirmation.css';
 
 const OrderConfirmation = () => {
@@ -16,9 +20,7 @@ const OrderConfirmation = () => {
     const [showConfetti, setShowConfetti] = useState(true);
 
     useEffect(() => {
-        // Refresh global order state to ensure dashboard is updated
         refreshOrders();
-
         if (!order && id) {
             fetchOrder();
         }
@@ -35,9 +37,6 @@ const OrderConfirmation = () => {
                     'Content-Type': 'application/json'
                 }
             });
-
-            if (!response.ok) throw new Error('Failed to fetch order');
-
             const result = await response.json();
             if (result.success) {
                 setOrder(result.data);
@@ -55,15 +54,11 @@ const OrderConfirmation = () => {
 
     const handleDownloadInvoice = async () => {
         try {
-            showNotification('Generating invoice...', 'info');
+            showNotification('Preparing your premium invoice...', 'info');
             const response = await fetch(`/api/orders/${id}/invoice`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-
             if (!response.ok) throw new Error('Failed to download invoice');
-
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -73,10 +68,8 @@ const OrderConfirmation = () => {
             link.click();
             link.parentNode.removeChild(link);
             window.URL.revokeObjectURL(url);
-
             showNotification('Invoice downloaded successfully', 'success');
         } catch (error) {
-            console.error('Invoice download error:', error);
             showNotification('Failed to download invoice', 'error');
         }
     };
@@ -84,46 +77,22 @@ const OrderConfirmation = () => {
     const getEstimatedDelivery = () => {
         const orderDate = new Date(order.createdAt);
         const deliveryDate = new Date(orderDate);
-        deliveryDate.setDate(orderDate.getDate() + 5);
-
+        deliveryDate.setDate(orderDate.getDate() + 3); // Faster estimate for premium feel
         return deliveryDate.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+            weekday: 'long', month: 'long', day: 'numeric'
         });
-    };
-
-    const getPaymentStatusLabel = (status) => {
-        const labels = {
-            pending: 'Pending Payment',
-            paid: 'Payment Confirmed',
-            failed: 'Payment Failed',
-            refunded: 'Refunded'
-        };
-        return labels[status] || status;
     };
 
     if (loading) {
         return (
             <div className="order-confirmation-loading">
                 <div className="loading-spinner"></div>
-                <p>Loading your order...</p>
+                <p>Curating your order details...</p>
             </div>
         );
     }
 
-    if (!order) {
-        return (
-            <div className="order-confirmation-error">
-                <h2>Order Not Found</h2>
-                <p>We could not find the order you are looking for.</p>
-                <button className="btn-primary" onClick={() => navigate('/account/orders')}>
-                    View All Orders
-                </button>
-            </div>
-        );
-    }
+    if (!order) return null;
 
     return (
         <div className="order-confirmation">
@@ -133,7 +102,7 @@ const OrderConfirmation = () => {
                         <div key={i} className="confetti" style={{
                             left: `${Math.random() * 100}%`,
                             animationDelay: `${Math.random() * 3}s`,
-                            backgroundColor: ['#6F4E37', '#A67C52', '#D4A76A', '#FFD700'][Math.floor(Math.random() * 4)]
+                            backgroundColor: ['#6F4E37', '#D4AF37', '#A67C52', '#FFFFFF'][Math.floor(Math.random() * 4)]
                         }}></div>
                     ))}
                 </div>
@@ -143,54 +112,65 @@ const OrderConfirmation = () => {
                 <div className="success-icon">
                     <FaCheckCircle />
                 </div>
-                <h1>Order Placed Successfully!</h1>
+                <h1>Excellence Confirmed.</h1>
                 <p className="confirmation-message">
-                    Thank you for your order. We have received your order and will start processing it shortly.
+                    Your artisanal journey has begun. We've received your order and our master roasters are already preparing your selection.
                 </p>
             </div>
 
             <div className="order-number-box">
                 <FaReceipt className="receipt-icon" />
                 <div className="order-number-content">
-                    <span className="order-label">Order Number</span>
+                    <span className="order-label">Order Signature</span>
                     <span className="order-number">#{order.orderNumber}</span>
+                </div>
+            </div>
+
+            {/* WHAT'S NEXT ROADMAP */}
+            <div className="roadmap-section">
+                <h3 className="roadmap-title">The Coffee's Journey</h3>
+                <div className="roadmap-container">
+                    <div className="roadmap-step active">
+                        <div className="step-point"><FaCheckCircle /></div>
+                        <div className="step-info">
+                            <h4>Order Confirmed</h4>
+                            <p>We've received your request and secured your small-batch beans.</p>
+                        </div>
+                    </div>
+                    <div className="roadmap-line"></div>
+                    <div className="roadmap-step">
+                        <div className="step-point"><FaMagic /></div>
+                        <div className="step-info">
+                            <h4>Artisanal Preparation</h4>
+                            <p>Our roasters are hand-selecting and preparing your fresh coffee batches.</p>
+                        </div>
+                    </div>
+                    <div className="roadmap-line"></div>
+                    <div className="roadmap-step">
+                        <div className="step-point"><FaTruck /></div>
+                        <div className="step-info">
+                            <h4>Premium Dispatch</h4>
+                            <p>Estimated Arrival: <strong>{getEstimatedDelivery()}</strong></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div className="order-details-grid">
                 <div className="info-card">
                     <div className="card-header">
-                        <FaBox />
-                        <h3>Order Information</h3>
+                        <FaEnvelope />
+                        <h3>Stay Informed</h3>
                     </div>
                     <div className="card-content">
-                        <div className="info-row">
-                            <span className="info-label">Order Date:</span>
-                            <span className="info-value">
-                                {new Date(order.createdAt).toLocaleDateString('en-US', {
-                                    month: 'long',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                })}
-                            </span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Status:</span>
-                            <span className={`status-badge ${order.status}`}>
-                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                            </span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Items:</span>
-                            <span className="info-value">{order.items?.length || 0}</span>
-                        </div>
+                        <p className="notice-text">A confirmation receipt has been dispatched to <strong>{order.shippingAddress?.email}</strong>. Check your inbox for brewing secrets and real-time updates.</p>
                     </div>
                 </div>
 
                 <div className="info-card">
                     <div className="card-header">
                         <FaCreditCard />
-                        <h3>Payment Details</h3>
+                        <h3>Payment Status</h3>
                     </div>
                     <div className="card-content">
                         <div className="info-row">
@@ -198,46 +178,21 @@ const OrderConfirmation = () => {
                             <span className="info-value">{order.paymentMethod.toUpperCase()}</span>
                         </div>
                         <div className="info-row">
-                            <span className="info-label">Payment Status:</span>
+                            <span className="info-label">Status:</span>
                             <span className={`status-badge ${order.paymentStatus}`}>
-                                {getPaymentStatusLabel(order.paymentStatus)}
+                                {order.paymentStatus === 'paid' ? 'Secured' : 'Pending'}
                             </span>
                         </div>
                         <div className="info-row">
-                            <span className="info-label">Total Paid:</span>
+                            <span className="info-label">Total:</span>
                             <span className="info-value amount">KSh {order.total?.toLocaleString()}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="info-card full-width">
-                    <div className="card-header">
-                        <FaTruck />
-                        <h3>Delivery Information</h3>
-                    </div>
-                    <div className="card-content">
-                        <div className="info-row">
-                            <span className="info-label">Estimated Delivery:</span>
-                            <span className="info-value">
-                                <FaCalendar className="inline-icon" /> {getEstimatedDelivery()}
-                            </span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Shipping Address:</span>
-                            <div className="address-box">
-                                <p>{order.shippingAddress?.firstName} {order.shippingAddress?.lastName}</p>
-                                <p>{order.shippingAddress?.address}</p>
-                                <p>{order.shippingAddress?.city}, {order.shippingAddress?.county}</p>
-                                <p>{order.shippingAddress?.country}</p>
-                                <p>{order.shippingAddress?.phone}</p>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="order-items-section">
-                <h3>Order Items</h3>
+                <h3>The Selection</h3>
                 <div className="items-list">
                     {order.items?.map((item, index) => (
                         <div key={index} className="order-item">
@@ -246,8 +201,8 @@ const OrderConfirmation = () => {
                             </div>
                             <div className="item-details">
                                 <h4>{item.name}</h4>
-                                <p className="item-size">Size: {item.size}</p>
-                                <p className="item-quantity">Quantity: {item.quantity}</p>
+                                <p className="item-meta">{item.size} • Hand-picked selection</p>
+                                <p className="item-qty">Quantity: {item.quantity}</p>
                             </div>
                             <div className="item-price">
                                 <span>KSh {(item.price * item.quantity).toLocaleString()}</span>
@@ -255,58 +210,31 @@ const OrderConfirmation = () => {
                         </div>
                     ))}
                 </div>
-
-                <div className="order-summary">
-                    <div className="summary-row">
-                        <span>Subtotal:</span>
-                        <span>KSh {order.subtotal?.toLocaleString()}</span>
-                    </div>
-                    <div className="summary-row">
-                        <span>Shipping:</span>
-                        <span>KSh {order.shippingCost?.toLocaleString()}</span>
-                    </div>
-                    <div className="summary-row">
-                        <span>Tax (16% VAT):</span>
-                        <span>KSh {order.tax?.toLocaleString()}</span>
-                    </div>
-                    <div className="summary-row total">
-                        <span>Total Amount:</span>
-                        <span>KSh {order.total?.toLocaleString()}</span>
-                    </div>
-                </div>
             </div>
 
             <div className="confirmation-actions">
                 <button className="btn-primary" onClick={() => navigate(`/order-tracking/${order._id}`)}>
-                    <FaTruck /> Track Order
+                    <FaTruck /> Live Tracking
                 </button>
                 <button className="btn-outline" onClick={handleDownloadInvoice}>
-                    <FaDownload /> Download Invoice
+                    <FaDownload /> Digital Invoice
                 </button>
                 <button className="btn-secondary" onClick={() => navigate('/')}>
-                    <FaHome /> Continue Shopping
+                    <FaHome /> Return Home
                 </button>
             </div>
 
-            <div className="whats-next">
-                <h3>What happens next?</h3>
-                <div className="next-steps">
-                    <div className="step">
-                        <div className="step-number">1</div>
-                        <p>We'll confirm your order and start preparing it</p>
-                    </div>
-                    <div className="step">
-                        <div className="step-number">2</div>
-                        <p>You'll receive email updates on your order status</p>
-                    </div>
-                    <div className="step">
-                        <div className="step-number">3</div>
-                        <p>Your order will be shipped within 1-2 business days</p>
-                    </div>
-                    <div className="step">
-                        <div className="step-number">4</div>
-                        <p>Enjoy your premium Rerendet Coffee!</p>
-                    </div>
+            {/* CURATED SECTION */}
+            <div className="curated-footer">
+                <div className="footer-card">
+                    <FaLeaf />
+                    <h4>Freshness Guarantee</h4>
+                    <p>Every bean is roasted within 24 hours of dispatch to ensure peak aromatic profile.</p>
+                </div>
+                <div className="footer-card">
+                    <FaStar />
+                    <h4>Join the Circle</h4>
+                    <p>Rate your brew once it arrives and unlock exclusive artisanal rewards.</p>
                 </div>
             </div>
         </div>

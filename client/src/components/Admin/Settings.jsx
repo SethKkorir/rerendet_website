@@ -281,18 +281,6 @@ const Settings = () => {
     }));
   };
 
-  const handleBusinessHoursChange = (day, field, value) => {
-    setSettings(prev => ({
-      ...prev,
-      businessHours: {
-        ...prev.businessHours,
-        [day]: {
-          ...prev.businessHours?.[day],
-          [field]: value
-        }
-      }
-    }));
-  };
 
 
 
@@ -455,37 +443,6 @@ const Settings = () => {
                 </div>
               </SettingSection>
 
-              <SettingSection title="Business Hours">
-                <div className="business-hours">
-                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
-                    <div key={day} className="business-day">
-                      <div className="day-header">
-                        <CheckboxField
-                          label={day.charAt(0).toUpperCase() + day.slice(1)}
-                          checked={!settings.businessHours?.[day]?.closed}
-                          onChange={(checked) => handleBusinessHoursChange(day, 'closed', !checked)}
-                        />
-                      </div>
-                      <div className="time-inputs">
-                        <InputField
-                          label="Open"
-                          type="time"
-                          value={settings.businessHours?.[day]?.open || '09:00'}
-                          onChange={(value) => handleBusinessHoursChange(day, 'open', value)}
-                          disabled={settings.businessHours?.[day]?.closed}
-                        />
-                        <InputField
-                          label="Close"
-                          type="time"
-                          value={settings.businessHours?.[day]?.close || '17:00'}
-                          onChange={(value) => handleBusinessHoursChange(day, 'close', value)}
-                          disabled={settings.businessHours?.[day]?.closed}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </SettingSection>
             </div>
           )}
 
@@ -895,6 +852,12 @@ const Settings = () => {
                     value={settings.seo?.social?.twitter}
                     onChange={(value) => handleNestedChange('seo', 'social', 'twitter', value)}
                     placeholder="https://twitter.com/rerendetcoffee"
+                  />
+                  <InputField
+                    label="WhatsApp URL"
+                    value={settings.seo?.social?.whatsapp}
+                    onChange={(value) => handleNestedChange('seo', 'social', 'whatsapp', value)}
+                    placeholder="https://whatsapp.com/channel/..."
                   />
                 </div>
               </SettingSection>

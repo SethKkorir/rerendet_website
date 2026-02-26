@@ -1,4 +1,5 @@
 import Contact from '../models/Contact.js';
+import startSubscriptionCron from '../scripts/subscriptionCron.js';
 
 // Configuration
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // Check every 24 hours
@@ -36,9 +37,11 @@ const cleanupRepliedContacts = async () => {
 export const startCronJobs = () => {
     console.log(`⏰ [Cron] System initialized. Old contacts (> ${DELETE_AGE_DAYS} days) will be auto-deleted.`);
 
-    // Run immediately on startup
+    // Run contact cleanup
     cleanupRepliedContacts();
-
-    // Schedule regular interval
     setInterval(cleanupRepliedContacts, CLEANUP_INTERVAL_MS);
+
+    // Start Subscription Engine
+    startSubscriptionCron();
+    console.log('✅ [Cron] Subscription Engine Active.');
 };

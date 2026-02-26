@@ -18,6 +18,7 @@ import AdminLayout from './components/Admin/AdminLayout';
 import AdminRoute from './components/Admin/AdminRoute';
 import Notification from './components/Notification/Notification';
 import SessionLock from './components/Auth/SessionLock';
+import ProductDetail from './components/Product/ProductDetail';
 import Dashboard from './components/Admin/Dashboard';
 import OrdersManagement from './components/Admin/OrdersManagement';
 import ProductsManagement from './components/Admin/ProductsManagement';
@@ -80,22 +81,16 @@ function App() {
   // Check if current route is admin route
   const isAdminRoute = location.pathname.startsWith('/admin');
 
-  const { publicSettings, user, settingsLoading, isAdmin } = useContext(AppContext);
-  // const isAdmin = user?.role === 'admin' || user?.role === 'super-admin'; // Using context isAdmin is safer
-  const isMaintenanceMode = publicSettings?.maintenance?.enabled;
+  const { publicSettings, user, userType, settingsLoading, isAdmin } = useContext(AppContext);
 
-  // Debug logic for Maintenance Mode
-  useEffect(() => {
-    if (isMaintenanceMode) {
-      console.log('🔧 Maintenance Mode Check:', {
-        enabled: isMaintenanceMode,
-        userRole: user?.role,
-        isAdminContext: isAdmin,
-        isBlocked: !isAdmin && !location.pathname.includes('/admin/login')
-      });
-    }
-  }, [isMaintenanceMode, user, isAdmin, location.pathname]);
+  // Robust Admin check
+  const isActualAdmin = user?.role === 'admin' || user?.role === 'super-admin' || userType === 'admin' || isAdmin === true;
 
+  // Robust Maintenance Mode check
+  const maintenanceEnabled = publicSettings?.maintenance?.enabled === true ||
+    publicSettings?.maintenance?.enabled === 'true';
+
+  // Always show loader if context is still booting
   if (settingsLoading) {
     return (
       <div className="loading-overlay">
@@ -105,23 +100,77 @@ function App() {
     );
   }
 
-  // Allow access to Admin Login even during maintenance
-  if (isMaintenanceMode && !isAdmin && !location.pathname.includes('/admin/login')) {
-    // Return Maintenance Overlay immediately
+  // 1. If Maintenance is ON and user is NOT an Admin, SHOW OVERLAY
+  // But always allow the Admin Login page to be reachable
+  const isLoginPage = location.pathname.includes('/admin/login');
+
+  if (maintenanceEnabled && !isActualAdmin && !isLoginPage) {
     return (
       <div className="maintenance-overlay">
         <div className="maintenance-content">
-          <h1>We'll be back soon!</h1>
-          <p>{publicSettings?.maintenance?.message || "We are currently performing scheduled maintenance."}</p>
+          <div className="maintenance-icon">🛠️</div>
+          <h1>Service Temporarily Offline</h1>
+          <p>{publicSettings?.maintenance?.message || "We are currently performing scheduled maintenance to improve our service. We'll be back shortly!"}</p>
+          <div className="maintenance-footer">
+            <p>Thank you for your patience.</p>
+            <p className="maintenance-team">— Rerendet Coffee Maintenance Team</p>
+          </div>
         </div>
+        <style>{`
+          .maintenance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #faf7f2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+            text-align: center;
+          }
+          .maintenance-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(111, 78, 55, 0.1);
+            max-width: 500px;
+            width: 100%;
+          }
+          .maintenance-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+          }
+          .maintenance-content h1 {
+            color: #6F4E37;
+            margin-bottom: 15px;
+            font-size: 2rem;
+          }
+          .maintenance-content p {
+            color: #6d7280;
+            line-height: 1.6;
+            margin-bottom: 25px;
+          }
+          .maintenance-footer {
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+          }
+          .maintenance-team {
+            font-weight: 700;
+            color: #6F4E37 !important;
+            margin-top: 10px;
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className={`App ${isMaintenanceMode && isAdmin ? 'maintenance-active' : ''}`}>
+    <div className={`App ${maintenanceEnabled && isActualAdmin ? 'maintenance-active' : ''}`}>
       {/* Admin Maintenance Banner - ONLY for Admins */}
-      {isMaintenanceMode && isAdmin && (
+      {maintenanceEnabled && isActualAdmin && (
         <div className="maintenance-banner">
           ⚠️ Maintenance Mode is Active (Visible to Admins only)
         </div>
@@ -154,6 +203,8 @@ function App() {
             </>
           }
         />
+
+        <Route path="/product/:slug" element={<ProductDetail />} />
 
         {/* Policy Pages */}
         <Route path="/privacy-policy" element={<PolicyPage type="privacyPolicy" title="Privacy Policy" />} />

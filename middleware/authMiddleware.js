@@ -20,49 +20,36 @@ const protect = asyncHandler(async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      
-      console.log('🔐 Token verification details:', {
-        secretLength: process.env.JWT_SECRET.length,
-        tokenLength: token.length,
-        tokenPreview: token.substring(0, 20) + '...'
-      });
-      
+
+      token = req.headers.authorization.split(' ')[1];
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('✅ Token decoded successfully:', { userId: decoded.id });
-      
+
       req.user = await User.findById(decoded.id)
         .select('-password -verificationCode -verificationCodeExpires -resetPasswordToken -resetPasswordExpires -loginAttempts -lockUntil');
-      
+
       if (!req.user) {
-        console.error('❌ User not found for ID:', decoded.id);
         res.status(401);
-        throw new Error('User not found');
+        throw new Error('Not authorized, user not found');
       }
 
       // Check if user is active
       if (req.user.isActive === false) {
         res.status(401);
-        throw new Error('Account is deactivated');
+        throw new Error('This account has been deactivated. Please contact support.');
       }
-      
-      console.log('✅ Token verified for user:', req.user.email);
+
       next();
     } catch (error) {
-      console.error('❌ Token verification failed:', {
-        error: error.message,
-        tokenPreview: token ? token.substring(0, 20) + '...' : 'No token',
-        secretPreview: process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 10) + '...' : 'No secret'
-      });
-      
       if (error.name === 'TokenExpiredError') {
         res.status(401);
-        throw new Error('Token expired. Please log in again.');
+        throw new Error('Session expired. Please log in again.');
       } else if (error.name === 'JsonWebTokenError') {
         res.status(401);
-        throw new Error('Invalid token. Please log in again.');
+        throw new Error('Invalid authentication token.');
       } else {
         res.status(401);
-        throw new Error('Not authorized, token failed');
+        throw new Error('Not authorized, token validation failed');
       }
     }
   } else {
@@ -79,9 +66,9 @@ const admin = asyncHandler(async (req, res, next) => {
   }
 
   // Check both userType and role for admin access
-  const isAdmin = req.user.userType === 'admin' || 
-                 req.user.role === 'admin' || 
-                 req.user.role === 'super-admin';
+  const isAdmin = req.user.userType === 'admin' ||
+    req.user.role === 'admin' ||
+    req.user.role === 'super-admin';
 
   console.log('🔍 Basic Admin Check:', {
     email: req.user.email,
@@ -96,12 +83,12 @@ const admin = asyncHandler(async (req, res, next) => {
       res.status(403);
       throw new Error('Admin account is deactivated');
     }
-    
+
     if (!req.user.isVerified) {
       res.status(403);
       throw new Error('Admin account requires verification');
     }
-    
+
     console.log('✅ Basic admin access granted for:', req.user.email);
     next();
   } else {
@@ -117,11 +104,11 @@ const validateToken = asyncHandler(async (req, res) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id)
         .select('-password -verificationCode -verificationCodeExpires -resetPasswordToken -resetPasswordExpires -loginAttempts -lockUntil');
-      
+
       if (!user) {
         return res.status(401).json({
           success: false,

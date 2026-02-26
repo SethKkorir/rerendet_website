@@ -60,6 +60,7 @@ router.delete('/contacts/:id', adminAuth(['contacts:manage']), deleteContact);
 // ==================== SETTINGS MANAGEMENT ====================
 router.get('/settings', adminAuth(['settings:manage']), getSettings);
 router.put('/settings', adminAuth(['settings:manage']), updateSettings);
+router.post('/settings/test-email', adminAuth(['settings:manage']), testEmailConfig);
 router.post('/upload/logo', adminAuth(['settings:manage']), upload.single('logo'), asyncHandler(async (req, res) => {
   if (!req.file) {
     res.status(400);
@@ -77,7 +78,7 @@ router.post('/upload/logo', adminAuth(['settings:manage']), upload.single('logo'
 
 // ==================== ANALYTICS ====================
 router.get('/analytics/sales', adminAuth(['analytics:view']), getSalesAnalytics);
-router.get('/logs', adminAuth(['users:manage']), getActivityLogs); // Restricted to higher level admins
+router.get('/logs', adminAuth(['logs:view']), getActivityLogs); // Restricted to higher level admins
 
 // ==================== ADMIN DASHBOARD ====================
 router.get('/dashboard', (req, res) => {

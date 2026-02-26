@@ -28,9 +28,9 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.params.id);
-    res.json({ 
+    res.json({
       success: true,
-      message: 'User removed successfully' 
+      message: 'User removed successfully'
     });
   } else {
     res.status(404);
@@ -62,14 +62,27 @@ const updateUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
 
   if (user) {
+    // Securely update whitelist fields
     user.firstName = req.body.firstName || user.firstName;
     user.lastName = req.body.lastName || user.lastName;
     user.email = req.body.email || user.email;
     user.phone = req.body.phone || user.phone;
-    user.isAdmin = req.body.isAdmin !== undefined ? req.body.isAdmin : user.isAdmin;
-    user.isVerified = req.body.isVerified !== undefined ? req.body.isVerified : user.isVerified;
     user.gender = req.body.gender || user.gender;
     user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
+
+    // Only allow role/admin updates if the requester is an admin
+    if (req.user.role === 'admin' || req.user.role === 'super-admin') {
+      if (req.body.role) {
+        // Prevent recursive escalation
+        if (req.body.role === 'super-admin' && req.user.role !== 'super-admin') {
+          // Ignore or throw error
+        } else {
+          user.role = req.body.role;
+        }
+      }
+      if (req.body.isActive !== undefined) user.isActive = req.body.isActive;
+      if (req.body.isVerified !== undefined) user.isVerified = req.body.isVerified;
+    }
 
     const updatedUser = await user.save();
 
@@ -93,4 +106,68 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 });
 
-export { getUsers, deleteUser, getUserById, updateUser };
+// @desc    Get top spenders (CRM)
+// @route   GET /api/users/crm/top-spenders
+// @access  Private/Admin
+const getTopSpenders = asyncHandler(async (req, res) => {
+  const topSpenders = await User.aggregate([
+    {
+      $lookup: {
+        from: 'orders',
+        localField: '_id',
+        foreignField: 'user',
+        as: 'orders'
+      }
+    },
+    {
+      $project: {
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        totalSpent: { $sum: '$orders.totalAmount' },
+        orderCount: { $size: '$orders' },
+        loyaltyPoints: 1
+      }
+    },
+    { $sort: { totalSpent: -1 } },
+    { $limit: 10 }
+  ]);
+
+  res.json({ success: true, data: topSpenders });
+});
+
+// @desc    Get customer insights (AOV, etc.)
+// @route   GET /api/users/crm/insights
+// @access  Private/Admin
+const getCustomerInsights = asyncHandler(async (req, res) => {
+  const insights = await User.aggregate([
+    {
+      $lookup: {
+        from: 'orders',
+        localField: '_id',
+        foreignField: 'user',
+        as: 'orders'
+      }
+    },
+    { $match: { 'orders.0': { $exists: true } } }, // Only customers with at least one order
+    {
+      $project: {
+        avgOrderValue: { $avg: '$orders.totalAmount' },
+        totalSpent: { $sum: '$orders.totalAmount' },
+        orderCount: { $size: '$orders' }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        averageAOV: { $avg: '$avgOrderValue' },
+        totalRevenue: { $sum: '$totalSpent' },
+        totalOrders: { $sum: '$orderCount' }
+      }
+    }
+  ]);
+
+  res.json({ success: true, data: insights[0] || {} });
+});
+
+export { getUsers, deleteUser, getUserById, updateUser, getTopSpenders, getCustomerInsights };

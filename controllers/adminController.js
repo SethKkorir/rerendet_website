@@ -934,7 +934,7 @@ const updateSettings = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/analytics/sales
 // @access  Private/Admin
 const getSalesAnalytics = asyncHandler(async (req, res) => {
-  const { period = '30d' } = req.query;
+  const { period = req.query.timeframe || '30d' } = req.query;
 
   let startDate;
   const endDate = new Date();

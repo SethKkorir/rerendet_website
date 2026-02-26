@@ -1,22 +1,53 @@
 // src/components/Admin/OrdersManagement.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaSearch, FaFilter, FaEye, FaEdit, FaShippingFast, FaSync } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaEye, FaEdit, FaShippingFast, FaSync, FaCheckCircle, FaTimesCircle, FaBoxOpen } from 'react-icons/fa';
 import './OrdersManagement.css';
+
+const StatusBadge = ({ status, type }) => {
+  const colors = {
+    // Payment
+    paid: 'green',
+    pending: 'orange',
+    failed: 'red',
+    refunded: 'gray',
+
+    // Fulfillment
+    unfulfilled: 'gray',
+    packed: 'blue',
+    shipped: 'purple',
+    delivered: 'green',
+    returned: 'red',
+
+    // Order
+    open: 'blue',
+    completed: 'green',
+    cancelled: 'red'
+  };
+
+  return (
+    <span className={`status-badge ${colors[status] || 'gray'}`}>
+      {status}
+    </span>
+  );
+};
 
 const OrdersManagement = () => {
   const { showNotification, token } = useContext(AppContext);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    status: 'all',
-    search: '',
 
+  // NEW: Granular filters
+  const [filters, setFilters] = useState({
+    paymentStatus: 'all',
+    fulfillmentStatus: 'all',
+    search: '',
     startDate: '',
     endDate: '',
     page: 1,
     limit: 10
   });
+
   const [pagination, setPagination] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -66,7 +97,7 @@ const OrdersManagement = () => {
     }
   };
 
-  const updateOrderStatus = async (orderId, newStatus, trackingNumber = '', location = '', message = '') => {
+  const updateOrderStatus = async (orderId, updates) => {
     try {
       const response = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
@@ -75,10 +106,7 @@ const OrdersManagement = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          status: newStatus,
-          trackingNumber,
-          location,
-          message,
+          ...updates,
           notifyCustomer: true
         })
       });
@@ -120,76 +148,14 @@ const OrdersManagement = () => {
     });
   };
 
+  // TODO: Update bulk Action to support granular status if needed (skipping for now to focus on individual)
   const handleBulkAction = async () => {
-    if (!bulkAction || selectedOrders.length === 0) return;
-
-    if (!window.confirm(`Are you sure you want to update ${selectedOrders.length} orders to ${bulkAction}?`)) return;
-
-    try {
-      setLoading(true);
-      await Promise.all(selectedOrders.map(id =>
-        fetch(`/api/admin/orders/${id}/status`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status: bulkAction, notifyCustomer: true })
-        })
-      ));
-
-      showNotification(`Successfully updated ${selectedOrders.length} orders`, 'success');
-      setSelectedOrders([]);
-      setBulkAction('');
-      fetchOrders();
-    } catch (error) {
-      console.error('Bulk action error:', error);
-      showNotification('Failed to perform bulk action', 'error');
-    } finally {
-      setLoading(false);
-    }
+    // Placeholder
+    alert("Bulk actions temporarily disabled for upgrade.");
   };
 
-  const StatusBadge = ({ status }) => {
-    const statusColors = {
-      pending: 'orange',
-      confirmed: 'blue',
-      processing: 'purple',
-      shipped: 'teal',
-      delivered: 'green',
-      cancelled: 'red'
-    };
 
-    const statusLabels = {
-      pending: 'Pending',
-      confirmed: 'Confirmed',
-      processing: 'Processing',
-      shipped: 'Shipped',
-      delivered: 'Delivered',
-      cancelled: 'Cancelled'
-    };
 
-    return (
-      <span className={`status-badge ${statusColors[status] || 'gray'}`}>
-        {statusLabels[status] || status}
-      </span>
-    );
-  };
-
-  const PaymentStatusBadge = ({ status }) => {
-    const statusColors = {
-      pending: 'orange',
-      paid: 'green',
-      failed: 'red',
-      refunded: 'gray'
-    };
-
-    return (
-      <span className={`status-badge ${statusColors[status] || 'gray'}`}>
-        {status}
-      </span>
-    );
-  };
 
   const OrderRow = ({ order }) => (
     <tr className={`order-row ${selectedOrders.includes(order._id) ? 'selected' : ''}`}>
@@ -219,13 +185,6 @@ const OrdersManagement = () => {
         )}
       </td>
       <td>
-        <div>
-          {order.shippingAddress?.firstName} {order.shippingAddress?.lastName}
-          <br />
-          <small>{order.shippingAddress?.city}, {order.shippingAddress?.country}</small>
-        </div>
-      </td>
-      <td>
         KES {order.total?.toLocaleString()}
         <br />
         <small style={{ fontSize: '0.8em', color: '#666' }}>
@@ -233,9 +192,12 @@ const OrdersManagement = () => {
         </small>
       </td>
       <td>
-        <StatusBadge status={order.status} />
-        <br />
-        <PaymentStatusBadge status={order.paymentStatus} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <small>Payment:</small>
+          <StatusBadge status={order.paymentStatus} />
+          <small style={{ marginTop: '4px' }}>Fulfillment:</small>
+          <StatusBadge status={order.fulfillmentStatus} />
+        </div>
       </td>
       <td>
         <div className="order-actions">
@@ -286,23 +248,37 @@ const OrdersManagement = () => {
           <FaSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search by order number, customer name..."
+            placeholder="Search..."
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
           />
         </div>
+
+        {/* Payment Filter */}
         <select
-          value={filters.status}
-          onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, page: 1 }))}
+          value={filters.paymentStatus}
+          onChange={(e) => setFilters(prev => ({ ...prev, paymentStatus: e.target.value, page: 1 }))}
           className="filter-select"
         >
-          <option value="all">All Status</option>
+          <option value="all">Payment: All</option>
           <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="processing">Processing</option>
+          <option value="paid">Paid</option>
+          <option value="failed">Failed</option>
+          <option value="refunded">Refunded</option>
+        </select>
+
+        {/* Fulfillment Filter */}
+        <select
+          value={filters.fulfillmentStatus}
+          onChange={(e) => setFilters(prev => ({ ...prev, fulfillmentStatus: e.target.value, page: 1 }))}
+          className="filter-select"
+        >
+          <option value="all">Fulfillment: All</option>
+          <option value="unfulfilled">Unfulfilled</option>
+          <option value="packed">Packed</option>
           <option value="shipped">Shipped</option>
           <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
+          <option value="returned">Returned</option>
         </select>
 
         <div className="date-filters">
@@ -310,49 +286,15 @@ const OrdersManagement = () => {
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value, page: 1 }))}
-            className="date-input"
-            title="Start Date"
           />
           <span className="date-separator">-</span>
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value, page: 1 }))}
-            className="date-input"
-            title="End Date"
           />
         </div>
       </div>
-
-      {/* Bulk Actions */}
-      {
-        selectedOrders.length > 0 && (
-          <div className="bulk-actions-bar">
-            <span>{selectedOrders.length} orders selected</span>
-            <div className="bulk-controls">
-              <select
-                value={bulkAction}
-                onChange={(e) => setBulkAction(e.target.value)}
-                className="bulk-select"
-              >
-                <option value="">Select Action</option>
-                <option value="confirmed">Mark as Confirmed</option>
-                <option value="processing">Mark as Processing</option>
-                <option value="shipped">Mark as Shipped</option>
-                <option value="delivered">Mark as Delivered</option>
-                <option value="cancelled">Mark as Cancelled</option>
-              </select>
-              <button
-                className="btn-secondary"
-                onClick={handleBulkAction}
-                disabled={!bulkAction}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        )
-      }
 
       {/* Orders Table */}
       <div className="table-container">
@@ -375,9 +317,8 @@ const OrdersManagement = () => {
                   </th>
                   <th>Order #</th>
                   <th>Customer</th>
-                  <th>Shipping Address</th>
                   <th>Amount</th>
-                  <th>Status</th>
+                  <th>Payment & Fulfillment</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -466,161 +407,181 @@ const OrderDetailsModal = ({ order, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Order Details - #{order.orderNumber}</h3>
+          <div className="header-info">
+            <h3>Order Details</h3>
+            <span className="order-tag">#{order.orderNumber}</span>
+          </div>
           <button className="close-modal" onClick={onClose}>×</button>
         </div>
 
-        <div className="order-details">
-          {/* LEFT COLUMN: Order Items & Timeline */}
-          <div className="order-main-content">
-            {/* Status Banner */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '16px', borderRadius: '8px' }}>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '13px', display: 'block' }}>Order Status</span>
-                <span className={`status-badge ${order.status}`} style={{ marginTop: '4px' }}>{order.status}</span>
+        <div className="order-details-body">
+          {/* MAIN CONTENT Area */}
+          <div className="order-main-scroll">
+            {/* 1. Status Overview */}
+            <div className="status-overview-card">
+              <div className="overview-item">
+                <span className="label">Payment Status</span>
+                <StatusBadge status={order.paymentStatus} />
+                <span className="sub-label">{order.paymentMethod}</span>
               </div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '13px', display: 'block' }}>Payment Status</span>
-                <span className={`status-badge ${order.paymentStatus === 'paid' ? 'paid' : order.paymentStatus === 'failed' ? 'failed' : 'pending'}`} style={{ marginTop: '4px' }}>
-                  {order.paymentStatus}
-                </span>
+              <div className="overview-item">
+                <span className="label">Fulfillment Status</span>
+                <StatusBadge status={order.fulfillmentStatus} />
+                <span className="sub-label">{order.shippingMethod || 'Standard Delivery'}</span>
               </div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '13px', display: 'block' }}>Date Placed</span>
-                <span style={{ fontWeight: '600', color: '#1e293b' }}>{new Date(order.createdAt).toLocaleDateString()}</span>
+              <div className="overview-item">
+                <span className="label">Order Date</span>
+                <span className="value">{new Date(order.createdAt).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}</span>
               </div>
             </div>
 
-            {/* Order Items */}
+            {/* 2. Order Items Table-like List */}
             <div className="detail-section">
-              <h4>Items Ordered</h4>
-              <div className="order-items">
+              <div className="section-header-row">
+                <h4>Items Ordered ({order.items?.length || 0})</h4>
+              </div>
+              <div className="order-items-list">
                 {order.items?.map((item, index) => (
-                  <div key={index} className="order-item">
-                    <div className="item-image">
+                  <div key={index} className="order-item-row">
+                    <div className="item-thumbnail">
                       <img src={item.image || item.product?.images?.[0]?.url || '/placeholder-coffee.jpg'} alt={item.name} />
                     </div>
-                    <div className="item-details">
-                      <div className="item-name">{item.name}</div>
-                      <div className="item-meta">
-                        {item.size && <span>Size: {item.size}</span>}
-                        {item.grind && <span>Grind: {item.grind}</span>}
+                    <div className="item-info">
+                      <div className="name">{item.name}</div>
+                      <div className="meta">
+                        {item.size && <span className="tag">Size: {item.size}</span>}
+                        {item.grind && <span className="tag">Grind: {item.grind}</span>}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '14px', color: '#64748b' }}>{item.quantity} x KES {item.price?.toLocaleString()}</div>
-                      <div className="item-total">KES {(item.price * item.quantity)?.toLocaleString()}</div>
+                    <div className="item-pricing">
+                      <div className="qty-price">{item.quantity} × KES {item.price?.toLocaleString()}</div>
+                      <div className="total">KES {(item.price * item.quantity)?.toLocaleString()}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Tracking History Timeline */}
-            <div className="detail-section">
-              <h4>Tracking History</h4>
-              <div className="tracking-timeline-admin">
-                {order.trackingHistory && order.trackingHistory.length > 0 ? (
-                  order.trackingHistory.slice().reverse().map((event, index) => (
-                    <div key={index} className="timeline-event-admin">
-                      <div className="event-marker"></div>
-                      <div className="event-content">
-                        <div className="event-header">
-                          <span className={`status-badge ${event.status}`} style={{ fontSize: '10px' }}>{event.status}</span>
-                          <span className="event-time">{new Date(event.timestamp).toLocaleString()}</span>
+            {/* 3. Event History Timeline */}
+            <div className="detail-section no-border">
+              <h4>System Activity & Events</h4>
+              <div className="admin-timeline">
+                {order.orderEvents && order.orderEvents.length > 0 ? (
+                  order.orderEvents.slice().reverse().map((event, index) => (
+                    <div key={index} className="timeline-item">
+                      <div className="timeline-dot"></div>
+                      <div className="timeline-content">
+                        <div className="time">{new Date(event.timestamp).toLocaleString()}</div>
+                        <div className="status-text">
+                          <StatusBadge status={event.status} />
                         </div>
-                        <div className="event-message">{event.message}</div>
-                        {event.location && (
-                          <div className="event-location" style={{ marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
-                            📍 {event.location}
-                          </div>
-                        )}
+                        <div className="note">{event.note}</div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="no-data" style={{ fontStyle: 'italic', color: '#94a3b8' }}>No tracking updates yet.</p>
+                  <div className="no-events">
+                    <FaSync className="icon" />
+                    <p>No event history recorded for this order yet.</p>
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Sidebar (Customer, Shipping, Summary) */}
-          <div className="order-sidebar">
-
-            {/* Customer Info */}
-            <div className="user-info-card">
-              <h4>Customer</h4>
-              <div className="info-row">
-                <span className="info-label">Name</span>
-                <span className="info-value">{order.user?.firstName} {order.user?.lastName}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Email</span>
-                <span className="info-value" style={{ wordBreak: 'break-all' }}>{order.user?.email}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Phone</span>
-                <span className="info-value">{order.shippingAddress?.phone || 'N/A'}</span>
-              </div>
-            </div>
-
-            {/* Shipping Info */}
-            <div className="user-info-card">
-              <h4>Shipping To</h4>
-              <div className="address-value">
-                {order.shippingAddress?.firstName} {order.shippingAddress?.lastName}<br />
-                {order.shippingAddress?.address}<br />
-                {order.shippingAddress?.city}, {order.shippingAddress?.country}<br />
-                {order.shippingAddress?.postalCode && <span>{order.shippingAddress.postalCode}</span>}
+          {/* SIDEBAR Area */}
+          <div className="order-sidebar-sticky">
+            {/* Customer Card */}
+            <div className="sidebar-card">
+              <h4>Customer Info</h4>
+              <div className="customer-info-box">
+                <div className="customer-main">
+                  <div className="avatar">{order.user?.firstName?.[0] || 'G'}</div>
+                  <div className="details">
+                    <strong>{order.user ? `${order.user.firstName} ${order.user.lastName}` : 'Guest Customer'}</strong>
+                    <span>{order.user?.email || order.email}</span>
+                  </div>
+                </div>
+                {order.shippingAddress && (
+                  <div className="contact-details">
+                    <div className="info-row">
+                      <span className="icon">📍</span>
+                      <p>{order.shippingAddress.address}, {order.shippingAddress.city}</p>
+                    </div>
+                    <div className="info-row">
+                      <span className="icon">📞</span>
+                      <p>{order.shippingAddress.phone || 'No phone provided'}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Order Summary */}
-            <div className="order-summary-card">
+            {/* Summary Card */}
+            <div className="sidebar-card summary">
               <h4>Payment Summary</h4>
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <span>KES {order.subtotal?.toLocaleString()}</span>
+              <div className="summary-list">
+                <div className="line-item">
+                  <span>Subtotal</span>
+                  <span>KES {order.subtotal?.toLocaleString()}</span>
+                </div>
+                <div className="line-item">
+                  <span>Shipping Fee</span>
+                  <span>KES {order.shippingCost?.toLocaleString()}</span>
+                </div>
+                {order.tax > 0 && (
+                  <div className="line-item">
+                    <span>Tax</span>
+                    <span>KES {order.tax?.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="total-line">
+                  <span>Total Amount</span>
+                  <span>KES {order.total?.toLocaleString()}</span>
+                </div>
               </div>
-              <div className="summary-row">
-                <span>Shipping</span>
-                <span>KES {order.shippingCost?.toLocaleString()}</span>
-              </div>
-              <div className="summary-row total">
-                <span>Total</span>
-                <span>KES {order.total?.toLocaleString()}</span>
-              </div>
-              <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748b', textAlign: 'right' }}>
-                Paid via {order.paymentMethod}
+              <div className="payment-indicator">
+                <div className={`indicator ${order.paymentStatus}`}></div>
+                <span>Paid via {order.paymentMethod}</span>
               </div>
             </div>
 
+            {/* Admin Notes / Internal Info */}
+            <div className="sidebar-card notes">
+              <h4>Internal Notes</h4>
+              <textarea placeholder="Add a private note for staff..." rows="4"></textarea>
+              <button className="btn-save-note">Save internal note</button>
+            </div>
           </div>
-        </div>
-
-        <div className="modal-actions">
-          <button className="btn-primary" onClick={onClose}>
-            Close
-          </button>
         </div>
       </div>
     </div>
   );
 };
 
-// Status Update Modal Component (keep the existing one)
+// Status Update Modal Component
 const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
-  const [status, setStatus] = useState(order.status);
+  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || 'pending');
+  const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || 'unfulfilled');
   const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || '');
-  const [location, setLocation] = useState('');
   const [message, setMessage] = useState('');
   const [updating, setUpdating] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUpdating(true);
-    await onUpdate(order._id, status, trackingNumber, location, message);
+    await onUpdate(order._id, {
+      paymentStatus,
+      fulfillmentStatus,
+      trackingNumber,
+      message
+    });
     setUpdating(false);
   };
 
@@ -628,70 +589,57 @@ const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Update Order Status</h3>
+          <h3>Update Order: #{order.orderNumber}</h3>
           <button className="close-modal" onClick={onClose}>×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="status-form">
           <div className="form-group">
-            <label>Order #</label>
-            <input type="text" value={order.orderNumber} disabled />
-          </div>
-
-          <div className="form-group">
-            <label>Customer</label>
-            <input
-              type="text"
-              value={`${order.user?.firstName} ${order.user?.lastName}`}
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>New Status</label>
+            <label>Payment Status</label>
             <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              required
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value)}
             >
               <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="processing">Processing</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="paid">Paid</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
             </select>
           </div>
 
-          {(status === 'shipped' || status === 'delivered') && (
+          <div className="form-group">
+            <label>Fulfillment Status</label>
+            <select
+              value={fulfillmentStatus}
+              onChange={(e) => setFulfillmentStatus(e.target.value)}
+            >
+              <option value="unfulfilled">Unfulfilled</option>
+              <option value="packed">Packed</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="returned">Returned</option>
+            </select>
+          </div>
+
+          {(fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') && (
             <div className="form-group">
               <label>Tracking Number</label>
               <input
                 type="text"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder={status === 'shipped' ? "Enter tracking number (Required)" : "Enter tracking number"}
-                required={status === 'shipped'}
+                placeholder={fulfillmentStatus === 'shipped' ? "Enter tracking number (Required)" : "Enter tracking number"}
+                required={fulfillmentStatus === 'shipped'}
               />
             </div>
           )}
 
           <div className="form-group">
-            <label>Current Location</label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. Warehouse 1, Shipped from Port"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Status Message</label>
+            <label>Note / Message to Customer</label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Optional message for the customer"
+              placeholder="Optional message..."
               rows="3"
             />
           </div>

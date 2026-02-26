@@ -1,10 +1,12 @@
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaMapMarkerAlt, FaPlus, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaPlus, FaEdit, FaCheck } from 'react-icons/fa';
 
 const AddressesTab = () => {
-    const { user, updateUserProfile, loading, showSuccess, showError } = useContext(AppContext);
+    const { user, updateUserProfile, loading, showSuccess, showNotification } = useContext(AppContext);
     const [isEditing, setIsEditing] = useState(false);
+
+    // Initial state from user object
     const [formData, setFormData] = useState({
         firstName: user?.shippingInfo?.firstName || user?.firstName || '',
         lastName: user?.shippingInfo?.lastName || user?.lastName || '',
@@ -25,52 +27,69 @@ const AddressesTab = () => {
             await updateUserProfile({
                 shippingInfo: formData
             });
-            showSuccess('Address updated successfully');
+            showNotification('Address updated successfully', 'success');
             setIsEditing(false);
         } catch (error) {
-            showError(error.message || 'Failed to update address');
+            showNotification(error.message || 'Failed to update address', 'error');
         }
     };
 
     return (
         <div className="modern-dashboard-tab">
             <div className="tab-header">
-                <h2>Address Book</h2>
+                <div>
+                    <h2>Address Book</h2>
+                    <p>Manage your shipping addresses for faster checkout.</p>
+                </div>
                 {!isEditing && (
                     <button
                         className="btn-primary btn-sm"
                         onClick={() => setIsEditing(true)}
                     >
-                        <FaEdit /> Edit Address
+                        <FaPlus /> {user?.shippingInfo?.address ? 'Edit Address' : 'Add New Address'}
                     </button>
                 )}
             </div>
 
-            <div className="content-card">
-                {!isEditing ? (
-                    user?.shippingInfo?.address ? (
-                        <div className="address-item">
-                            <div className="address-details">
+            {!isEditing ? (
+                <div className="addresses-grid">
+                    {user?.shippingInfo?.address ? (
+                        <div className="modern-address-card default">
+                            <div className="address-card-header">
                                 <h4>Default Shipping Address</h4>
-                                <p>{user.shippingInfo.firstName} {user.shippingInfo.lastName}</p>
+                                <span className="badge-default"><FaCheck /> Default</span>
+                            </div>
+                            <div className="address-card-body">
+                                <p className="name">{user.shippingInfo.firstName} {user.shippingInfo.lastName}</p>
                                 <p>{user.shippingInfo.address}</p>
-                                <p>{user.shippingInfo.city}, {user.shippingInfo.country} {user.shippingInfo.zip}</p>
-                                <p>Tel: {user.shippingInfo.phone}</p>
+                                <p>{user.shippingInfo.city}, {user.shippingInfo.zip}</p>
+                                <p>{user.shippingInfo.country}</p>
+                                <p className="phone">Tel: {user.shippingInfo.phone}</p>
+                            </div>
+                            <div className="address-card-actions">
+                                <button className="btn-text" onClick={() => setIsEditing(true)}>
+                                    <FaEdit /> Edit
+                                </button>
                             </div>
                         </div>
                     ) : (
-                        <div className="empty-state-small">
-                            <FaMapMarkerAlt className="empty-icon-small" />
-                            <p>No default address saved yet.</p>
-                            <button
-                                className="btn-outline btn-sm"
-                                onClick={() => setIsEditing(true)}
-                            >
+                        <div className="empty-state">
+                            <div className="empty-icon-wrapper">
+                                <FaMapMarkerAlt />
+                            </div>
+                            <h3>No Addresses Saved</h3>
+                            <p>Save a shipping address to speed up your checkout process.</p>
+                            <button className="btn-primary" onClick={() => setIsEditing(true)}>
                                 Add Address
                             </button>
                         </div>
-                    )
-                ) : (
+                    )}
+                </div>
+            ) : (
+                <div className="content-card editing-mode">
+                    <div className="card-header">
+                        <h3>{user?.shippingInfo?.address ? 'Edit Address' : 'Add New Address'}</h3>
+                    </div>
                     <form className="modern-form" onSubmit={handleSubmit}>
                         <div className="form-grid-2">
                             <div className="form-group">
@@ -93,35 +112,49 @@ const AddressesTab = () => {
                                     required
                                 />
                             </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Phone Number</label>
+                            <input
+                                type="tel"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Street Address / Apartment</label>
+                            <input
+                                type="text"
+                                name="address"
+                                value={formData.address}
+                                onChange={handleChange}
+                                placeholder="e.g. 123 KICC Road, Apt 4B"
+                                required
+                            />
+                        </div>
+
+                        <div className="form-grid-3">
                             <div className="form-group">
-                                <label>Phone Number</label>
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Address</label>
-                                <input
-                                    type="text"
-                                    name="address"
-                                    value={formData.address}
-                                    onChange={handleChange}
-                                    placeholder="Street, Apartment, Plot No."
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>City / Town</label>
+                                <label>City</label>
                                 <input
                                     type="text"
                                     name="city"
                                     value={formData.city}
                                     onChange={handleChange}
                                     required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Zip / Postal Code</label>
+                                <input
+                                    type="text"
+                                    name="zip"
+                                    value={formData.zip}
+                                    onChange={handleChange}
                                 />
                             </div>
                             <div className="form-group">
@@ -136,7 +169,7 @@ const AddressesTab = () => {
                             </div>
                         </div>
 
-                        <div className="form-actions">
+                        <div className="form-actions right-aligned">
                             <button
                                 type="button"
                                 className="btn-outline"
@@ -154,8 +187,8 @@ const AddressesTab = () => {
                             </button>
                         </div>
                     </form>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };

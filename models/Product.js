@@ -117,6 +117,31 @@ const productSchema = new mongoose.Schema({
     }
   },
 
+  // === NEW STRATEGIC MODULES ===
+
+  // Commercial Logic: Bundling
+  isBundle: { type: Boolean, default: false },
+  bundleDetails: [{
+    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    quantity: { type: Number, default: 1 }
+  }],
+
+  // Commercial Logic: Subscription
+  isSubscriptionAvailable: { type: Boolean, default: false },
+  subscriptionDiscount: { type: Number, default: 10 }, // Percentage
+
+  // Premium UX: Visual Data
+  flavorProfiles: {
+    acidity: { type: Number, default: 0, min: 0, max: 10 },
+    body: { type: Number, default: 0, min: 0, max: 10 },
+    sweetness: { type: Number, default: 0, min: 0, max: 10 },
+    bitterness: { type: Number, default: 0, min: 0, max: 10 },
+    aroma: { type: Number, default: 0, min: 0, max: 10 }
+  },
+
+  // Premium UX: Freshness
+  roastDate: { type: Date },
+
   // Tags for search and filtering
   tags: [String]
 

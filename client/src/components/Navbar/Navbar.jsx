@@ -59,19 +59,6 @@ function Navbar() {
     }
   }, [publicSettings, fetchPublicSettings]);
 
-  // Debug Google Client ID
-  useEffect(() => {
-    const keys = Object.keys(process.env).filter(key => key.startsWith('REACT_APP'));
-    console.log('🌐 [FRONTEND] Version: V4.0-MIME-ROOT-FIX (FORCE SYNC)', {
-      hasGoogleId: !!process.env.REACT_APP_GOOGLE_CLIENT_ID,
-      nodeEnv: process.env.NODE_ENV,
-      buildTime: new Date().toLocaleString()
-    });
-
-    if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
-      console.warn('❌ CRITICAL: REACT_APP_GOOGLE_CLIENT_ID is missing from the build!');
-    }
-  }, []);
 
   // Toggle handlers
   const toggleMobileMenu = () => {
@@ -111,7 +98,7 @@ function Navbar() {
   ];
 
   return (
-    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || "980328451372-rdq0sqbl1ljjv577biqrh2904iemfb2l.apps.googleusercontent.com"}>
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || "697141801323-d2uc6n2f7b2kcckpk1kk6he1du30l1kn.apps.googleusercontent.com"}>
       <>
         {/* Main Header */}
         <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>

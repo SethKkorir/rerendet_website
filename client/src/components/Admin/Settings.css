@@ -340,34 +340,6 @@
   color: white;
 }
 
-/* Business Hours */
-.business-hours {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.business-day {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 20px;
-  align-items: start;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border-left: 4px solid #6F4E37;
-}
-
-.day-header {
-  display: flex;
-  align-items: center;
-}
-
-.time-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-}
 
 /* Payment Methods */
 .payment-methods {
@@ -414,14 +386,7 @@
     grid-template-columns: 1fr;
   }
 
-  .business-day {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
 
-  .time-inputs {
-    grid-template-columns: 1fr;
-  }
 
   .logo-upload {
     flex-direction: column;

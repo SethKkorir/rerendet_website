@@ -14,6 +14,8 @@ router.route('/')
     .post(protect, createSiteReview)
     .get(getTopReviews);
 
+router.get('/top', getTopReviews);
+
 router.route('/product/:productId')
     .get(getProductReviews)
     .post(protect, createProductReview);

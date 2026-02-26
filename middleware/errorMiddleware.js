@@ -17,6 +17,10 @@ const errorHandler = (err, req, res, next) => {
     message = Object.values(err.errors).map(val => val.message).join(', ');
   }
 
+  if (statusCode === 400 || statusCode === 500) {
+    console.error(`❌ [ERROR] ${req.method} ${req.path}:`, err);
+  }
+
   res.status(statusCode);
   res.json({
     success: false,

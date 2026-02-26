@@ -102,24 +102,6 @@
   color: var(--color-primary);
 }
 
-/* Trust Badges */
-.hero-trust-badges {
-  display: flex;
-  gap: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
-}
-
-.trust-badge {
-  color: var(--foreground-dim);
-  font-size: 0.95rem;
-}
-
-.trust-badge strong {
-  color: var(--foreground);
-  display: block;
-  font-size: 1.25rem;
-}
 
 /* Image Showcase */
 .hero-image-container {
@@ -192,9 +174,6 @@
     justify-content: center;
   }
 
-  .hero-trust-badges {
-    justify-content: center;
-  }
 }
 
 @media (max-width: 480px) {
@@ -212,7 +191,4 @@
     justify-content: center;
   }
 
-  .hero-trust-badges {
-    gap: 1.5rem;
-  }
 }

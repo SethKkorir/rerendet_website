@@ -18,8 +18,13 @@
             "sizes": "512x512"
         }
     ],
-    "start_url": ".",
+    "start_url": "./",
     "display": "standalone",
-    "theme_color": "#000000",
-    "background_color": "#ffffff"
+    "theme_color": "#6F4E37",
+    "background_color": "#FAF7F2",
+    "orientation": "portrait-primary",
+    "categories": [
+        "shopping",
+        "coffee"
+    ]
 }

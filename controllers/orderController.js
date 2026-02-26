@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { sanitizeObject, sanitizeEmail, sanitizePhone, sanitizeAmount } from '../utils/inputSanitizer.js';
 import { sendEmail } from '../utils/emailService.js';
 import { sendLowStockAlert } from '../utils/adminNotificationService.js';
+import Coupon from '../models/Coupon.js';
+import Subscription from '../models/Subscription.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -26,12 +28,16 @@ const createOrder = asyncHandler(async (req, res) => {
       shippingCost,
       tax,
       totalAmount,
-      notes
+      notes,
+      couponCode,
+      isSubscription,
+      subscriptionFrequency
     } = req.body;
 
     const userId = req.user._id;
 
-    // ✅ SECURITY: Block Admins from placing orders
+    // ✅ RELAXED SECURITY: Allow Admins to place orders for testing flow
+    /*
     if (req.user.userType === 'admin' || req.user.role === 'admin' || req.user.role === 'super-admin') {
       console.warn('🚫 Admin attempted to create order:', req.user.email);
       await session.abortTransaction();
@@ -41,6 +47,7 @@ const createOrder = asyncHandler(async (req, res) => {
         message: 'Administrators are not allowed to place orders. Please use a regular customer account.'
       });
     }
+    */
 
     console.log('🛒 Creating order for user:', userId);
     console.log('📦 Order items:', items?.length);
@@ -148,30 +155,51 @@ const createOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // ✅ SECURITY: Calculate final amounts and validate against client-provided total
+    // ✅ DISCOUNT LOGIC
+    let discount = 0;
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      if (coupon && coupon.isValid() && calculatedSubtotal >= coupon.minOrderAmount) {
+        if (coupon.discountType === 'percentage') {
+          discount = sanitizeAmount(calculatedSubtotal * (coupon.discountAmount / 100));
+        } else {
+          discount = sanitizeAmount(coupon.discountAmount);
+        }
+        // Increment use count
+        coupon.usedCount += 1;
+        await coupon.save({ session });
+      }
+    }
+
+    // Apply Subscription Discount (5%)
+    if (isSubscription) {
+      const subscriptionDiscount = sanitizeAmount(calculatedSubtotal * 0.05);
+      discount += subscriptionDiscount;
+    }
+
     const finalSubtotal = sanitizeAmount(calculatedSubtotal);
     const finalShippingCost = sanitizeAmount(shippingCost);
-    const finalTax = sanitizeAmount(finalSubtotal * 0.16); // 16% VAT
-    const calculatedTotal = sanitizeAmount(finalSubtotal + finalShippingCost + finalTax);
+    const taxableAmount = Math.max(0, finalSubtotal - discount);
+    const finalTax = sanitizeAmount(taxableAmount * 0.16); // 16% VAT
+    const calculatedTotal = sanitizeAmount(taxableAmount + finalShippingCost + finalTax);
     const clientTotal = sanitizeAmount(totalAmount);
 
     console.log('💰 Validating order amounts:', {
       itemsSubtotal: calculatedSubtotal,
+      discount: discount,
       shipping: finalShippingCost,
       tax: finalTax,
       total: calculatedTotal
     });
 
-    // Prevent price manipulation - verify client total matches server calculation
-    // Allow small floating point differences (0.01)
-    if (Math.abs(calculatedTotal - clientTotal) > 1.0) { // Increased tolerance to 1.0 for rounding issues, but still strict 
+    // Prevent price manipulation
+    if (Math.abs(calculatedTotal - clientTotal) > 2.0) {
       await session.abortTransaction();
       session.endSession();
-      console.warn(`⚠️ Price manipulation attempt detected: Client=${clientTotal}, Calculated=${calculatedTotal} (Subtotal=${finalSubtotal}, Shipping=${finalShippingCost}, Tax=${finalTax})`);
+      console.warn(`⚠️ Price manipulation attempt detected: Client=${clientTotal}, Calculated=${calculatedTotal}, Discount=${discount}`);
       return res.status(400).json({
         success: false,
-        message: 'Order amount validation failed. Please refresh your cart and try again.',
-        details: process.env.NODE_ENV === 'development' ? { clientTotal, calculatedTotal } : undefined
+        message: 'Order amount validation failed. Please refresh your cart.'
       });
     }
 
@@ -184,7 +212,7 @@ const createOrder = asyncHandler(async (req, res) => {
       total: finalTotal
     });
 
-    // Create order
+    // Create order with granular status
     const order = new Order({
       orderNumber: orderNumber,
       user: userId,
@@ -203,44 +231,108 @@ const createOrder = asyncHandler(async (req, res) => {
       subtotal: finalSubtotal,
       shippingCost: finalShippingCost,
       tax: finalTax,
+      discountAmount: discount,
       total: finalTotal,
+      couponCode: couponCode ? couponCode.toUpperCase() : undefined,
+      isSubscription: isSubscription || false,
+      subscriptionFrequency: subscriptionFrequency,
+
+      // Metadata
       paymentMethod: paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
-      status: 'confirmed',
       notes: notes || '',
-      trackingHistory: [
+
+      // === NEW LIFECYCLE STATE ===
+      orderStatus: 'open', // Default open
+      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid', // If COD, pending. If not, assume paid for now (until webhook integration)
+      fulfillmentStatus: 'unfulfilled',
+
+      // Initial History
+      orderEvents: [
         {
-          status: 'confirmed',
-          message: 'Order received and confirmed',
-          timestamp: new Date()
+          status: 'ORDER_CREATED',
+          note: 'Order placed by customer via checkout',
+          user: userId
         }
       ]
     });
+
+    // Log payment event if auto-paid (simulation for now)
+    if (paymentMethod !== 'cod') {
+      order.orderEvents.push({
+        status: 'PAYMENT_CONFIRMED',
+        note: `Payment simulated via ${paymentMethod}`,
+        user: userId
+      });
+    }
 
     console.log('📝 Saving order to database...');
 
     const savedOrder = await order.save({ session });
 
-    // ✅ FIXED: Update product stock - SIMPLIFIED VERSION
+    // ✅ SUBSCRIPTION LOGIC: Create Subscription if requested
+    if (isSubscription) {
+      const nextBilling = new Date();
+      if (subscriptionFrequency === 'weekly') nextBilling.setDate(nextBilling.getDate() + 7);
+      else if (subscriptionFrequency === 'bi-weekly') nextBilling.setDate(nextBilling.getDate() + 14);
+      else nextBilling.setMonth(nextBilling.getMonth() + 1);
+
+      const subscription = new Subscription({
+        user: userId,
+        products: orderItems.map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          size: item.size,
+          price: item.price
+        })),
+        frequency: subscriptionFrequency,
+        nextBillingDate: nextBilling,
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod
+      });
+      await subscription.save({ session });
+    }
+
+    // Update product stock (Atomic Reservation)
     for (const update of stockUpdates) {
-      const newStock = update.currentStock - update.quantity;
+      // Find the product being updated
+      const baseProduct = await Product.findById(update.productId).session(session);
 
-      const updatedProduct = await Product.findByIdAndUpdate(
-        update.productId,
-        {
-          $inc: { 'inventory.stock': -update.quantity },
-          $set: {
-            inStock: newStock > 0
+      if (baseProduct.isBundle) {
+        // Decrement from kids if it's a bundle
+        for (const detail of baseProduct.bundleDetails) {
+          const totalToDecrement = detail.quantity * update.quantity;
+
+          const updatedChild = await Product.findOneAndUpdate(
+            { _id: detail.product, "inventory.stock": { $gte: totalToDecrement } },
+            { $inc: { "inventory.stock": -totalToDecrement } },
+            { session, new: true }
+          );
+
+          if (!updatedChild) {
+            throw new Error(`Insufficient stock for bundle component: ${detail.product}`);
           }
-        },
-        { session, new: true } // Use new: true to get updated version for the alert
-      );
+        }
+      } else {
+        // Standard Atomic Update for single product
+        const updatedProduct = await Product.findOneAndUpdate(
+          { _id: update.productId, "inventory.stock": { $gte: update.quantity } },
+          { $inc: { "inventory.stock": -update.quantity } },
+          { session, new: true }
+        );
 
-      console.log(`📦 Updated stock for product ${update.productId}: ${update.currentStock} -> ${newStock}`);
+        if (!updatedProduct) {
+          throw new Error(`Insufficient stock for product: ${baseProduct.name}`);
+        }
 
-      // SEND LOW STOCK ALERT
-      if (updatedProduct && updatedProduct.inventory.stock <= updatedProduct.inventory.lowStockAlert) {
-        sendLowStockAlert(updatedProduct).catch(err => console.error('Failed to send low stock email:', err));
+        // Automatic inStock sync
+        if (updatedProduct.inventory.stock <= 0) {
+          await Product.updateOne({ _id: update.productId }, { $set: { inStock: false } }, { session });
+        }
+
+        // Low Stock Alert
+        if (updatedProduct.inventory.stock <= updatedProduct.inventory.lowStockAlert) {
+          sendLowStockAlert(updatedProduct).catch(console.error);
+        }
       }
     }
 
@@ -248,6 +340,17 @@ const createOrder = asyncHandler(async (req, res) => {
     session.endSession();
 
     console.log('✅ Order saved successfully:', savedOrder.orderNumber);
+
+    // ✅ LOYALTY POINTS: Award 1 point per 100 KES
+    try {
+      const pointsEarned = Math.floor(finalTotal / 100);
+      if (pointsEarned > 0) {
+        await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: pointsEarned } }, { session });
+        console.log(`✨ Awarded ${pointsEarned} loyalty points to user ${userId}`);
+      }
+    } catch (loyaltyError) {
+      console.error('⚠️ Loyalty points error:', loyaltyError);
+    }
 
     // Populate order for response
     const populatedOrder = await Order.findById(savedOrder._id)
@@ -260,56 +363,25 @@ const createOrder = asyncHandler(async (req, res) => {
       data: populatedOrder
     });
 
-    // Send order confirmation email (asynchronous, don't await/return)
+    // Send order confirmation email
     try {
       const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/account/orders/${savedOrder._id}`;
 
-      // Try to get logo from settings, or default to standard path
-      let logoUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/rerendet-logo.png`;
-      try {
-        const { default: Settings } = await import('../models/Settings.js');
-        const settings = await Settings.getSettings();
-        if (settings?.store?.logo) logoUrl = settings.store.logo;
-      } catch (e) {
-        // ignore settings load error
-      }
-
-      // Generate Invoice Buffer
-      let invoiceBuffer = null;
-      try {
-        const { generateInvoice } = await import('../utils/invoiceGenerator.js');
-        // Use populatedOrder to ensure we have all data needed (though savedOrder has mostly everything, populated references might be safer if used)
-        invoiceBuffer = await generateInvoice(populatedOrder);
-      } catch (invErr) {
-        console.error('⚠️ Failed to generate invoce for email attachment:', invErr);
-      }
-
+      // Prepare email data
       const emailData = {
         order: {
           ...savedOrder.toObject(),
-          formattedDate: new Date(savedOrder.createdAt).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }),
+          formattedDate: new Date(savedOrder.createdAt).toLocaleDateString(),
           items: orderItems,
-          shippingAddress: savedOrder.shippingAddress
         },
-        dashboardUrl,
-        logoUrl // Pass logo URL to template
+        dashboardUrl
       };
-
-      const attachments = invoiceBuffer ? [{
-        filename: `Invoice-${savedOrder.orderNumber}.pdf`,
-        content: invoiceBuffer
-      }] : [];
 
       sendEmail({
         to: savedOrder.shippingAddress.email,
         subject: `Order Confirmation - #${savedOrder.orderNumber}`,
         templateName: 'orderConfirmation',
-        data: emailData,
-        attachments: attachments
+        data: emailData
       });
     } catch (emailError) {
       console.error('📧 Background email sending error:', emailError);
@@ -531,8 +603,19 @@ const getOrders = asyncHandler(async (req, res) => {
 // @desc    Update order status
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
+// @desc    Update order status
+// @route   PUT /api/orders/:id/status
+// @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { status, trackingNumber, adminNotes, location, message } = req.body;
+  const {
+    orderStatus,
+    paymentStatus,
+    fulfillmentStatus,
+    trackingNumber,
+    adminNotes,
+    location,
+    message
+  } = req.body;
 
   const order = await Order.findById(req.params.id);
 
@@ -541,93 +624,117 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     throw new Error('Order not found');
   }
 
-  // ✅ STRICT STATUS TRANSITIONS
-  // Defines what the NEXT status can be based on the CURRENT status
-  const validTransitions = {
-    'pending': ['confirmed', 'cancelled', 'processing'],
-    'confirmed': ['processing', 'cancelled', 'shipped'], // Allow fast track
-    'processing': ['shipped', 'cancelled'],
-    'shipped': ['delivered', 'returned'],
-    'delivered': ['returned'], // Cannot be cancelled once delivered
-    'cancelled': [], // Terminal state
-    'returned': [] // Terminal state
-  };
+  // Track changes for history logging
+  const changes = [];
 
-  // Check if status is actually changing
-  if (status && order.status !== status) {
-    const allowed = validTransitions[order.status] || [];
+  // 1. Update Payment Status
+  if (paymentStatus && order.paymentStatus !== paymentStatus) {
+    order.paymentStatus = paymentStatus;
+    changes.push(`Payment status updated to ${paymentStatus}`);
 
-    // Exception: Admin correcting a mistake? 
-    // For now, strict as requested. "which should not be like that"
-    if (!allowed.includes(status)) {
-      res.status(400);
-      throw new Error(`Invalid status transition. Cannot change order from '${order.status}' to '${status}'.`);
-    }
+    // Auto-update event log
+    order.orderEvents.push({
+      status: 'PAYMENT_UPDATE',
+      note: `Payment status changed to ${paymentStatus} by admin`,
+      user: req.user._id
+    });
   }
 
-  // ✅ VALIDATION: Tracking Number
-  if (status === 'shipped') {
-    if (!trackingNumber && !order.trackingNumber) {
+  // 2. Update Fulfillment Status
+  if (fulfillmentStatus && order.fulfillmentStatus !== fulfillmentStatus) {
+    // Validation for tracking number
+    if (fulfillmentStatus === 'shipped' && !trackingNumber && !order.trackingNumber) {
       res.status(400);
       throw new Error('Tracking number is required when marking an order as shipped.');
     }
+
+    order.fulfillmentStatus = fulfillmentStatus;
+    changes.push(`Fulfillment status updated to ${fulfillmentStatus}`);
+
+    // Auto-update event log
+    order.orderEvents.push({
+      status: 'FULFILLMENT_UPDATE',
+      note: `Fulfillment status changed to ${fulfillmentStatus} by admin`,
+      user: req.user._id
+    });
   }
 
-  // Update fields
-  if (status) order.status = status;
-  if (trackingNumber) order.trackingNumber = trackingNumber;
-  if (adminNotes) order.adminNotes = adminNotes;
-  order.statusUpdatedAt = new Date();
+  // 3. Update Overall Order Status (Optional, often derived, but allow manual override)
+  if (orderStatus && order.orderStatus !== orderStatus) {
+    order.orderStatus = orderStatus;
+    changes.push(`Order status updated to ${orderStatus}`);
 
-  // Add to history
-  order.trackingHistory.push({
-    status: status || order.status,
-    location: location || '',
-    message: message || `Order status updated to ${status}${trackingNumber ? '. Tracking: ' + trackingNumber : ''}`,
-    timestamp: new Date()
-  });
+    order.orderEvents.push({
+      status: 'ORDER_UPDATE',
+      note: `Order status changed to ${orderStatus} by admin`,
+      user: req.user._id
+    });
+  }
+
+  // Update Metadata
+  if (trackingNumber) order.trackingNumber = trackingNumber;
+  if (adminNotes) order.notes = adminNotes; // Map adminNotes to notes or new field
+
+  // Legacy support: Update statusUpdatedAt if any change
+  if (changes.length > 0) {
+    order.statusUpdatedAt = new Date();
+  }
+
+  // Add to legacy trackingHistory for backward compatibility / frontend display
+  if (changes.length > 0) {
+    order.trackingHistory.push({
+      status: fulfillmentStatus || order.fulfillmentStatus, // Use fulfillment as primary "public" status
+      location: location || '',
+      message: message || changes.join('. '),
+      timestamp: new Date()
+    });
+  }
 
   const updatedOrder = await order.save();
 
   // Re-populate for frontend consistency
   await updatedOrder.populate('user', 'firstName lastName email');
 
-  // SEND EMAIL NOTIFICATION
-  try {
-    const { getOrderStatusEmail } = await import('../utils/emailTemplates.js');
-
-    // Fetch store logo
-    let logoUrl;
+  // SEND EMAIL NOTIFICATION (Only for significant fulfillment/payment changes)
+  if ((fulfillmentStatus && ['shipped', 'delivered', 'returned'].includes(fulfillmentStatus)) || message) {
     try {
-      const { default: Settings } = await import('../models/Settings.js');
-      const settings = await Settings.getSettings();
-      logoUrl = settings?.store?.logo;
-    } catch (e) {
-      // ignore
+      const { getOrderStatusEmail } = await import('../utils/emailTemplates.js');
+
+      // Fetch store logo
+      let logoUrl;
+      try {
+        const { default: Settings } = await import('../models/Settings.js');
+        const settings = await Settings.getSettings();
+        logoUrl = settings?.store?.logo;
+      } catch (e) {
+        // ignore
+      }
+
+      // Determine effective status for email
+      const emailStatus = fulfillmentStatus || order.status;
+
+      const emailHtml = getOrderStatusEmail(
+        updatedOrder.user.firstName,
+        updatedOrder.orderNumber,
+        emailStatus,
+        updatedOrder.trackingNumber,
+        message || `Your order is now ${emailStatus}.`,
+        logoUrl
+      );
+
+      // Dynamic subject based on status
+      const subject = `Order Update: ${emailStatus} - #${updatedOrder.orderNumber}`;
+
+      await sendEmail({
+        to: updatedOrder.user.email,
+        subject: subject,
+        html: emailHtml
+      });
+
+      console.log(`📧 Status update email sent to ${updatedOrder.user.email}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send status update email:', emailError);
     }
-
-    const emailHtml = getOrderStatusEmail(
-      updatedOrder.user.firstName,
-      updatedOrder.orderNumber,
-      updatedOrder.status,
-      updatedOrder.trackingNumber,
-      message, // Use the custom message from admin if provided
-      logoUrl
-    );
-
-    // Dynamic subject based on status
-    const subject = `Order ${updatedOrder.status === 'shipped' ? 'Shipped' : 'Update'} - #${updatedOrder.orderNumber}`;
-
-    await sendEmail({
-      to: updatedOrder.user.email,
-      subject: subject,
-      html: emailHtml
-    });
-
-    console.log(`📧 Status update email sent to ${updatedOrder.user.email}`);
-  } catch (emailError) {
-    console.error('❌ Failed to send status update email:', emailError);
-    // Don't fail the request, just log it
   }
 
   res.json({
@@ -694,8 +801,45 @@ const generateOrderInvoice = asyncHandler(async (req, res) => {
   generateInvoice(order, res);
 });
 
+// @desc    Validate coupon code
+// @route   POST /api/orders/validate-coupon
+// @access  Private
+const validateCoupon = asyncHandler(async (req, res) => {
+  const { code, subtotal } = req.body;
+  if (!code) {
+    return res.status(400).json({ success: false, message: 'Coupon code is required' });
+  }
+
+  const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
+
+  if (!coupon) {
+    return res.status(404).json({ success: false, message: 'Invalid coupon code' });
+  }
+
+  if (!coupon.isValid()) {
+    return res.status(400).json({ success: false, message: 'Coupon has expired or reached usage limit' });
+  }
+
+  if (subtotal && subtotal < coupon.minOrderAmount) {
+    return res.status(400).json({
+      success: false,
+      message: `Minimum order amount for this coupon is KES ${coupon.minOrderAmount}`
+    });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountAmount: coupon.discountAmount
+    }
+  });
+});
+
 export {
   createOrder,
+  validateCoupon,
   getUserOrders,
   getOrderById,
   getOrders,

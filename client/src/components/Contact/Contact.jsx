@@ -1,11 +1,13 @@
 // src/components/Contact/Contact.jsx
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebookF, FaInstagram, FaTwitter, FaLinkedinIn, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebookF, FaInstagram, FaTwitter, FaWhatsapp, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import './Contact.css';
 
 const Contact = () => {
-  const { showNotification } = useContext(AppContext);
+  const { showNotification, publicSettings } = useContext(AppContext);
+  const social = publicSettings?.seo?.social || {};
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -118,9 +120,9 @@ const Contact = () => {
   const handleSocialClick = (platform) => {
     const urls = {
       facebook: 'https://facebook.com/rerendetcoffee',
-      instagram: 'https://instagram.com/rerendetcoffee',
+      instagram: 'https://www.instagram.com/rerendetcoffee?igsh=amdyZDYzd2w1dndq',
       twitter: 'https://twitter.com/rerendetcoffee',
-      linkedin: 'https://linkedin.com/company/rerendetcoffee'
+      whatsapp: 'https://whatsapp.com/channel/0029Vb9Ai2r9Gv7TB7Qpt73y'
     };
 
     // In a real app, you would redirect to the actual URLs
@@ -180,7 +182,7 @@ const Contact = () => {
                 </div>
                 <div className="contact-text">
                   <h4>Call Us</h4>
-                  <p>+254 712 345 678<br />+254 734 567 890</p>
+                  <p>+254 711 245 765<br />+254 726 388 591</p>
                 </div>
               </div>
 
@@ -193,57 +195,19 @@ const Contact = () => {
                   <p>info@rerendetcoffee.com<br />orders@rerendetcoffee.com</p>
                 </div>
               </div>
-            </div>
-
-            <div className="business-hours">
-              <h4>Business Hours</h4>
-              <div className="hours-list">
-                <div className="hour-item">
-                  <span>Monday - Friday:</span>
-                  <span>8:00 AM - 6:00 PM</span>
+              <div className="contact-item">
+                <div className="contact-icon-container">
+                  <FaWhatsapp className="contact-icon" />
                 </div>
-                <div className="hour-item">
-                  <span>Saturday:</span>
-                  <span>9:00 AM - 4:00 PM</span>
+                <div className="contact-text">
+                  <h4>Follow Us</h4>
+                  <div className="social-links-inline">
+                    <a href={social.facebook || 'https://facebook.com/rerendetcoffee'} target="_blank" rel="noopener noreferrer" className="orchestra-link" aria-label="Facebook"><FaFacebookF /></a>
+                    <a href={social.instagram || 'https://www.instagram.com/rerendetcoffee?igsh=amdyZDYzd2w1dndq'} target="_blank" rel="noopener noreferrer" className="orchestra-link" aria-label="Instagram"><FaInstagram /></a>
+                    <a href={social.twitter || 'https://twitter.com/rerendetcoffee'} target="_blank" rel="noopener noreferrer" className="orchestra-link" aria-label="Twitter"><FaTwitter /></a>
+                    <a href={social.whatsapp || 'https://whatsapp.com/channel/0029Vb9Ai2r9Gv7TB7Qpt73y'} target="_blank" rel="noopener noreferrer" className="orchestra-link" aria-label="WhatsApp"><FaWhatsapp /></a>
+                  </div>
                 </div>
-                <div className="hour-item">
-                  <span>Sunday:</span>
-                  <span>Closed</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="social-section">
-              <h4>Follow Us</h4>
-              <div className="social-links">
-                <button
-                  onClick={() => handleSocialClick('facebook')}
-                  className="social-link"
-                  aria-label="Facebook"
-                >
-                  <FaFacebookF />
-                </button>
-                <button
-                  onClick={() => handleSocialClick('instagram')}
-                  className="social-link"
-                  aria-label="Instagram"
-                >
-                  <FaInstagram />
-                </button>
-                <button
-                  onClick={() => handleSocialClick('twitter')}
-                  className="social-link"
-                  aria-label="Twitter"
-                >
-                  <FaTwitter />
-                </button>
-                <button
-                  onClick={() => handleSocialClick('linkedin')}
-                  className="social-link"
-                  aria-label="LinkedIn"
-                >
-                  <FaLinkedinIn />
-                </button>
               </div>
             </div>
           </div>

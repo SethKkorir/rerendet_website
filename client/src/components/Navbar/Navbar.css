@@ -21,8 +21,8 @@
   right: 0;
   z-index: 1000;
   transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 100%);
-  /* Visibility gradient */
+  background: transparent;
+  /* Removed dark top gradient for better blending */
   height: var(--nav-height);
   display: flex;
   align-items: center;
@@ -67,8 +67,8 @@
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: #ffffff;
-  /* White on Hero */
+  color: var(--text-main);
+  /* Adaptive theme color */
   transition: color 0.3s ease;
 }
 
@@ -79,6 +79,8 @@
 .header__logo-img {
   height: 2.5rem;
   width: auto;
+  background: transparent !important;
+  display: block;
 }
 
 /* Desktop Navigation */
@@ -100,7 +102,8 @@
 .header__nav-link {
   font-size: 0.9rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-main);
+  opacity: 0.9;
   background: none;
   border: none;
   cursor: pointer;
@@ -115,7 +118,7 @@
 }
 
 .header__nav-link:hover {
-  color: #ffffff;
+  color: var(--color-primary);
   opacity: 1;
 }
 
@@ -145,10 +148,9 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  background: rgba(255, 255, 255, 0.1);
-  /* Subtle glass bg */
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: transparent;
+  border: 1px solid var(--border-main);
+  color: var(--text-main);
   backdrop-filter: blur(4px);
 }
 
@@ -217,7 +219,7 @@
   transition: all 0.3s ease;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: var(--text-main);
 }
 
 .header--scrolled .header__mobile-trigger {

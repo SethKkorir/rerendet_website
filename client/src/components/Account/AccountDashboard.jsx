@@ -26,13 +26,13 @@ function AccountDashboard() {
   const [activeTab, setActiveTab] = useState('orders'); // Default to orders for utility
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Redirect admin users to admin dashboard
-  useEffect(() => {
-    if (user && (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin')) {
-      console.log('🛡️ Admin detected on account page. Redirecting to Admin Dashboard...');
-      navigate('/admin');
-    }
-  }, [user, navigate]);
+  // Redirect logic removed to allow admins to view user dashboard if needed
+  // useEffect(() => {
+  //   if (user && (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin')) {
+  //     console.log('🛡️ Admin detected on account page. Redirecting to Admin Dashboard...');
+  //     navigate('/admin');
+  //   }
+  // }, [user, navigate]);
 
   // Real Data State
   const [orders, setOrders] = useState([]);

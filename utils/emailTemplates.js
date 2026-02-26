@@ -208,3 +208,27 @@ export const getOrderStatusEmail = (name, orderNumber, status, trackingNumber, m
   `;
   return getBaseTemplate(`Order Update #${orderNumber} - Rerendet Coffee`, content, { logoUrl });
 };
+export const getOrderConfirmationEmail = (name, orderNumber, items, total, logoUrl) => {
+  const content = `
+    <h1>Order Confirmed!</h1>
+    <p>Hello ${name},</p>
+    <p>Thank you for your order! We've received order <strong>#${orderNumber}</strong> and are getting it ready for you.</p>
+    
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">Order Summary</h3>
+      ${items.map(item => `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+          <span>${item.name} (${item.size}) x ${item.quantity}</span>
+          <strong>KES ${item.price.toLocaleString()}</strong>
+        </div>
+      `).join('')}
+      <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold; font-size: 18px; color: #D4AF37;">
+        <span>Total Paid</span>
+        <span>KES ${total.toLocaleString()}</span>
+      </div>
+    </div>
+
+    <p>We'll notify you as soon as your coffee is freshly roasted and on its way.</p>
+  `;
+  return getBaseTemplate(`Order Confirmation #${orderNumber} - Rerendet Coffee`, content, { logoUrl });
+};

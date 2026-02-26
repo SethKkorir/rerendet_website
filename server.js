@@ -2,9 +2,8 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-const VERSION = 'V4.7-DIAGNOSTIC';
 // CACHE BUSTER: 2026-02-10 22:15
-console.log(`🚀 [BACKEND] Starting server version: ${VERSION}`);
+console.log(`🚀 [BACKEND] Starting server`);
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -14,6 +13,7 @@ import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import xss from 'xss-clean';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 // Import local modules
@@ -38,6 +38,7 @@ import subscriberRoutes from './routes/subscriberRoutes.js';
 
 // Import models
 import User from './models/User.js';
+import Product from './models/Product.js';
 import Contact from './models/Contact.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,18 +51,40 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
+// Global rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+
+// Specific limiter for Auth & Contact (sensitive endpoints)
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // Limit each IP to 20 requests per hour
+  message: 'Too many login attempts, please try again after an hour'
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Limit contact form submissions
+  message: 'Too many messages sent. Please try again later.'
+});
+
 // Global logger
 app.use((req, res, next) => {
   console.log(`📡 [${req.method}] ${req.path} - Origin: ${req.get('Origin')}`);
   next();
 });
 
+// Apply global limiter
+app.use('/api/', apiLimiter);
+
 // CORS configuration - Allow multiple origins
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://rerendetwebsite.vercel.app',
-  'https://rerendet-coffee.vercel.app',
-  'https://rerendet-website-two.vercel.app'
+  'http://localhost:5004',
+  'http://127.0.0.1:5004'
 ];
 if (process.env.CLIENT_URL) allowedOrigins.push(process.env.CLIENT_URL);
 
@@ -71,12 +94,12 @@ app.use(cors({
     const isAllowed = !origin ||
       allowedOrigins.indexOf(origin) !== -1 ||
       allowedOrigins.some(o => origin.startsWith(o)) ||
-      origin.includes('vercel.app'); // Bonus: Allow all vercel subdomains of the project
+      allowedOrigins.some(o => origin.replace(/\/$/, '') === o.replace(/\/$/, '')); // Handle trailing slash differences
 
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.log(`❌ CORS Blocked: ${origin}`);
+      console.log(`❌ CORS Blocked: '${origin}' against allowed:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -98,10 +121,7 @@ app.use(helmet({
       connectSrc: [
         "'self'",
         "https://accounts.google.com",
-        "https://oauth2.googleapis.com",
-        "https://rerendetwebsite.vercel.app",
-        "https://rerendet-coffee.vercel.app",
-        "https://rerendet-website-two.vercel.app"
+        "https://oauth2.googleapis.com"
       ],
       frameSrc: ["'self'", "https://accounts.google.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
@@ -131,52 +151,26 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
 
-const VERSION_DESC = 'Diagnostic Build';
-
-// Diagnostic route
-app.get('/api/debug-fs', async (req, res) => {
-  try {
-    const fs = await import('fs/promises');
-    const rootFiles = await fs.readdir(process.cwd());
-    let publicFiles = [];
-    try {
-      publicFiles = await fs.readdir(path.join(process.cwd(), 'public'));
-    } catch (e) { publicFiles = ['ERROR: public folder not found']; }
-
-    res.json({
-      success: true,
-      cwd: process.cwd(),
-      __dirname,
-      rootFiles,
-      publicFiles,
-      env: {
-        NODE_ENV: process.env.NODE_ENV,
-        VERCEL: process.env.VERCEL
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Move health check to /api/status to avoid hijacking the root path
-app.get('/api/status', (req, res) => {
-  res.json({
+// Health check
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
     success: true,
-    message: "Rerendet API is LIVE",
-    version: VERSION,
-    timestamp: new Date()
+    environment: process.env.NODE_ENV,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    time: new Date()
   });
 });
 
 // 2. API Routes
 // Mount specific routes first
+// Mount specific routes first
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', paymentRoutes); // Mount simulated payment webhook
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
@@ -185,8 +179,8 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/newsletter', subscriberRoutes);
 
-// Custom public routes
-app.post('/api/contact', async (req, res, next) => {
+// Custom public routes with rate limiting
+app.post('/api/contact', contactLimiter, async (req, res, next) => {
   try {
     const { name, email, subject, message } = req.body;
     if (!name || !email || !subject || !message) {
@@ -199,26 +193,64 @@ app.post('/api/contact', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    version: VERSION,
-    environment: process.env.NODE_ENV,
-    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    time: new Date()
-  });
-});
 
 // 3. Static Assets (Production)
-if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-  const publicPath = path.resolve('public');
+if (process.env.NODE_ENV === 'production') {
+  const publicPath = path.resolve(__dirname, 'client/build');
   console.log(`📂 [STATIC] Production mode. Absolute Path: ${publicPath}`);
 
   app.use(express.static(publicPath));
 
-  // Only handle GET requests for SPA routing, skip /api
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
+  // Only handle GET requests for SPA routing
+  // SSR-Lite for SEO: Inject Meta Tags for Product Pages
+  app.get('/product/:slug', async (req, res) => {
+    try {
+      const slug = req.params.slug;
+      const product = await Product.findOne({ 'seo.slug': slug });
+
+      const indexPath = path.resolve(publicPath, 'index.html');
+      let indexHtml = fs.readFileSync(indexPath, 'utf8');
+
+      if (product) {
+        const title = product.seo?.title || `${product.name} | Rerendet Coffee`;
+        const description = product.seo?.description || product.description.substring(0, 160);
+        const image = product.images?.[0]?.url || 'https://rerendet-coffee.vercel.app/og-image.jpg';
+        const url = `https://rerendet-coffee.com/product/${slug}`;
+        const price = product.sizes?.[0]?.price || 0;
+
+        // Inject dynamic meta tags
+        const metaTags = `
+          <title>${title}</title>
+          <meta name="description" content="${description}">
+          <meta property="og:title" content="${title}">
+          <meta property="og:description" content="${description}">
+          <meta property="og:image" content="${image}">
+          <meta property="og:url" content="${url}">
+          <meta property="og:type" content="product">
+          <meta property="product:price:amount" content="${price}">
+          <meta property="product:price:currency" content="KES">
+          <meta name="twitter:card" content="summary_large_image">
+          <meta name="twitter:title" content="${title}">
+          <meta name="twitter:description" content="${description}">
+          <meta name="twitter:image" content="${image}">
+        `;
+
+        // Replace existing title or head content
+        indexHtml = indexHtml.replace('<title>Rerendet Coffee</title>', metaTags);
+        // If the tag isn't exactly that, we can inject before </head>
+        if (!indexHtml.includes(metaTags)) {
+          indexHtml = indexHtml.replace('</head>', `${metaTags}</head>`);
+        }
+      }
+
+      res.send(indexHtml);
+    } catch (err) {
+      console.error('❌ SEO Injection Error:', err);
+      res.sendFile(path.resolve(publicPath, 'index.html'));
+    }
+  });
+
+  app.get('*', (req, res) => {
     res.sendFile(path.resolve(publicPath, 'index.html'));
   });
 }
@@ -244,21 +276,27 @@ const createDefaultAdmin = async () => {
   } catch (err) { console.error('❌ Admin creation error:', err.message); }
 };
 
-// Start listening ONLY if not in Vercel environment
+const createIndexes = async () => {
+  try {
+    console.log('🏗️  Creating database indexes...');
+    // We can also define indexes in models, but ensuring they are built here
+    await User.createIndexes();
+    console.log('✅ User indexes created');
+    await Product.createIndexes();
+    console.log('✅ Product indexes created');
+    await Order.createIndexes();
+    console.log('✅ Order indexes created');
+  } catch (err) { console.error('❌ Index creation error:', err.message); }
+};
+
 const PORT = process.env.PORT || 5000;
-if (!process.env.VERCEL) {
-  connectDB().then(() => {
-    createDefaultAdmin();
-    app.listen(PORT, () => {
-      startCronJobs();
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
+connectDB().then(() => {
+  createDefaultAdmin();
+  createIndexes();
+  app.listen(PORT, () => {
+    startCronJobs();
+    console.log(`🚀 Server running on port ${PORT}`);
   });
-} else {
-  // On Vercel, connection is handled differently 
-  // but we still want to ensure DB connects for the request
-  // Most Vercel apps connect on first request or as a top-level await if supported
-  connectDB();
-}
+});
 
 export default app;

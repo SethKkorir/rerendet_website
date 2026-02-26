@@ -420,46 +420,314 @@
   gap: 0.5rem;
   z-index: 2;
   position: relative;
+  min-width: 60px;
+  /* Ensure labels don't squish too much */
 }
 
 .step-dot {
-  width: 14px;
-  height: 14px;
+  width: 32px;
+  height: 32px;
   background-color: var(--bg-secondary);
   border: 2px solid var(--border-color);
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
   transition: all 0.3s ease;
+  z-index: 2;
+  /* Sit on top of line */
 }
 
 .step-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
   font-weight: 500;
+  text-align: center;
 }
 
 .track-line {
   flex: 1;
   height: 2px;
   background-color: var(--border-color);
-  margin: 0 -10px;
-  margin-bottom: 20px;
-  /* Align with dots */
+  margin: 0 -15px;
+  /* Pull lines under dots */
+  margin-bottom: 22px;
+  /* Align with center of dots (approx) */
   z-index: 1;
   transition: background-color 0.3s ease;
 }
 
 /* Active/Completed States */
+/* Active/Completed States */
 .track-step.completed .step-dot {
-  background-color: var(--primary-color);
+  background-color: var(--success);
+  border-color: var(--success);
+  color: var(--white);
+  /* Ensure icon is white */
+}
+
+.track-step.active .step-dot {
+  background-color: var(--bg-card);
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.1);
+  color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.25);
+  /* Stronger glow */
 }
 
 .track-step.completed .step-label {
-  color: var(--text-primary);
+  color: var(--success);
+  /* Green text for completed */
   font-weight: 600;
 }
 
+.track-step.active .step-label {
+  color: var(--primary-color);
+  /* Gold text for active */
+  font-weight: 700;
+}
+
+/* Ensure pending label is visible */
+.track-step .step-label {
+  color: var(--text-secondary);
+}
+
 .track-line.active {
-  background-color: var(--primary-color);
+  background-color: var(--success);
+}
+
+/* Status Badges Container */
+.status-badges {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  /* Align right matching parent */
+  flex-wrap: wrap;
+}
+
+/* Address Book & Wallet Styles */
+.addresses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.modern-address-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.modern-address-card.default {
+  border-color: var(--primary-color);
+  background: rgba(212, 175, 55, 0.02);
+}
+
+.address-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.address-card-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.badge-default {
+  font-size: 0.7rem;
+  background: var(--primary-color);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.address-card-body p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.address-card-body .name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.address-card-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Payment Methods */
+.payment-methods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.payment-method-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+  transition: transform 0.2s ease;
+}
+
+.payment-method-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.mpesa-card {
+  border-left: 4px solid #4CAF50;
+  /* M-Pesa Green */
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.method-icon {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.method-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.add-new-card {
+  border: 2px dashed var(--border-color);
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.icon-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  color: var(--text-secondary);
+}
+
+.add-content h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+}
+
+.input-with-icon input {
+  padding-left: 2.5rem;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.content-card.editing-mode {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.right-aligned {
+  justify-content: flex-end;
+  display: flex;
+  gap: 1rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--border-color);
+}
+
+.empty-icon-wrapper {
+  width: 60px;
+  height: 60px;
+  background: var(--bg-secondary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
 }
