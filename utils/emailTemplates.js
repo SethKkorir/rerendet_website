@@ -51,12 +51,12 @@ const getBaseTemplate = (title, content, options = {}) => {
           </div>
           <p>&copy; ${year} Rerendet Coffees. All rights reserved.</p>
           <div style="margin-top: 15px;">
-             <a href="${frontendUrl}/track">Order Status</a>
+             <a href="${frontendUrl}/track-order">Order Status</a>
              <a href="${frontendUrl}/shipping-policy">Shipping</a>
              <a href="${frontendUrl}/returns">Returns</a>
           </div>
           <span class="unsub-text">
-            Specializing in high-altitude, sun-dried Arabic coffee. Hand-picked and freshly roasted in Kenya.
+            Premium high-altitude coffee, hand-picked and freshly roasted in Kenya. Delivered from our farm to your cup.
           </span>
         </div>
       </div>
@@ -67,14 +67,14 @@ const getBaseTemplate = (title, content, options = {}) => {
 
 export const getVerificationEmail = (name, code, logoUrl) => {
   const content = `
-    <h1>Verify Your Presence</h1>
+    <h1>Verify Your Email</h1>
     <p>Dear ${name},</p>
-    <p>We are delighted to have you join the world of Rerendet Coffee. To finalize your account and lock in your membership, please enter the exclusive code below:</p>
+    <p>Thank you for joining Rerendet Coffee. To complete your registration and start shopping, please enter the verification code below:</p>
     <div class="verification-code-box">
       <span class="code-text">${code}</span>
       <span class="code-caption">Valid for 10 minutes</span>
     </div>
-    <p>If you did not initiate this registration, please disregard this transmission.</p>
+    <p>If you did not sign up for an account, please ignore this email.</p>
   `;
   return getBaseTemplate('Verify Your Email - Rerendet Coffee', content, { logoUrl });
 };
@@ -82,22 +82,22 @@ export const getVerificationEmail = (name, code, logoUrl) => {
 export const getWelcomeEmail = (name, logoUrl) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const content = `
-    <h1>Welcome to the Estate</h1>
+    <h1>Welcome to Rerendet Coffee</h1>
     <p>Dear ${name},</p>
-    <p>Your journey into the finest high-altitude Kenyan coffee begins now. Your account is active, and the door to our exclusive collections is open.</p>
+    <p>Your account is now active! You can now explore our fresh coffee collections and manage your orders.</p>
     
     <div class="info-card">
       <span class="info-card-title">MEMBER BENEFIT</span>
-      <p style="margin: 0; font-style: italic;">"As a registered member, you'll earn 1 loyalty point for every KES 100 spent. Collect points to redeem for limited-batch reserve releases."</p>
+      <p style="margin: 0; font-style: italic;">"Earn reward points with every purchase and redeem them for future orders."</p>
     </div>
-
+ 
     <div style="background: #eef2ff; border-left: 4px solid #4f46e5; padding: 20px; border-radius: 8px; margin: 30px 0;">
-      <h4 style="margin: 0 0 10px 0; color: #1e1b4b; display: flex; align-items: center; gap: 8px;">🛡️ Protect Your Account</h4>
-      <p style="margin: 0; font-size: 14px; color: #312e81;">For maximum security, we highly recommend enabling <strong>Two-Factor Authentication (2FA)</strong>. This adds an extra layer of protection, ensuring that only you can access your profile and order history.</p>
-      <a href="${frontendUrl}/account" style="display: inline-block; margin-top: 15px; color: #4f46e5; font-weight: 700; text-decoration: none; font-size: 14px;">Enable Security →</a>
+      <h4 style="margin: 0 0 10px 0; color: #1e1b4b; display: flex; align-items: center; gap: 8px;">🛡️ Secure Your Account</h4>
+      <p style="margin: 0; font-size: 14px; color: #312e81;">We recommend enabling <strong>Two-Factor Authentication (2FA)</strong> in your settings to add an extra layer of security to your profile.</p>
+      <a href="${frontendUrl}/account" style="display: inline-block; margin-top: 15px; color: #4f46e5; font-weight: 700; text-decoration: none; font-size: 14px;">Setup Security →</a>
     </div>
-
-    <p>Our beans are waiting. Start your first order and taste the peak of quality.</p>
+ 
+    <p>Ready for your first brew? Let's get started.</p>
 
     <div style="text-align: center;">
       <a href="${frontendUrl}/#coffee-shop" class="premium-btn">Explore Collections</a>
@@ -108,14 +108,14 @@ export const getWelcomeEmail = (name, logoUrl) => {
 
 export const getResetPasswordEmail = (name, code, logoUrl) => {
   const content = `
-    <h1>Secure Re-entry Request</h1>
+    <h1>Password Reset Request</h1>
     <p>Dear ${name},</p>
-    <p>We received a request to update the security credentials for your account. Please use the verification code below to proceed with your password reset:</p>
+    <p>We received a request to reset your password. Please use the reset code below to proceed:</p>
     <div class="verification-code-box">
       <span class="code-text">${code}</span>
-      <span class="code-caption">Authorization Code</span>
+      <span class="code-caption">Reset Code</span>
     </div>
-    <p>If you did not request this, please change your security settings immediately.</p>
+    <p>If you did not request this, please update your security settings immediately.</p>
   `;
   return getBaseTemplate('Reset Your Password', content, { logoUrl });
 };
@@ -135,33 +135,40 @@ export const getOrderStatusEmail = (name, orderNumber, status, trackingNumber, m
     <p>Your order <strong>#${orderNumber}</strong> has progressed in its journey to you.</p>
     
     <div class="info-card" style="border-left-color: #D4AF37;">
-      <span class="info-card-title">CURRENT STATUS</span>
       <p style="margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase;">${status}</p>
       ${message ? `<p style="margin-top: 15px; background: #fff; padding: 10px; border-radius: 8px; font-size: 14px;">Team Note: "${message}"</p>` : ''}
     </div>
 
     ${trackingNumber ? `
-      <div style="margin: 30px 0; padding: 20px; border: 1px dashed #D1D9E6; border-radius: 12px; text-align: center;">
-        <span class="info-card-title">TRACKING IDENTIFIER</span>
-        <span style="font-family: monospace; font-size: 24px; color: #111111; display: block; margin: 10px 0;">${trackingNumber}</span>
+      <div style="margin: 30px 0; padding: 20px; border: 1px dashed #D4AF37; border-radius: 12px; text-align: center; background: #FFFDF5;">
+        <span class="info-card-title">TRACKING NUMBER</span>
+        <span style="font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: 800; color: #111111; display: block; margin: 10px 0; letter-spacing: 4px;">${trackingNumber}</span>
+        <p style="margin: 5px 0 0; font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px;">Copy this number to track your package</p>
       </div>
     ` : ''}
-
+ 
     <div style="text-align: center;">
-      <a href="${frontendUrl}/account" class="premium-btn">Track Order Details</a>
+      <a href="${frontendUrl}/track-order" class="premium-btn">Track Order Live</a>
     </div>
   `;
   return getBaseTemplate(`Order ${statusTitle} - #${orderNumber}`, content, { logoUrl });
 };
 
-export const getOrderConfirmationEmail = (name, orderNumber, items, total, logoUrl) => {
+export const getOrderConfirmationEmail = (name, orderNumber, items, total, trackingNumber, logoUrl) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const content = `
-    <h1>Order Selection Confirmed</h1>
+    <h1>Order Confirmed</h1>
     <p>Dear ${name},</p>
-    <p>We are delighted to confirm your selection <strong>#${orderNumber}</strong>. Our roasting team is already preparing to bring the fresh aroma of the peak to your door.</p>
+    <p>We've received your order <strong>#${orderNumber}</strong>. Our team is preparing your fresh coffee to be delivered to you soon.</p>
     
+    <div style="margin: 30px 0; padding: 20px; border: 1px dashed #D4AF37; border-radius: 12px; text-align: center; background: #FFFDF5;">
+      <span class="info-card-title">YOUR TRACKING NUMBER</span>
+      <span style="font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: 800; color: #111111; display: block; margin: 10px 0; letter-spacing: 4px;">${trackingNumber || '...'}</span>
+      <p style="margin: 5px 0 0; font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px;">Use this number to track your order status</p>
+    </div>
+
     <div class="info-card">
-      <span class="info-card-title">ACQUISITION SUMMARY</span>
+      <span class="info-card-title">ORDER SUMMARY</span>
       ${items.map(item => `
         <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 12px;">
           <span style="font-weight: 500;">${item.name} (${item.size}) <span style="color: #999;">x${item.quantity}</span></span>
@@ -169,26 +176,29 @@ export const getOrderConfirmationEmail = (name, orderNumber, items, total, logoU
         </div>
       `).join('')}
       <div style="display: flex; justify-content: space-between; margin-top: 20px; font-weight: 800; font-size: 22px; color: #D4AF37;">
-        <span>Total Investment</span>
+        <span>Order Total</span>
         <span>KES ${total.toLocaleString()}</span>
       </div>
     </div>
 
-    <p>You will receive another transmission as soon as your order departs our estate.</p>
+    <p>You can track your order live at any time using our public portal:</p>
+    <div style="text-align: center;">
+      <a href="${frontendUrl}/track-order" class="premium-btn">Track Live Status</a>
+    </div>
   `;
   return getBaseTemplate(`Confirmation #${orderNumber} - Rerendet Coffee`, content, { logoUrl });
 };
 
 export const getMaintenanceEmail = (message, logoUrl) => {
   const content = `
-    <h1>Polishing the Peak</h1>
-    <p>To our valued customer,</p>
-    <p>We are currently performing digital maintenance to enhance your experience at the Rerendet Coffee portal.</p>
+    <h1>Store Maintenance</h1>
+    <p>Dear Valued Customer,</p>
+    <p>Our store is currently undergoing maintenance to improve your shopping experience.</p>
     <div class="info-card">
-      <span class="info-card-title">DISPATCH FROM THE TEAM</span>
-      <p style="margin: 0; font-style: italic;">"${message || 'System enhancements in progress. We will return shortly.'}"</p>
+      <span class="info-card-title">A NOTE FROM OUR TEAM</span>
+      <p style="margin: 0; font-style: italic;">"${message || 'We are updating our store. We will be back online shortly.'}"</p>
     </div>
-    <p>We appreciate your patience while we refine the estate.</p>
+    <p>Thank you for your patience while we improve our website.</p>
   `;
   return getBaseTemplate('Maintenance Update - Rerendet Coffee', content, { logoUrl });
 };
@@ -196,13 +206,13 @@ export const getMaintenanceEmail = (message, logoUrl) => {
 export const getNewsletterWelcomeEmail = (logoUrl) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const content = `
-    <h1>Inside the Brew</h1>
-    <p>Thank you for subscribing to our estate transmissions.</p>
-    <p>You are now on the inside track for:</p>
+    <h1>Welcome to our Newsletter</h1>
+    <p>Thank you for subscribing to our updates.</p>
+    <p>You'll now receive regular news on:</p>
     <ul style="color: #444; line-height: 2;">
-      <li><strong>Small-Batch Arrivals</strong>: Be the first to secure limited harvests.</li>
-      <li><strong>Estates News</strong>: Updates from our high-altitude Kenyan farms.</li>
-      <li><strong>Secret Brews</strong>: Subscriber-only discounts and early access.</li>
+      <li><strong>New Arrivals</strong>: Be the first to know when we restock.</li>
+      <li><strong>Coffee Stories</strong>: News and tips from our farmers.</li>
+      <li><strong>Exclusive Offers</strong>: Subscriber-only discounts and early access.</li>
     </ul>
     <div style="text-align: center; margin-top: 30px;">
       <a href="${frontendUrl}/#coffee-shop" class="premium-btn">Browse Shop</a>
@@ -213,13 +223,13 @@ export const getNewsletterWelcomeEmail = (logoUrl) => {
 
 export const getRegretEmail = (name, logoUrl) => {
   const content = `
-    <h1>Farewell from the Peak</h1>
+    <h1>Account Deleted</h1>
     <p>Dear ${name},</p>
-    <p>Your account has been successfully decommissioned. We are genuinely sorry to see your journey with Rerendet Coffee come to a close.</p>
+    <p>Your account has been permanently deleted. We're sorry to see you go.</p>
     <div class="info-card">
-      <p style="margin: 0; text-align: center;">"If you ever find yourself craving the fresh aroma of the peak again, our doors will always be open for your return."</p>
+      <p style="margin: 0; text-align: center;">"If you ever want fresh coffee again, our doors are always open for your return."</p>
     </div>
-    <p>Safe travels until we brew again.</p>
+    <p>Safe travels until next time.</p>
   `;
   return getBaseTemplate('Account Deleted - Rerendet Coffee', content, { logoUrl });
 };
@@ -227,9 +237,9 @@ export const getRegretEmail = (name, logoUrl) => {
 export const getMaintenanceResolvedEmail = (logoUrl) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const content = `
-    <h1>Resuming Operations</h1>
-    <p>To our valued members,</p>
-    <p>The gates to the Rerendet Coffee portal are open once again. We have successfully completed our enhancements and are back online to serve you.</p>
+    <h1>We're Back Online</h1>
+    <p>To our valued customers,</p>
+    <p>Our website is back online! We've completed our updates and are ready for you to start shopping again.</p>
     
     <div style="text-align: center; margin-top: 30px;">
       <a href="${frontendUrl}" class="premium-btn">Return to Shop</a>
@@ -245,8 +255,8 @@ export const getNewsletterEmail = (title, bodyContent, logoUrl) => {
       ${bodyContent}
     </div>
     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #E9EDF2; text-align: center; font-size: 13px; color: #94A3B8;">
-      <p>This transmission was sent to you as a member of our exclusive newsletter circle.</p>
-      <a href="#" style="color: #D4AF37; text-decoration: underline;">Unsubscribe from transmissions</a>
+      <p>This email was sent to you because you're subscribed to our newsletter.</p>
+      <a href="#" style="color: #D4AF37; text-decoration: underline;">Unsubscribe from our emails</a>
     </div>
   `;
   return getBaseTemplate(title, content, { logoUrl });
@@ -263,11 +273,11 @@ export const getSecurityAlertEmail = (name, action, logoUrl) => {
       <p style="margin-top: 10px; font-size: 14px;">Timestamp: ${new Date().toLocaleString()}</p>
     </div>
 
-    <p>If you initiated this change, no further action is required. Your account remains protected with our bank-grade encryption protocols.</p>
+    <p>If you initiated this change, no further action is required. Your account is protected with our secure industry standards.</p>
     
     <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 12px; margin: 30px 0;">
       <h4 style="margin: 0 0 10px 0; color: #856404;">⚠️ Not You?</h4>
-      <p style="margin: 0; font-size: 14px; color: #666;">If you did <strong>not</strong> authorize this change, please contact our security team immediately or reset your password to regain exclusive control of your account.</p>
+      <p style="margin: 0; font-size: 14px; color: #666;">If you did <strong>not</strong> authorize this change, please contact our support team immediately or reset your password to regain control of your account.</p>
     </div>
   `;
   return getBaseTemplate('Security Notification - Rerendet Coffee', content, { logoUrl });

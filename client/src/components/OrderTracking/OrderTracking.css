@@ -97,17 +97,34 @@
     text-align: center;
 }
 
-.ot-order-id-badge {
-    display: inline-block;
-    background: var(--bg-deep);
+.ot-order-id-badges {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ot-badge-main {
+    background: rgba(212, 175, 55, 0.1);
     color: var(--color-primary-dark);
-    padding: 6px 16px;
-    border-radius: 8px;
-    font-size: 0.8rem;
+    padding: 8px 18px;
+    border-radius: 12px;
+    font-size: 0.9rem;
     font-weight: 800;
-    letter-spacing: 1.5px;
-    margin-bottom: 1rem;
-    border: 1px solid rgba(212, 175, 55, 0.2);
+    letter-spacing: 1px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.1);
+}
+
+.ot-badge-sub {
+    background: var(--bg-deep);
+    color: var(--text-dim);
+    padding: 8px 18px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid var(--border-main);
 }
 
 .ot-header-content h1 {

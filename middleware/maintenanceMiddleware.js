@@ -10,28 +10,41 @@ import Settings from '../models/Settings.js';
 const maintenanceMode = asyncHandler(async (req, res, next) => {
     const fullPath = (req.baseUrl + req.path).replace(/\/$/, '');
 
-    // 1. Always allow admin portal routes and public settings/health
+    // 1. Always allow fundamental bypasses (Health, Public Settings, Super Gate, Admin Auth)
     const bypassPaths = [
-        '/api/admin',
+        '/api/admin/login',
         '/api/auth/admin',
         '/api/settings/public',
-        '/api/health',
-        '/api/auth/me'
+        '/api/settings/super-gate', // CRITICAL: Allow the magic link to be triggered even if site is blocked
+        '/api/health'
     ];
 
-    if (bypassPaths.some(path => fullPath.startsWith(path))) {
+    if (bypassPaths.some(path => fullPath.includes(path))) {
         return next();
     }
 
     // 2. Fetch settings to check if maintenance is ON
-    const settings = await Settings.getSettings();
-    if (!settings.maintenance || !settings.maintenance.enabled) {
+    let settings;
+    try {
+        settings = await Settings.getSettings();
+    } catch (err) {
+        // FAIL-CLOSED: If we can't fetch settings (DB down?), act as if maintenance is ON for security
+        console.error('⚠️ Critical: Could not fetch settings for maintenance check. Failing closed.');
+        return res.status(503).json({
+            success: false,
+            maintenance: true,
+            downtime: true,
+            message: 'System is currently stabilizing. Please try again in a few moments.'
+        });
+    }
+
+    if (!settings?.maintenance || !settings.maintenance.enabled) {
         return next();
     }
 
-    // 3. If Maintenance is ON, we must check if the user is an ADMIN
+    // 3. If Maintenance is ON, we must check if the user is a SUPER ADMIN
     // Since this middleware runs before 'protect', we manually check for Token
-    let isAdmin = false;
+    let isSuperAdmin = false;
 
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
@@ -39,8 +52,9 @@ const maintenanceMode = asyncHandler(async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             const user = await User.findById(decoded.id).select('role userType');
 
-            if (user && (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin')) {
-                isAdmin = true;
+            // STRICT: Only 'super-admin' can bypass maintenance/downtime
+            if (user && user.role === 'super-admin') {
+                isSuperAdmin = true;
                 req.user = user; // Attach user so subsequent middleware knows who it is
             }
         } catch (err) {
@@ -48,12 +62,13 @@ const maintenanceMode = asyncHandler(async (req, res, next) => {
         }
     }
 
-    // 4. Block if NOT admin
-    if (!isAdmin) {
+    // 4. Block everyone if NOT super-admin
+    if (!isSuperAdmin) {
         return res.status(503).json({
             success: false,
             maintenance: true,
-            message: settings.maintenance.message || 'The storefront is currently offline for maintenance. Please check back later.',
+            downtime: true,
+            message: settings.maintenance.message || 'The system is currently undergoing critical maintenance and is temporary offline. We apologize for the downtime.',
             storeName: settings.store.name
         });
     }

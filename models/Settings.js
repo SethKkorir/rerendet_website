@@ -20,7 +20,8 @@ const settingsSchema = new mongoose.Schema({
     awardsWon: { type: Number, default: 0 },
     story: { type: String, default: 'Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations. Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants.' },
     subStory: { type: String, default: 'At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.' },
-    imageUrl: { type: String, default: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000' }
+    imageUrl: { type: String, default: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000' },
+    imageUrl2: { type: String, default: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&q=80&w=1000' }
   },
 
   // Business Hours
@@ -142,10 +143,23 @@ const settingsSchema = new mongoose.Schema({
     shippingPolicy: { type: String, default: '' }
   },
 
-  // Maintenance Settings
+  // Maintenance Settings (Enterprise Super Gate)
   maintenance: {
     enabled: { type: Boolean, default: false },
-    message: { type: String, default: 'We are currently performing maintenance. Please check back soon.' }
+    message: { type: String, default: 'We are currently performing maintenance. Please check back soon.' },
+    magicLinkToken: { type: String, default: null },
+    magicLinkExpires: { type: Date, default: null },
+    lastToggledAt: { type: Date, default: Date.now },
+    history: [
+      {
+        action: { type: String, enum: ['enabled', 'disabled'] },
+        actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        actorName: { type: String, default: 'System' },
+        ip: { type: String },
+        source: { type: String, enum: ['dashboard', 'magic-link', 'cli'], default: 'dashboard' },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ]
   }
 
 }, {

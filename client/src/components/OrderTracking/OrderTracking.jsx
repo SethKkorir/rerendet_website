@@ -108,7 +108,7 @@ const OrderTracking = () => {
     const progressSteps = [
         { id: 'unfulfilled', label: 'Confirmed', icon: <FaCheckCircle />, desc: 'Order received' },
         { id: 'packed', label: 'Processing', icon: <FaWarehouse />, desc: 'Items packed & ready' },
-        { id: 'shipped', label: 'In Transit', icon: <FaTruck />, desc: 'Departed facility' },
+        { id: 'shipped', label: 'Shipped', icon: <FaTruck />, desc: 'Departed facility' },
         { id: 'delivered', label: 'Delivered', icon: <FaBox />, desc: 'Arrived at your door' }
     ];
 
@@ -149,12 +149,13 @@ const OrderTracking = () => {
                 </div>
 
                 <div className="ot-header-content">
-                    <motion.div variants={itemVariants} className="ot-order-id-badge">
-                        Order #{order.orderNumber}
+                    <motion.div variants={itemVariants} className="ot-order-id-badges">
+                        <span className="ot-badge-main">Tracking ID: {order.trackingNumber}</span>
+                        <span className="ot-badge-sub">Order #{order.orderNumber}</span>
                     </motion.div>
-                    <motion.h1 variants={itemVariants}>Track Your Order</motion.h1>
+                    <motion.h1 variants={itemVariants}>Track Your Coffee Journey</motion.h1>
                     <motion.p variants={itemVariants} className="ot-last-sync">
-                        Last synced from logistics: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        Live Status: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </motion.p>
                 </div>
             </header>
@@ -249,7 +250,7 @@ const OrderTracking = () => {
                                 ) : (
                                     <div className="ot-empty-timeline">
                                         <FaCoffee className="ot-empty-icon" />
-                                        <p>Your items are currently being prepared in our facility. History will arrive soon.</p>
+                                        <p>Your order has been received. Our team will start preparing your fresh coffee soon.</p>
                                     </div>
                                 )}
                             </AnimatePresence>

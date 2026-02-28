@@ -21,7 +21,8 @@ import API, {
   syncCart as apiSyncCart,
   verifyPassword as apiVerifyPassword,
   logAbandonedCheckout as apiLogAbandoned,
-  getAbandonedCheckouts as apiGetAbandoned
+  getAbandonedCheckouts as apiGetAbandoned,
+  unlockUserAccount as apiUnlockUser
 } from '../api/api';
 
 export const AppContext = createContext(null);
@@ -987,6 +988,17 @@ export function AppProvider({ children }) {
     }
   }, [showSuccess, showError]);
 
+  const unlockAccount = useCallback(async (id) => {
+    try {
+      const response = await apiUnlockUser(id);
+      showSuccess('Account unlocked successfully');
+      return response.data;
+    } catch (error) {
+      showError(error.response?.data?.message || 'Failed to unlock account');
+      throw error;
+    }
+  }, [showSuccess, showError]);
+
   const fetchAdminOrders = useCallback(async (params = {}) => {
     try {
       const response = await getAdminOrders(params);
@@ -1239,6 +1251,7 @@ export function AppProvider({ children }) {
     fetchAdminUsers,
     updateUserRole,
     deleteUser,
+    unlockAccount,
     fetchAdminOrders,
     fetchAdminProducts,
 

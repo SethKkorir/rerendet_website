@@ -11,6 +11,7 @@ const SessionLock = () => {
         unlockSession,
         logout,
         login,
+        loginAdmin,
         loginWithGoogle,
         showError
     } = useContext(AppContext);
@@ -56,7 +57,11 @@ const SessionLock = () => {
         setLoading(true);
 
         try {
-            await login({ email: user.email, password });
+            if (user?.role === 'admin' || user?.role === 'super-admin' || user?.userType === 'admin') {
+                await loginAdmin({ email: user.email, password });
+            } else {
+                await login({ email: user.email, password });
+            }
             unlockSession();
             setPassword('');
         } catch (error) {

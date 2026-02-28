@@ -24,6 +24,19 @@ const Footer = () => {
 
   return (
     <footer className="footer-premium fade-in">
+      {/* Premium Tracking Callout Banner */}
+      <div className="footer-tracking-callout">
+        <div className="container tracking-cta-container">
+          <div className="tracking-cta-content">
+            <h3 className="tracking-cta-title">Waiting for your coffee?</h3>
+            <p className="tracking-cta-sub">Follow your freshly roasted Kenyan beans locally from our store to your door.</p>
+          </div>
+          <Link to="/track-order" className="btn-premium tracking-big-btn">
+            Track Your Order <FaArrowRight style={{ fontSize: '0.9rem' }} />
+          </Link>
+        </div>
+      </div>
+
       {/* Decorative Gradient Background */}
       <div className="footer-glow" />
 
@@ -36,7 +49,7 @@ const Footer = () => {
               <img
                 src="/rerendet-logo.png"
                 alt="Rerendet"
-                style={{ height: '60px', width: 'auto' }}
+                className="footer-logo-img"
               />
             </Link>
             <p className="footer-mission">
@@ -52,7 +65,7 @@ const Footer = () => {
 
           {/* Navigation Orchestra */}
           <div className="footer-section">
-            <h4 className="section-title">Shop</h4>
+            <h4 className="section-title">Explore</h4>
             <ul className="footer-links">
               <li><a href="/#hero">Home</a></li>
               <li><a href="/#coffee-shop">Coffee Shop</a></li>
@@ -64,7 +77,7 @@ const Footer = () => {
           <div className="footer-section">
             <h4 className="section-title">Support</h4>
             <ul className="footer-links">
-              <li><Link to="/shipping-policy">Shipping Policy</Link></li>
+              <li><Link to="/shipping-policy">Shipping & Delivery</Link></li>
               <li><Link to="/refund-policy">Refund Policy</Link></li>
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
               <li><Link to="/terms-conditions">Terms & Conditions</Link></li>
@@ -72,7 +85,7 @@ const Footer = () => {
           </div>
 
           <div className="footer-section contact-section">
-            <h4 className="section-title">Visit Us</h4>
+            <h4 className="section-title">Get In Touch</h4>
             <div className="contact-details">
               {store.address && (
                 <div className="contact-bit">
@@ -119,6 +132,9 @@ const Footer = () => {
           </div>
         </div>
       </div>
+
+      {/* Decorative Rerendet Watermark */}
+      <div className="footer-watermark">RERENDET</div>
     </footer>
   );
 };

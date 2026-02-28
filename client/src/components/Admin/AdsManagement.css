@@ -1,0 +1,171 @@
+.ads-management {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.ads-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.ads-header h2 {
+    font-family: var(--font-heading);
+    margin: 0 0 0.5rem 0;
+}
+
+.ads-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.ads-create-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    background: var(--color-primary);
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: bold;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
+    transition: transform 0.2s;
+}
+
+.ads-create-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(212, 175, 55, 0.6);
+}
+
+.admin-form-card {
+    background: var(--bg-card);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-main);
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 2rem;
+}
+
+.admin-form-card h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-family: var(--font-heading);
+    color: var(--text-main);
+    font-size: 1.5rem;
+}
+
+.form-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+@media(max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-group select[multiple] {
+    padding: 0.5rem;
+    background: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    scrollbar-width: thin;
+}
+
+.form-group select[multiple] option {
+    padding: 0.5rem;
+    cursor: pointer;
+}
+
+.form-group select[multiple] option:checked {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: white;
+}
+
+.metrics-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.metrics-cell strong {
+    font-size: 1rem;
+}
+
+.badge-draft {
+    background: #64748b;
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+}
+
+.badge-warning {
+    background: #f59e0b;
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+}
+
+.badge-success {
+    background: #10b981;
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+}
+
+.badge-outline {
+    border: 1px solid var(--color-primary);
+    color: var(--text-main);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-btn {
+    background: var(--bg-input);
+    border: 1px solid var(--border-main);
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-main);
+    transition: var(--transition-fast);
+}
+
+.action-btn:hover {
+    background: var(--bg-surface);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}

@@ -39,6 +39,7 @@ import webhookRoutes from './routes/webhookRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
 import marketingRoutes from './routes/marketingRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
+import adRoutes from './routes/adRoutes.js';
 
 // Import models
 import User from './models/User.js';
@@ -186,7 +187,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/newsletter', subscriberRoutes);
 app.use('/api/marketing', marketingRoutes);
-app.use('/api/marketing', marketingRoutes);
+app.use('/api/promotions', adRoutes);
 
 // Custom public routes with rate limiting
 app.post('/api/contact', contactLimiter, async (req, res, next) => {
@@ -299,13 +300,22 @@ const createIndexes = async () => {
 };
 
 const PORT = process.env.PORT || 5000;
-connectDB().then(() => {
-  createDefaultAdmin();
-  createIndexes();
-  app.listen(PORT, () => {
-    startCronJobs();
-    console.log(`🚀 Server running on port ${PORT}`);
+
+if (process.env.NODE_ENV !== 'production' || process.env.RENDER || !process.env.VERCEL) {
+  connectDB().then(() => {
+    createDefaultAdmin();
+    createIndexes();
+    app.listen(PORT, () => {
+      startCronJobs();
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
   });
+}
+
+// Ensure DB is connected for serverless calls
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
 });
 
 export default app;

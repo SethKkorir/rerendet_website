@@ -14,7 +14,7 @@
 /* Background Watermark */
 .checkout-page::before {
   content: 'PREMIUM';
-  /* Changed from ESTATE */
+  /* Changed from farm */
   position: absolute;
   top: 5rem;
   right: -5rem;
@@ -1069,4 +1069,77 @@
   font-size: 0.9rem;
   color: var(--text-muted);
   max-width: 250px;
+}
+
+/* Card Entry Premium Styles */
+.card-input-box {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-main);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.card-security-note {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.85rem;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+  border-radius: 8px;
+  color: #10b981;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.card-security-note svg {
+  font-size: 1rem;
+}
+
+.animated-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+/* error styles */
+.has-error .premium-input-modern {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.error-text {
+  display: block;
+  font-size: 0.7rem;
+  color: #ef4444;
+  margin-top: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input-with-icon-modern {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-icon-modern .inner-icon {
+  position: absolute;
+  left: 1.1rem;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.premium-input-modern.with-icon {
+  padding-left: 3.2rem !important;
 }

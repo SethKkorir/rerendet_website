@@ -8,8 +8,8 @@ import {
   FaTachometerAlt, FaShoppingBag, FaBox, FaUsers,
   FaEnvelope, FaChartBar, FaCog, FaSignOutAlt,
   FaBars, FaTimes, FaBell, FaUserCircle,
-  FaInfoCircle, FaExclamationCircle, FaBullhorn,
-  FaSun, FaMoon, FaChevronLeft, FaChevronRight, FaStore, FaHistory, FaPenNib
+  FaInfoCircle, FaExclamationCircle, FaBullhorn, FaAd,
+  FaSun, FaMoon, FaChevronLeft, FaChevronRight, FaStore, FaHistory, FaPenNib, FaTicketAlt
 } from 'react-icons/fa';
 import './AdminLayout.css';
 import './AdminMobile.css';
@@ -45,6 +45,8 @@ const NAV_GROUPS = [
     label: 'Growth',
     items: [
       { id: 'marketing', label: 'Marketing', Icon: FaBullhorn, path: '/admin/marketing', color: '#ec4899', bg: 'rgba(236,72,153,0.18)' },
+      { id: 'ads', label: 'Ads & Promos', Icon: FaAd, path: '/admin/ads', color: '#10b981', bg: 'rgba(16,185,129,0.18)' },
+      { id: 'coupons', label: 'Coupons', Icon: FaTicketAlt, path: '/admin/coupons', color: '#fbbf24', bg: 'rgba(251,191,36,0.18)' },
       { id: 'blogs', label: 'Blogs', Icon: FaPenNib, path: '/admin/blogs', color: '#8b5cf6', bg: 'rgba(139,92,246,0.18)' },
       { id: 'analytics', label: 'Analytics', Icon: FaChartBar, path: '/admin/analytics', color: '#06b6d4', bg: 'rgba(6,182,212,0.18)' },
     ],
@@ -75,18 +77,15 @@ const AdminLayout = ({ children }) => {
   // ── Theme ──
   const [adminDark, setAdminDark] = useState(() => localStorage.getItem('darkMode') === 'true');
 
-  const toggleAdminTheme = () => {
-    const next = !adminDark;
-    setAdminDark(next);
-    localStorage.setItem('darkMode', next);
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
-  };
+  // Synchronize theme with document attribute
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', adminDark ? 'dark' : 'light');
+    localStorage.setItem('darkMode', adminDark);
+  }, [adminDark]);
 
   useEffect(() => {
     const sync = e => { if (e.key === 'darkMode') setAdminDark(e.newValue === 'true'); };
     window.addEventListener('storage', sync);
-    const cur = document.documentElement.getAttribute('data-theme');
-    if (cur) setAdminDark(cur === 'dark');
     return () => window.removeEventListener('storage', sync);
   }, []);
 
@@ -337,10 +336,10 @@ const AdminLayout = ({ children }) => {
           <div className="header-right">
             <button
               className="admin-theme-toggle"
-              onClick={toggleAdminTheme}
+              onClick={() => setAdminDark(!adminDark)}
               title={adminDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              <span className={`theme-icon ${adminDark ? 'moon' : 'sun'}`}>
+              <span className={`theme-icon ${adminDark ? 'sun' : 'moon'}`}>
                 {adminDark ? <FaSun /> : <FaMoon />}
               </span>
               <span className="theme-label">{adminDark ? 'Light' : 'Dark'}</span>

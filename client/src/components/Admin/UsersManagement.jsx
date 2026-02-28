@@ -54,7 +54,7 @@ const RoleBadge = ({ role }) => {
 
 // ─── Main Component ────────────────────────────────────────────
 const UsersManagement = () => {
-  const { showAlert, fetchAdminUsers, updateUserRole, deleteUser } = useContext(AppContext);
+  const { showAlert, fetchAdminUsers, updateUserRole, deleteUser, unlockAccount } = useContext(AppContext);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -114,9 +114,8 @@ const UsersManagement = () => {
       if (res.success) {
         fetchUsers();
         if (selectedUser?._id === userId) setSelectedUser(prev => ({ ...prev, userType: newRole, role: newRole }));
-        showAlert('Role updated successfully', 'success');
       }
-    } catch { showAlert('Failed to update role', 'error'); }
+    } catch { /* Error handled by context */ }
   };
 
   const handleDeleteUser = async (userId) => {
@@ -126,9 +125,8 @@ const UsersManagement = () => {
       if (res.success) {
         fetchUsers();
         if (selectedUser?._id === userId) setSelectedUser(null);
-        showAlert('User deleted', 'success');
       }
-    } catch { showAlert('Failed to delete user', 'error'); }
+    } catch { /* Error handled by context */ }
   };
 
   const handleBulkDelete = async () => {
@@ -137,24 +135,23 @@ const UsersManagement = () => {
     try {
       setLoading(true);
       await Promise.all(selectedUsers.map(id => deleteUser(id)));
-      showAlert(`${selectedUsers.length} users deleted`, 'success');
       setSelectedUsers([]);
       fetchUsers();
-    } catch { showAlert('Failed to delete some users', 'error'); }
+    } catch { /* Error handled by context */ }
     finally { setLoading(false); }
   };
 
   const handleUnlockUser = async (userId) => {
     try {
-      const API = (await import('../../api/api')).default;
-      await API.put(`/auth/admin/unlock/${userId}`);
-      showAlert('Account unlocked successfully', 'success');
-      fetchUsers();
-      if (selectedUser?._id === userId) {
-        setSelectedUser(prev => ({ ...prev, lockUntil: null, loginAttempts: 0 }));
+      const res = await unlockAccount(userId);
+      if (res.success) {
+        fetchUsers();
+        if (selectedUser?._id === userId) {
+          setSelectedUser(prev => ({ ...prev, lockUntil: null, loginAttempts: 0 }));
+        }
       }
     } catch {
-      showAlert('Failed to unlock account', 'error');
+      // Error is already handled by context
     }
   };
 

@@ -24,6 +24,7 @@ const PERMISSIONS = {
     'analytics:view',
     'settings:manage',
     'contacts:manage',
+    'marketing:manage',
     'logs:view'
   ],
 

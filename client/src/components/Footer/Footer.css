@@ -1,18 +1,115 @@
 /* Higher-End Premium Footer - Editorial Luxury Version */
+/* We enforce a dark, rich theme for the footer in ALL color modes. 
+   Luxury sites use deep contrasting footers to anchor the light content above. */
 .footer-premium {
-  background: var(--bg-deep);
-  /* Use deep surface from theme */
+  /* Scope explicit colors so it ignores global light mode text colors */
+  --text-main: #f8f9fa;
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --bg-card: rgba(255, 255, 255, 0.04);
+
+  background: #020617;
+  /* Very deep charcoal/black */
   color: var(--text-muted);
-  padding: 8rem 0 4rem;
   position: relative;
   overflow: hidden;
-  border-top: 1px solid var(--border-main);
+  border-top: 1px solid rgba(212, 175, 55, 0.15);
   transition: var(--transition-smooth);
+  padding-bottom: 2rem;
 }
 
-/* For dark mode, we keep it deep obsidian */
-[data-theme='dark'] .footer-premium {
-  background: #020617;
+[data-theme='light'] .footer-premium {
+  background: #0f1115;
+  /* Softly contrasted rich black for light mode base */
+  border-top: 1px solid rgba(212, 175, 55, 0.25);
+}
+
+/* Tracking Callout Banner */
+.footer-tracking-callout {
+  background: linear-gradient(135deg, rgba(20, 20, 20, 0.95), rgba(10, 10, 10, 0.98));
+  border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+  padding: 3rem 0;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme='light'] .footer-tracking-callout {
+  background: linear-gradient(135deg, #181a20, #0a0b0d);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.tracking-cta-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.tracking-cta-content {
+  max-width: 600px;
+}
+
+.tracking-cta-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 300;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.tracking-cta-sub {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* High Contrast Track Button */
+.tracking-big-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 2.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark));
+  color: #000000 !important;
+  /* Pitch black text on gold for maximum contrast */
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.9rem;
+  box-shadow: 0 15px 35px rgba(212, 175, 55, 0.3);
+  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  white-space: nowrap;
+}
+
+.tracking-big-btn:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 25px 45px rgba(212, 175, 55, 0.5);
+  background: linear-gradient(135deg, #fcd34d, var(--color-primary));
+}
+
+.tracking-big-btn svg {
+  transition: transform 0.3s ease;
+}
+
+.tracking-big-btn:hover svg {
+  transform: translateX(6px);
+}
+
+/* Footer Grid Padding Adjustment */
+.footer-main-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr 0.8fr 1.2fr;
+  gap: clamp(2rem, 5vw, 6rem);
+  padding-top: 4rem;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
 }
 
 .footer-glow {
@@ -23,35 +120,27 @@
   width: 100%;
   max-width: 1200px;
   height: 400px;
-  background: radial-gradient(circle, rgba(212, 175, 55, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
-}
-
-.footer-main-grid {
-  display: grid;
-  grid-template-columns: 1.5fr 0.8fr 0.8fr 1.2fr;
-  gap: clamp(2rem, 5vw, 6rem);
-  margin-bottom: 6rem;
-  position: relative;
-  z-index: 1;
 }
 
 /* Brand Section */
 .footer-logo {
   display: inline-block;
-  font-family: var(--font-heading);
-  font-size: 2.2rem;
-  font-weight: 400;
-  color: var(--text-main);
-  text-decoration: none;
-  letter-spacing: -0.01em;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   transition: var(--transition-fast);
 }
 
-.footer-logo:hover {
-  color: var(--color-primary);
+.footer-logo-img {
+  height: 55px;
+  width: auto;
+  filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.2));
+  transition: transform 0.3s ease;
+}
+
+.footer-logo:hover .footer-logo-img {
+  transform: scale(1.05);
 }
 
 .logo-dot {
@@ -63,7 +152,7 @@
   line-height: 1.8;
   margin-bottom: 2.5rem;
   max-width: 360px;
-  opacity: 0.85;
+  color: var(--text-muted);
 }
 
 .social-orchestra {
@@ -88,7 +177,7 @@
 .orchestra-link:hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: #000;
   transform: translateY(-8px);
   box-shadow: 0 15px 30px rgba(212, 175, 55, 0.25);
 }
@@ -135,7 +224,7 @@
   position: relative;
 }
 
-/* Sliding underline for footer links too */
+/* Sliding underline for footer links */
 .footer-links a::after {
   content: '';
   position: absolute;
@@ -167,13 +256,14 @@
   align-items: flex-start;
   gap: 1.25rem;
   font-size: 0.95rem;
+  color: var(--text-muted);
 }
 
 .bit-icon {
   color: var(--color-primary);
   flex-shrink: 0;
   font-size: 1.2rem;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 /* Footer Closing */
@@ -216,8 +306,8 @@
 
 .payment-icon {
   font-size: 1.75rem;
-  color: var(--text-dim);
-  opacity: 0.6;
+  color: var(--text-muted);
+  opacity: 0.7;
   transition: var(--transition-fast);
 }
 
@@ -245,7 +335,7 @@
 }
 
 .mpesa-gold:hover .mpesa-text {
-  color: #fff;
+  color: #000;
 }
 
 .mpesa-text {
@@ -254,6 +344,25 @@
   font-size: 0.75rem;
   letter-spacing: 1px;
   transition: var(--transition-fast);
+}
+
+/* Watermark */
+.footer-watermark {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-heading);
+  font-size: clamp(8rem, 20vw, 25rem);
+  font-weight: 900;
+  color: #ffffff;
+  opacity: 0.02;
+  /* Extremely faint but uniformly visible */
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+  letter-spacing: 0.05em;
 }
 
 /* Responsive */
@@ -265,14 +374,17 @@
 }
 
 @media (max-width: 768px) {
-  .footer-premium {
-    padding: 6rem 0 3rem;
-  }
-
   .footer-main-grid {
     grid-template-columns: 1fr;
     gap: 4rem;
     text-align: center;
+    padding-top: 4rem;
+  }
+
+  .tracking-cta-container {
+    text-align: center;
+    justify-content: center;
+    flex-direction: column;
   }
 
   .footer-mission {

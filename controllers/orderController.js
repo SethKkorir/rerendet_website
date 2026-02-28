@@ -392,6 +392,7 @@ const createOrder = asyncHandler(async (req, res) => {
         savedOrder.orderNumber,
         orderItems,
         finalTotal,
+        savedOrder.trackingNumber,
         logoUrl
       );
 
@@ -490,40 +491,45 @@ const getUserOrders = asyncHandler(async (req, res) => {
 // @access  Private
 const getOrderById = asyncHandler(async (req, res) => {
   try {
-    console.log('🔍 Fetching order:', req.params.id);
-    console.log('👤 Current user:', {
-      id: req.user._id,
-      role: req.user.role, // or userType
-      email: req.user.email
-    });
-    // Validate order ID format
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid order ID format'
-      });
+    const { id } = req.params;
+    console.log('🔍 Fetching order:', id);
+
+    let order;
+
+    // Check if it's a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      order = await Order.findById(id)
+        .populate('user', 'firstName lastName email phone role')
+        .populate('items.product', 'name images price category');
     }
 
-    const order = await Order.findById(req.params.id)
-      .populate('user', 'firstName lastName email phone role')
-      .populate('items.product', 'name images price category');
+    // If not found by ID or ID was not a valid ObjectId, try finding by identifiers
+    if (!order) {
+      order = await Order.findOne({
+        $or: [
+          { orderNumber: id },
+          { trackingNumber: id }
+        ]
+      })
+        .populate('user', 'firstName lastName email phone role')
+        .populate('items.product', 'name images price category');
+    }
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found'
+        message: 'Order not found. Please check your order number.'
       });
     }
 
-    // FIXED: Check if order belongs to user or user is admin
-    // Use req.user.role instead of req.user.userType
-    const isOwner = order.user._id.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin'; // Changed from userType to role
+    // Check authorization: Owner or Admin
+    const isOwner = order.user?._id.toString() === req.user?._id.toString();
+    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'super-admin';
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to view this order'
+        message: 'Not authorized to view this order details'
       });
     }
 
@@ -532,19 +538,10 @@ const getOrderById = asyncHandler(async (req, res) => {
       data: order
     });
   } catch (error) {
-    console.error('❌ Get order by ID error:', error);
-
-    // More specific error handling
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid order ID'
-      });
-    }
-
+    console.error('❌ Get order by ID/Number error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch order',
+      message: 'Failed to fetch order details',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -558,32 +555,54 @@ const getOrders = asyncHandler(async (req, res) => {
     page = 1,
     limit = 10,
     status,
+    fulfillmentStatus,
+    paymentStatus,
     search,
     startDate,
     endDate
   } = req.query;
 
-  const skip = (page - 1) * limit;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
   let filter = {};
 
   try {
-    if (status && status !== 'all') {
-      filter.status = status;
+    // Fulfillment Status Filter
+    const effectiveFulfill = fulfillmentStatus || status;
+    if (effectiveFulfill && effectiveFulfill !== 'all') {
+      filter.fulfillmentStatus = effectiveFulfill;
     }
 
-    if (startDate && endDate) {
-      filter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+    // Payment Status Filter
+    if (paymentStatus && paymentStatus !== 'all') {
+      filter.paymentStatus = paymentStatus;
     }
 
+    // Date Range Filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const d = new Date(startDate);
+        if (!isNaN(d.getTime())) {
+          d.setHours(0, 0, 0, 0);
+          filter.createdAt.$gte = d;
+        }
+      }
+      if (endDate) {
+        const d = new Date(endDate);
+        if (!isNaN(d.getTime())) {
+          d.setHours(23, 59, 59, 999);
+          filter.createdAt.$lte = d;
+        }
+      }
+    }
+
+    // Search Filter
     if (search) {
       filter.$or = [
         { orderNumber: { $regex: search, $options: 'i' } },
-        { 'user.firstName': { $regex: search, $options: 'i' } },
-        { 'user.lastName': { $regex: search, $options: 'i' } },
-        { 'user.email': { $regex: search, $options: 'i' } }
+        { 'shippingAddress.firstName': { $regex: search, $options: 'i' } },
+        { 'shippingAddress.lastName': { $regex: search, $options: 'i' } },
+        { 'shippingAddress.email': { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -602,6 +621,7 @@ const getOrders = asyncHandler(async (req, res) => {
         orders,
         pagination: {
           page: parseInt(page),
+          current: parseInt(page),
           limit: parseInt(limit),
           total,
           pages: Math.ceil(total / limit)
@@ -612,7 +632,7 @@ const getOrders = asyncHandler(async (req, res) => {
     console.error('Get orders error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch orders'
+      message: 'Failed to fetch orders: ' + error.message
     });
   }
 });

@@ -114,41 +114,91 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/orders
 // @access  Private/Admin
 const getOrders = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, search } = req.query;
-  const skip = (page - 1) * limit;
+  const {
+    page = 1,
+    limit = 10,
+    paymentStatus,
+    fulfillmentStatus,
+    status, // Support legacy/backward compat if needed
+    search,
+    startDate,
+    endDate
+  } = req.query;
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
 
   let filter = {};
-  if (status && status !== 'all') {
-    filter.status = status;
+
+  // 1. Fulfillment Status Filter
+  const effectiveFulfillmentStatus = fulfillmentStatus || status;
+  if (effectiveFulfillmentStatus && effectiveFulfillmentStatus !== 'all') {
+    filter.fulfillmentStatus = effectiveFulfillmentStatus;
   }
 
+  // 2. Payment Status Filter
+  if (paymentStatus && paymentStatus !== 'all') {
+    filter.paymentStatus = paymentStatus;
+  }
+
+  // 3. Date Range Filter
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) {
+      const d = new Date(startDate);
+      if (!isNaN(d.getTime())) {
+        d.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = d;
+      }
+    }
+    if (endDate) {
+      const d = new Date(endDate);
+      if (!isNaN(d.getTime())) {
+        d.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = d;
+      }
+    }
+    // Remove if empty
+    if (Object.keys(filter.createdAt).length === 0) delete filter.createdAt;
+  }
+
+  // 4. Search Filter (Order #, Name, Email, Tracking #)
   if (search) {
     filter.$or = [
       { orderNumber: { $regex: search, $options: 'i' } },
-      { 'user.firstName': { $regex: search, $options: 'i' } },
-      { 'user.lastName': { $regex: search, $options: 'i' } }
+      { trackingNumber: { $regex: search, $options: 'i' } },
+      { 'shippingAddress.firstName': { $regex: search, $options: 'i' } },
+      { 'shippingAddress.lastName': { $regex: search, $options: 'i' } },
+      { 'shippingAddress.email': { $regex: search, $options: 'i' } }
     ];
   }
 
-  const orders = await Order.find(filter)
-    .populate('user', 'firstName lastName email phone')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(parseInt(limit));
+  try {
+    const [orders, total] = await Promise.all([
+      Order.find(filter)
+        .populate('user', 'firstName lastName email phone')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Order.countDocuments(filter)
+    ]);
 
-  const total = await Order.countDocuments(filter);
-
-  res.json({
-    success: true,
-    data: {
-      orders,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total
+    res.json({
+      success: true,
+      data: {
+        orders,
+        pagination: {
+          current: parseInt(page),
+          page: parseInt(page),
+          pages: Math.ceil(total / limit),
+          total
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('❌ Fetch Admin Orders Error:', error);
+    res.status(500);
+    throw new Error('Failed to fetch orders: ' + error.message);
+  }
 });
 
 // @desc    Get order details

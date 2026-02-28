@@ -38,6 +38,14 @@ import {
   exportCustomersCSV
 } from '../controllers/adminController.js';
 
+import {
+  getCoupons,
+  createCoupon,
+  updateCoupon,
+  toggleCouponStatus,
+  deleteCoupon
+} from '../controllers/couponController.js';
+
 const router = express.Router();
 
 // All routes require authentication and admin privileges
@@ -97,6 +105,13 @@ router.get('/reports/payments', adminAuth(['analytics:view']), getPaymentsReport
 router.get('/reports/customers', adminAuth(['analytics:view']), getCustomersReport);
 router.get('/reports/inventory', adminAuth(['analytics:view']), getInventoryReport);
 router.get('/reports/coupons', adminAuth(['analytics:view']), getCouponsReport);
+
+// ==================== COUPON MANAGEMENT ====================
+router.get('/coupons', adminAuth(['marketing:manage']), getCoupons);
+router.post('/coupons', adminAuth(['marketing:manage']), createCoupon);
+router.put('/coupons/:id', adminAuth(['marketing:manage']), updateCoupon);
+router.patch('/coupons/:id/toggle', adminAuth(['marketing:manage']), toggleCouponStatus);
+router.delete('/coupons/:id', adminAuth(['marketing:manage']), deleteCoupon);
 
 // ==================== CSV EXPORTS ====================
 router.get('/export/orders', adminAuth(['analytics:view']), exportOrdersCSV);

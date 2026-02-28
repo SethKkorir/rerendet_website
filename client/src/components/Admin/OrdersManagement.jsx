@@ -145,7 +145,7 @@ const OrdersManagement = () => {
         setPagination(data.data.pagination || {});
         setStats({
           total: data.data.pagination?.total || orderList.length,
-          pending: orderList.filter(o => o.paymentStatus === 'pending').length,
+          pending: orderList.filter(o => !['shipped', 'delivered', 'returned'].includes(o.fulfillmentStatus)).length,
           shipped: orderList.filter(o => o.fulfillmentStatus === 'shipped').length,
           revenue: orderList.reduce((sum, o) => sum + (o.total || 0), 0),
         });
@@ -192,8 +192,8 @@ const OrdersManagement = () => {
       <div className="om-stats-row">
         {[
           { icon: <FaClipboardList />, label: 'Total Orders', value: pagination.total || stats.total, color: '#3b82f6' },
-          { icon: <FaClock />, label: 'Awaiting Payment', value: stats.pending, color: '#f59e0b' },
-          { icon: <FaShippingFast />, label: 'In Transit', value: stats.shipped, color: '#8b5cf6' },
+          { icon: <FaClock />, label: 'Awaiting Prep', value: stats.pending, color: '#f59e0b' },
+          { icon: <FaShippingFast />, label: 'Shipped (Page)', value: stats.shipped, color: '#8b5cf6' },
           { icon: <FaMoneyBillWave />, label: 'Revenue (Page)', value: `KES ${stats.revenue.toLocaleString()}`, color: '#10b981' },
         ].map((s, i) => (
           <motion.div
@@ -410,7 +410,7 @@ const OrdersManagement = () => {
 const SUGGESTED_MESSAGES = {
   unfulfilled: "Your order has been confirmed and is being processed by our team.",
   packed: "Good news! Your beans have been hand-selected and packed. They are now awaiting dispatch.",
-  shipped: "Your premium selection has departed our estate. Your coffee is on its way to you!",
+  shipped: "Your premium selection has departed our farm. Your coffee is on its way to you!",
   delivered: "The peak of coffee has arrived! Your order has been delivered. We hope you enjoy every sip.",
   returned: "We noticed your order was returned. Our team will contact you shortly to resolve this."
 };
@@ -615,18 +615,35 @@ const OrderDrawer = ({ order, onClose, onUpdate }) => {
                     </div>
                   </div>
 
-                  {(fulfillmentStatus === 'shipped' || fulfillmentStatus === 'delivered') && (
-                    <div className="om-form-field">
-                      <label>Tracking Number {fulfillmentStatus === 'shipped' && <span className="om-req">*</span>}</label>
+                  <div className="om-form-field">
+                    <label>
+                      Logistics ID (Tracking #)
+                      <span className="om-hint"> — Auto-generated as RC...</span>
+                    </label>
+                    <div className="om-input-with-button">
                       <input
                         type="text"
                         value={trackingNumber}
                         onChange={e => setTrackingNumber(e.target.value)}
-                        placeholder="e.g., KE1234567890"
+                        placeholder="e.g., RC49A"
                         required={fulfillmentStatus === 'shipped'}
+                        className="mono"
                       />
+                      <button
+                        type="button"
+                        className="om-mini-action-btn"
+                        onClick={() => {
+                          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                          let rand = '';
+                          for (let i = 0; i < 3; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+                          setTrackingNumber(`RC${rand}`);
+                        }}
+                        title="Regenerate"
+                      >
+                        <FaSync />
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   <div className="om-form-field">
                     <label>Customer Notification Message <span className="om-hint">(optional — will be emailed)</span></label>

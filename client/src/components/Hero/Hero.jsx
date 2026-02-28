@@ -3,6 +3,51 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { FaArrowRight } from 'react-icons/fa';
 import './Hero.css';
 
+const FloatingBeans = () => {
+  const beans = [
+    { id: 1, top: '15%', left: '10%', size: 60, blur: '4px', delay: 0, duration: 20 },
+    { id: 2, top: '25%', left: '85%', size: 40, blur: '8px', delay: 2, duration: 25 },
+    { id: 3, top: '70%', left: '15%', size: 50, blur: '2px', delay: 4, duration: 22 },
+    { id: 4, top: '80%', left: '80%', size: 70, blur: '10px', delay: 1, duration: 28 },
+    { id: 5, top: '10%', left: '50%', size: 30, blur: '12px', delay: 3, duration: 18 },
+    { id: 6, top: '40%', left: '5%', size: 45, blur: '6px', delay: 5, duration: 24 },
+    { id: 7, top: '60%', left: '90%', size: 35, blur: '5px', delay: 2, duration: 20 },
+    { id: 8, top: '85%', left: '40%', size: 55, blur: '9px', delay: 6, duration: 30 },
+  ];
+
+  return (
+    <div className="hero-floating-beans">
+      {beans.map((bean) => (
+        <motion.img
+          key={bean.id}
+          src="/single_coffee_bean_1772078225421.png"
+          className="floating-bean"
+          style={{
+            top: bean.top,
+            left: bean.left,
+            width: bean.size,
+            filter: `blur(${bean.blur})`,
+            opacity: 0.35,
+            zIndex: 0
+          }}
+          animate={{
+            y: [0, -30, 0],
+            x: [0, 20, 0],
+            rotate: [0, 360],
+            opacity: [0.2, 0.45, 0.2]
+          }}
+          transition={{
+            duration: bean.duration,
+            repeat: Infinity,
+            delay: bean.delay,
+            ease: "easeInOut"
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const Hero = () => {
   const containerRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -39,51 +84,6 @@ const Hero = () => {
       y: 0,
       transition: { duration: 1, ease: [0.22, 1, 0.36, 1] }
     }
-  };
-
-  const FloatingBeans = () => {
-    const beans = [
-      { id: 1, top: '15%', left: '10%', size: 60, blur: '4px', delay: 0, duration: 20 },
-      { id: 2, top: '25%', left: '85%', size: 40, blur: '8px', delay: 2, duration: 25 },
-      { id: 3, top: '70%', left: '15%', size: 50, blur: '2px', delay: 4, duration: 22 },
-      { id: 4, top: '80%', left: '80%', size: 70, blur: '10px', delay: 1, duration: 28 },
-      { id: 5, top: '10%', left: '50%', size: 30, blur: '12px', delay: 3, duration: 18 },
-      { id: 6, top: '40%', left: '5%', size: 45, blur: '6px', delay: 5, duration: 24 },
-      { id: 7, top: '60%', left: '90%', size: 35, blur: '5px', delay: 2, duration: 20 },
-      { id: 8, top: '85%', left: '40%', size: 55, blur: '9px', delay: 6, duration: 30 },
-    ];
-
-    return (
-      <div className="hero-floating-beans">
-        {beans.map((bean) => (
-          <motion.img
-            key={bean.id}
-            src="/single_coffee_bean_1772078225421.png"
-            className="floating-bean"
-            style={{
-              top: bean.top,
-              left: bean.left,
-              width: bean.size,
-              filter: `blur(${bean.blur})`,
-              opacity: 0.35,
-              zIndex: 0
-            }}
-            animate={{
-              y: [0, -30, 0],
-              x: [0, 20, 0],
-              rotate: [0, 360],
-              opacity: [0.2, 0.45, 0.2]
-            }}
-            transition={{
-              duration: bean.duration,
-              repeat: Infinity,
-              delay: bean.delay,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
-      </div>
-    );
   };
 
   return (

@@ -9,7 +9,7 @@ import { getSecurityAlertEmail } from '../utils/emailTemplates.js';
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select('-password');
+  const users = await User.find({}).select('-password +lockUntil +loginAttempts');
   res.json({
     success: true,
     count: users.length,
@@ -88,6 +88,10 @@ const updateUser = asyncHandler(async (req, res) => {
       }
       if (req.body.isActive !== undefined) user.isActive = req.body.isActive;
       if (req.body.isVerified !== undefined) user.isVerified = req.body.isVerified;
+      if (req.body.unlock === true) {
+        user.loginAttempts = 0;
+        user.lockUntil = undefined;
+      }
     }
 
     const updatedUser = await user.save();

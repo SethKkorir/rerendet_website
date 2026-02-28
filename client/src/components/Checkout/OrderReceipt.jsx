@@ -141,6 +141,10 @@ const OrderReceipt = () => {
               {PMLabel[order.paymentMethod?.toLowerCase()] || order.paymentMethod?.toUpperCase() || '—'}
             </span>
           </div>
+          <div className="or-meta-cell">
+            <span className="or-meta-label"><FaTruck /> Tracking ID</span>
+            <span className="or-meta-value gold">{order.trackingNumber || 'Awaiting Prep'}</span>
+          </div>
           <div className="or-meta-cell highlight">
             <span className="or-meta-label">Total Amount</span>
             <span className="or-meta-value gold-amt">KSh {order.total?.toLocaleString()}</span>

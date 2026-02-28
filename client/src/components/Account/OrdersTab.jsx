@@ -9,33 +9,33 @@ const OrdersTab = ({ orders, loading }) => {
 
     // Helper to determine active step based on fulfillment and order status
     const getStepStatus = (order, step) => {
-        const { fulfillmentStatus, paymentStatus, orderStatus } = order;
-        // virtual status might be on order.status if populated correctly or derived
-        const currentStatus = order.status;
+        const { fulfillmentStatus, orderStatus } = order;
 
         if (orderStatus === 'cancelled') return 'cancelled';
 
-        // 1. Confirmed (Always completed if order exists)
-        if (step === 'confirmed') return 'completed';
-
-        // 2. Processing (Payment Paid OR Packed)
-        if (step === 'processing') {
+        // 1. Confirmed (Active until packed)
+        if (step === 'confirmed') {
             if (['packed', 'shipped', 'delivered'].includes(fulfillmentStatus)) return 'completed';
-            if (paymentStatus === 'paid' || currentStatus === 'processing') return 'active';
+            return 'active';
+        }
+
+        // 2. Processing (Active only when packed)
+        if (step === 'processing') {
+            if (['shipped', 'delivered'].includes(fulfillmentStatus)) return 'completed';
+            if (fulfillmentStatus === 'packed') return 'active';
             return 'pending';
         }
 
         // 3. Shipped
         if (step === 'shipped') {
-            if (['shipped', 'delivered'].includes(fulfillmentStatus)) return 'completed';
-            if (fulfillmentStatus === 'packed' || currentStatus === 'processing') return 'active';
+            if (fulfillmentStatus === 'delivered') return 'completed';
+            if (fulfillmentStatus === 'shipped') return 'active';
             return 'pending';
         }
 
         // 4. Delivered
         if (step === 'delivered') {
-            if (fulfillmentStatus === 'delivered') return 'completed';
-            if (fulfillmentStatus === 'shipped') return 'active';
+            if (fulfillmentStatus === 'delivered') return 'active';
             return 'pending';
         }
 

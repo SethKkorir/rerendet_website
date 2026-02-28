@@ -31,11 +31,14 @@ const greet = () => {
 const fmtKES = v => `KES ${Number(v || 0).toLocaleString()}`;
 
 const STATUS_META = {
-  pending: { label: 'Pending', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  pending: { label: 'Pending Payment', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  unfulfilled: { label: 'Confirmed', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  confirmed: { label: 'Confirmed', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' }, // Fallback for virtual
   processing: { label: 'Processing', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-  packed: { label: 'Packed', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+  packed: { label: 'Processing', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
   shipped: { label: 'Shipped', color: '#06b6d4', bg: 'rgba(6,182,212,0.1)' },
   delivered: { label: 'Delivered', color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+  returned: { label: 'Returned', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
   cancelled: { label: 'Cancelled', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
 };
 
@@ -480,8 +483,8 @@ const Dashboard = () => {
                 >
                   {[
                     { label: 'Avg. Order Value', value: fmtKES(analyticsData?.averageOrderValue || overview.totalRevenue / Math.max(1, overview.totalOrders)), icon: <FaChartLine />, c: '#D4AF37' },
-                    { label: 'Pending Orders', value: overview.pendingOrders || 0, icon: <FaClock />, c: '#f59e0b' },
-                    { label: 'Shipped This Month', value: overview.shippedOrders || 0, icon: <FaTruck />, c: '#3b82f6' },
+                    { label: 'Awaiting Prep', value: (overview.totalOrders - overview.shippedOrders - overview.deliveredOrders || 0), icon: <FaClock />, c: '#f59e0b' },
+                    { label: 'Shipped (M)', value: overview.shippedOrders || 0, icon: <FaTruck />, c: '#3b82f6' },
                     { label: 'Subscribers', value: analyticsData?.subscriberCount || 0, icon: <FaBell />, c: '#10b981' },
                   ].map(m => (
                     <div key={m.label} className="db-mini-kpi">

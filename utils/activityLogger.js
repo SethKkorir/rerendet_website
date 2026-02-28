@@ -12,7 +12,6 @@ const HIGH_RISK_ACTIONS = new Set([
     'BULK_DELETE',
     'UPDATE_ROLE',           // Privilege escalation
     'MANUAL_ACCOUNT_UNLOCK', // Could be used to unlock a compromised account
-    'LOGIN',                 // Admin logins are notable
     'SETTINGS_UPDATE',       // Changing store settings
     'CREATE_ADMIN',          // New admin account created
 ]);

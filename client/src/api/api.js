@@ -113,6 +113,7 @@ export const createProduct = (payload) => API.post('/admin/products', payload);
 export const updateProduct = (id, payload) => API.put(`/admin/products/${id}`, payload);
 export const deleteProduct = (id) => API.delete(`/admin/products/${id}`);
 export const updateProductStock = (id, payload) => API.patch(`/admin/products/${id}/stock`, payload);
+export const unlockUserAccount = (id) => API.put(`/auth/admin/unlock/${id}`);
 
 // ---- Profile ----
 export const getProfile = () => API.get('/auth/me');

@@ -108,13 +108,10 @@ export const updateBlog = asyncHandler(async (req, res) => {
         throw new Error('Blog not found');
     }
 
-    const updatedBlog = await Blog.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        { new: true, runValidators: true }
-    );
+    Object.assign(blog, req.body);
+    await blog.save();
 
-    res.json({ success: true, data: updatedBlog });
+    res.json({ success: true, data: blog });
 });
 
 // @desc    Delete blog

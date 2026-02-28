@@ -203,6 +203,99 @@ img {
   border-width: 1.5px;
 }
 
+/* Maintenance Banner Styles */
+.maintenance-banner {
+  width: 100%;
+  padding: 12px 20px;
+  background: var(--warning);
+  color: #000;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: center;
+  z-index: 10001;
+  /* Above almost everything */
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.maintenance-banner.critical-downtime {
+  background: #B91C1C !important;
+  color: #fff !important;
+  animation: slideDown 0.5s ease-out;
+}
+
+.maintenance-banner.super-admin {
+  background: #F59E0B !important;
+  color: #000 !important;
+}
+
+.maintenance-banner-content {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  animation: pulse-white 2s infinite;
+}
+
+.super-admin .pulse-dot {
+  background: #000;
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.3);
+}
+
+@keyframes pulse-white {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 100px rgba(255, 255, 255, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Offset app content when banner is active */
+.maintenance-active .header,
+.maintenance-active .admin-header {
+  margin-top: 45px !important;
+}
+
+.maintenance-active .admin-sidebar {
+  margin-top: 45px;
+  height: calc(100vh - 45px);
+}
+
 /* =========== Navigation =========== */
 .navbar {
   background-color: var(--bg-card);

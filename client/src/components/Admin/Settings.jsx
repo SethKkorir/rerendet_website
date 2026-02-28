@@ -1,5 +1,6 @@
 // src/components/Admin/Settings.jsx — Premium Full Rewrite
 import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,7 +14,10 @@ import {
   FaMobileAlt, FaPlug, FaSync, FaTrash,
   FaAward, FaLeaf, FaHistory, FaCalendarAlt,
   FaChevronDown, FaChevronRight,
-  FaFileContract, FaChartLine, FaBullhorn
+  FaFileContract, FaChartLine, FaBullhorn,
+  FaUser, FaShoppingBag, FaBox, FaUsers, FaChartBar, FaCog, FaSignOutAlt,
+  FaArrowLeft, FaTimesCircle, FaCheckCircle,
+  FaBolt, FaKey, FaCopy
 } from 'react-icons/fa';
 import './Settings.css';
 
@@ -122,7 +126,9 @@ const PasswordStrength = ({ password }) => {
 //  MAIN SETTINGS
 // ═══════════════════════════════════════════════════════════════
 const Settings = () => {
-  const { showNotification, token, fetchPublicSettings, user, changeUserPassword, deleteAccount } = useContext(AppContext);
+  const { showNotification, token, fetchPublicSettings, user, changeUserPassword, deleteAccount, showSuccess, showError, isSuperAdmin } = useContext(AppContext);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [settings, setSettings] = useState({});
   const [savedSettings, setSavedSettings] = useState({});
@@ -133,10 +139,40 @@ const Settings = () => {
   const [logoPreview, setLogoPreview] = useState('');
   const [aboutImageFile, setAboutImageFile] = useState(null);
   const [aboutImagePreview, setAboutImagePreview] = useState('');
+  const [aboutImageFile2, setAboutImageFile2] = useState(null);
+  const [aboutImagePreview2, setAboutImagePreview2] = useState('');
   const [emailTestStatus, setEmailTestStatus] = useState(null); // null | 'testing' | 'ok' | 'fail'
   const [notifyCustomers, setNotifyCustomers] = useState(false);
   const [activeModal, setActiveModal] = useState(null);
   const [twoFactorForm, setTwoFactorForm] = useState({ password: '' });
+
+  // 🛡️ Super Gate States
+  const [magicLink, setMagicLink] = useState(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+
+  // 🛡️ Super Gate Logic
+  const handleGenerateMagicLink = async () => {
+    setGeneratingLink(true);
+    try {
+      const { default: axios } = await import('axios');
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || '/api'}/settings/maintenance/magic-link`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setMagicLink(res.data.data.link);
+        showSuccess('Magic Link Generated!');
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to generate link');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    showSuccess('Copied to clipboard!');
+  };
 
   // ── Helpers ──
   const set = (section, field, value) => {
@@ -194,6 +230,7 @@ const Settings = () => {
         setSavedSettings(data.data);
         if (data.data.store?.logo) setLogoPreview(data.data.store.logo);
         if (data.data.about?.imageUrl) setAboutImagePreview(data.data.about.imageUrl);
+        if (data.data.about?.imageUrl2) setAboutImagePreview2(data.data.about.imageUrl2);
       }
     } catch { showNotification('Failed to load settings', 'error'); }
     finally { setLoading(false); }
@@ -217,6 +254,11 @@ const Settings = () => {
         const r = await fetch('/api/admin/upload/logo', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
         if (r.ok) { const d = await r.json(); updatedSettings.about = { ...updatedSettings.about, imageUrl: d.data.url }; }
       }
+      if (aboutImageFile2) {
+        const fd = new FormData(); fd.append('logo', aboutImageFile2);
+        const r = await fetch('/api/admin/upload/logo', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+        if (r.ok) { const d = await r.json(); updatedSettings.about = { ...updatedSettings.about, imageUrl2: d.data.url }; }
+      }
       if (notifyCustomers) updatedSettings.notifyCustomers = true;
 
       const res = await fetch('/api/admin/settings', {
@@ -230,7 +272,7 @@ const Settings = () => {
         showNotification('Settings saved successfully!', 'success');
         setSettings(data.data); setSavedSettings(data.data);
         await fetchPublicSettings();
-        setLogoFile(null); setAboutImageFile(null); setNotifyCustomers(false);
+        setLogoFile(null); setAboutImageFile(null); setAboutImageFile2(null); setNotifyCustomers(false);
       }
     } catch { showNotification('Failed to save settings', 'error'); }
     finally { setSaving(false); }
@@ -246,6 +288,11 @@ const Settings = () => {
     const f = e.target.files[0]; if (!f) return;
     setAboutImageFile(f);
     const r = new FileReader(); r.onload = e => setAboutImagePreview(e.target.result); r.readAsDataURL(f);
+  };
+  const handleAboutImageChange2 = e => {
+    const f = e.target.files[0]; if (!f) return;
+    setAboutImageFile2(f);
+    const r = new FileReader(); r.onload = e => setAboutImagePreview2(e.target.result); r.readAsDataURL(f);
   };
 
   // ── Email test ──
@@ -789,19 +836,39 @@ const Settings = () => {
                     </div>
                   </Section>
 
-                  <Section title="About Section Image" subtitle="Cover image shown on the About page" icon={<FaImage />} accent="#3b82f6">
+                  <Section title="Primary About Image" subtitle="Large parallax image shown on the About page" icon={<FaImage />} accent="#3b82f6">
                     <div className="st-about-img-row">
                       <div className="st-about-img-preview">
                         {aboutImagePreview
-                          ? <img src={aboutImagePreview} alt="About" />
+                          ? <img src={aboutImagePreview} alt="About Primary" />
                           : <div className="st-logo-empty"><FaImage /><span>No image</span></div>}
                       </div>
                       <div className="st-logo-actions">
                         <p className="st-hint">Recommended: 1200×800 landscape JPG/WebP</p>
                         <input type="file" id="about-img-file" accept="image/*" style={{ display: 'none' }} onChange={handleAboutImageChange} />
-                        <label htmlFor="about-img-file" className="btn-outline"><FaUpload /> Choose Image</label>
+                        <label htmlFor="about-img-file" className="btn-outline"><FaUpload /> Choose Primary Image</label>
                         {aboutImagePreview && (
                           <button className="btn-outline danger" onClick={() => { setAboutImagePreview(''); setAboutImageFile(null); set('about', 'imageUrl', ''); }}>
+                            <FaTimes /> Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </Section>
+
+                  <Section title="Secondary About Image" subtitle="Overlay image shown in the heritage section" icon={<FaImage />} accent="#8b5cf6">
+                    <div className="st-about-img-row">
+                      <div className="st-about-img-preview">
+                        {aboutImagePreview2
+                          ? <img src={aboutImagePreview2} alt="About Secondary" />
+                          : <div className="st-logo-empty"><FaImage /><span>No image</span></div>}
+                      </div>
+                      <div className="st-logo-actions">
+                        <p className="st-hint">Recommended: 800×600 landscape/portrait JPG/WebP</p>
+                        <input type="file" id="about-img-file-2" accept="image/*" style={{ display: 'none' }} onChange={handleAboutImageChange2} />
+                        <label htmlFor="about-img-file-2" className="btn-outline"><FaUpload /> Choose Secondary Image</label>
+                        {aboutImagePreview2 && (
+                          <button className="btn-outline danger" onClick={() => { setAboutImagePreview2(''); setAboutImageFile2(null); set('about', 'imageUrl2', ''); }}>
                             <FaTimes /> Remove
                           </button>
                         )}
@@ -858,9 +925,81 @@ const Settings = () => {
                     />
                   </Field>
 
-                  {!s.maintenance?.enabled && (
-                    <div className="st-maintenance-tip">
-                      <FaInfoCircle /> Toggle maintenance mode on above to edit the message.
+                  {isSuperAdmin && (
+                    <div className="st-super-gate-panel" style={{ marginTop: '2.5rem', padding: '30px', background: 'rgba(212, 175, 55, 0.05)', border: '1px solid rgba(212, 175, 55, 0.2)', borderRadius: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px', gap: '20px' }}>
+                        <div>
+                          <h4 style={{ color: '#D4AF37', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FaKey /> Super Gate Control</h4>
+                          <p style={{ margin: '8px 0 0', fontSize: '0.88rem', color: '#ADB5BD', maxWidth: '500px' }}>Generate a single-use emergency magic link. Use this to toggle maintenance mode from outside the panel if the dashboard or auth system fails.</p>
+                        </div>
+                        <button
+                          className="btn-outline"
+                          onClick={handleGenerateMagicLink}
+                          disabled={generatingLink}
+                          style={{ borderColor: '#D4AF37', color: '#D4AF37', padding: '12px 25px', borderRadius: '10px', height: 'fit-content' }}
+                        >
+                          {generatingLink ? <FaSync className="st-spin" /> : <FaBolt />} {magicLink ? 'Regenerate' : 'Generate Link'}
+                        </button>
+                      </div>
+
+                      {magicLink && (
+                        <motion.div
+                          className="st-magic-link-box"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          style={{ background: 'rgba(0,0,0,0.4)', padding: '20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '15px', border: '1px dashed rgba(212, 175, 55, 0.5)', marginBottom: '30px' }}
+                        >
+                          <code style={{ flex: 1, color: '#D4AF37', fontSize: '0.9rem', wordBreak: 'break-all' }}>{magicLink}</code>
+                          <button onClick={() => copyToClipboard(magicLink)} style={{ background: 'rgba(212, 175, 55, 0.1)', border: 'none', color: '#D4AF37', cursor: 'pointer', padding: '10px', borderRadius: '8px' }} title="Copy Link">
+                            <FaCopy />
+                          </button>
+                        </motion.div>
+                      )}
+
+                      <div className="st-audit-trail" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px' }}>
+                        <h5 style={{ margin: '0 0 20px', fontSize: '1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <FaHistory style={{ color: '#94a3b8' }} /> Maintenance Audit Trail
+                        </h5>
+                        <div style={{ maxHeight: '250px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ background: 'rgba(255,255,255,0.03)', textAlign: 'left' }}>
+                                <th style={{ padding: '15px', color: '#64748b' }}>Status</th>
+                                <th style={{ padding: '15px', color: '#64748b' }}>By Who</th>
+                                <th style={{ padding: '15px', color: '#64748b' }}>Source</th>
+                                <th style={{ padding: '15px', color: '#64748b' }}>Time (Local)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {s.maintenance?.history?.slice().reverse().map((entry, idx) => (
+                                <tr key={idx} style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+                                  <td style={{ padding: '15px' }}>
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '99px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: '800',
+                                      background: entry.action === 'enabled' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                      color: entry.action === 'enabled' ? '#ef4444' : '#10b981',
+                                      textTransform: 'uppercase'
+                                    }}>
+                                      {entry.action}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '15px', color: '#f1f5f9' }}>{entry.actorName || 'Unknown Admin'}</td>
+                                  <td style={{ padding: '15px' }}>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{entry.source?.toUpperCase() || 'SYSTEM'}</span>
+                                  </td>
+                                  <td style={{ padding: '15px', color: '#475569' }}>{new Date(entry.timestamp).toLocaleString()}</td>
+                                </tr>
+                              ))}
+                              {(!s.maintenance?.history || s.maintenance.history.length === 0) && (
+                                <tr><td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#475569' }}>No toggle history available yet.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </Section>

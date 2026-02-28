@@ -22,6 +22,7 @@ const About = () => {
   const story = aboutData.story || 'Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations.';
   const subStory = aboutData.subStory || 'Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants. At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.';
   const image = aboutData.imageUrl || 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000';
+  const image2 = aboutData.imageUrl2 || image;
 
   const hasStats = years > 0 || organic > 0 || awards > 0;
 
@@ -61,7 +62,7 @@ const About = () => {
               transition={{ duration: 1, delay: 0.3 }}
             >
               <div className="secondary-image-inner">
-                <img src={image} alt="Farm Detail" />
+                <img src={image2} alt="Farm Detail" />
                 <div className="sec-img-overlay"></div>
               </div>
             </motion.div>

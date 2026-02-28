@@ -1,0 +1,140 @@
+.ad-placement-zone {
+    margin: 2rem 0;
+    width: 100%;
+    position: relative;
+}
+
+.ad-sponsored-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    z-index: 2;
+    font-weight: 600;
+    line-height: 1;
+}
+
+/* Banner Style */
+.ad-banner-link {
+    display: block;
+    text-decoration: none;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    transition: transform 0.3s ease;
+}
+
+.ad-banner-link:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.ad-banner {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.ad-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.3) 100%);
+    z-index: 1;
+}
+
+.ad-banner-content {
+    position: relative;
+    z-index: 2;
+    color: #fff;
+    max-width: 50%;
+}
+
+.ad-banner-content h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #fff;
+}
+
+.ad-banner-content p {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.9;
+}
+
+/* Card Style (Sponsored listings, sidebars) */
+.ad-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: box-shadow 0.3s ease;
+}
+
+.ad-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.ad-media img {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+}
+
+.ad-content {
+    padding: 1.5rem;
+}
+
+.ad-content h4 {
+    font-size: 1.25rem;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+}
+
+.ad-content p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.ad-cta-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ad-cta-link:hover {
+    text-decoration: underline;
+}
+
+/* Specific Zone Tweaks */
+.zone-search_sidebar .ad-card {
+    margin-bottom: 2rem;
+}
+
+.zone-cart_upsell {
+    margin: 1rem 0;
+}

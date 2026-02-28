@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import FloatingBeans from '../UI/FloatingBeans';
+import AdPlacement from '../AdPlacement/AdPlacement';
 import { isFreshlyRoasted } from '../../utils/productHelpers';
 import './CoffeeShop.css';
 
@@ -367,6 +368,9 @@ const CoffeeShop = () => {
     <section id="coffee-shop" className="coffee-shop">
       <FloatingBeans isVisible={showBeans} />
       <div className="container">
+
+        {/* Dynamic Ad Placement Zone */}
+        <AdPlacement zone="homepage" />
 
         {/* Section header */}
         <motion.div initial={{ opacity: 0, y: -20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>

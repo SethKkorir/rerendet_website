@@ -41,7 +41,17 @@ function Checkout() {
     postalCode: user?.shippingInfo?.zip || ''
   });
 
-  const [paymentMethod, setPaymentMethod] = useState('mpesa');
+  const [paymentMethod, setPaymentMethod] = useState('');
+
+  // Auto-select first available payment method
+  useEffect(() => {
+    if (publicSettings?.payment?.paymentMethods) {
+      const methods = publicSettings.payment.paymentMethods;
+      if (methods.mpesa) setPaymentMethod('mpesa');
+      else if (methods.card) setPaymentMethod('card');
+      else if (methods.cashOnDelivery) setPaymentMethod('cod');
+    }
+  }, [publicSettings]);
   const [loading, setLoading] = useState(false);
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [errors, setErrors] = useState({});
@@ -49,6 +59,12 @@ function Checkout() {
   const [codConfirmed, setCodConfirmed] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [allCountries, setAllCountries] = useState(['Kenya', 'Uganda', 'Tanzania', 'Rwanda', 'United Arab Emirates', 'United Kingdom']);
+  const [cardInfo, setCardInfo] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    name: ''
+  });
 
   useEffect(() => {
     fetch('https://restcountries.com/v3.1/all?fields=name')
@@ -67,6 +83,7 @@ function Checkout() {
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [isSubscription, setIsSubscription] = useState(false);
   const [subscriptionFrequency, setSubscriptionFrequency] = useState('monthly');
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
 
   const subtotal = useMemo(() => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -166,6 +183,21 @@ function Checkout() {
     });
   };
 
+  const handleCardInputChange = (field, value) => {
+    // Basic formatting for card number
+    if (field === 'number') {
+      value = value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim();
+    }
+    // Basic formatting for expiry
+    if (field === 'expiry') {
+      value = value.replace(/\//g, '');
+      if (value.length > 2) {
+        value = value.slice(0, 2) + '/' + value.slice(2, 4);
+      }
+    }
+    setCardInfo(prev => ({ ...prev, [field]: value }));
+  };
+
   const logFailure = async (reason) => {
     logAbandonedCheckout({
       items: cart.map(item => ({
@@ -227,6 +259,14 @@ function Checkout() {
     if (paymentMethod === 'cod' && !codConfirmed) {
       newErrors.cod = 'Please confirm pay on delivery';
     }
+
+    if (paymentMethod === 'card') {
+      if (!cardInfo.number.trim() || cardInfo.number.length < 15) newErrors.cardNo = 'Valid card number is required';
+      if (!cardInfo.expiry.trim() || !cardInfo.expiry.includes('/')) newErrors.cardExp = 'Valid expiry (MM/YY) is required';
+      if (!cardInfo.cvv.trim() || cardInfo.cvv.length < 3) newErrors.cardCvv = 'Security code (CVV) is required';
+      if (!cardInfo.name.trim()) newErrors.cardName = 'Name on card is required';
+    }
+
     return newErrors;
   };
 
@@ -310,7 +350,7 @@ function Checkout() {
         couponCode: couponData?.code,
         isSubscription,
         subscriptionFrequency: isSubscription ? subscriptionFrequency : undefined,
-        paymentData
+        paymentData: paymentData || (paymentMethod === 'card' ? { ...cardInfo } : null)
       };
 
       const response = await fetch('/api/orders', {
@@ -520,25 +560,32 @@ function Checkout() {
                     placeholder="+254 7XX XXX XXX"
                     value={shippingInfo.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
+                    onFocus={() => setIsPhoneFocused(true)}
+                    onBlur={() => setIsPhoneFocused(false)}
                     className="premium-input-modern with-icon"
                   />
-                  <div className="input-mask-overlay-checkout" style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: '3rem',
-                    right: 0,
-                    height: '100%',
-                    background: 'var(--bg-deep)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0 1rem',
-                    pointerEvents: 'none',
-                    borderRadius: '0 12px 12px 0',
-                    color: 'var(--text-main)',
-                    opacity: document.activeElement === document.querySelector('input[type="tel"]') ? 0 : 1
-                  }}>
-                    {shippingInfo.phone ? shippingInfo.phone.replace(/^(\d{4})(\d{3})(\d{3})$/, '$1 ••• $3') : ''}
-                  </div>
+                  {shippingInfo.phone && !isPhoneFocused && (
+                    <div className="input-mask-overlay-checkout" style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: '3rem',
+                      right: 0,
+                      height: '100%',
+                      background: 'var(--bg-deep)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0 1rem',
+                      pointerEvents: 'none',
+                      borderRadius: '0 12px 12px 0',
+                      color: 'var(--text-main)',
+                      fontWeight: '600',
+                      letterSpacing: '1px'
+                    }}>
+                      {shippingInfo.phone.length > 7
+                        ? `${shippingInfo.phone.slice(0, 4)} ••• ${shippingInfo.phone.slice(-3)}`
+                        : shippingInfo.phone}
+                    </div>
+                  )}
                 </div>
                 {errors.phone && <span className="error-text">{errors.phone}</span>}
               </div>
@@ -551,31 +598,43 @@ function Checkout() {
               <h2>2. Security & Payment</h2>
             </div>
             <div className="payment-grid-modern">
-              <div
-                className={`payment-method-card ${paymentMethod === 'mpesa' ? 'active' : ''}`}
-                onClick={() => setPaymentMethod('mpesa')}
-              >
-                <div className="payment-icon"><FaPhone /></div>
-                <div className="payment-label">M-Pesa Express</div>
-              </div>
-              <div
-                className={`payment-method-card ${paymentMethod === 'card' ? 'active disabled' : 'disabled'}`}
-                onClick={() => {
-                  setPaymentMethod('card');
-                  showNotification('Card payments are coming soon!', 'info');
-                }}
-              >
-                <div className="payment-icon"><FaCreditCard /></div>
-                <div className="payment-label">Debit / Credit</div>
-                <div className="coming-soon-pill">Soon</div>
-              </div>
-              <div
-                className={`payment-method-card ${paymentMethod === 'cod' ? 'active' : ''}`}
-                onClick={() => setPaymentMethod('cod')}
-              >
-                <div className="payment-icon"><FaMoneyBillWave /></div>
-                <div className="payment-label">Pay on Delivery</div>
-              </div>
+              {publicSettings?.payment?.paymentMethods?.mpesa && (
+                <div
+                  className={`payment-method-card ${paymentMethod === 'mpesa' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('mpesa')}
+                >
+                  <div className="payment-icon"><FaPhone /></div>
+                  <div className="payment-label">M-Pesa Express</div>
+                </div>
+              )}
+              {publicSettings?.payment?.paymentMethods?.card && (
+                <div
+                  className={`payment-method-card ${paymentMethod === 'card' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('card')}
+                >
+                  <div className="payment-icon"><FaCreditCard /></div>
+                  <div className="payment-label">Debit / Credit</div>
+                </div>
+              )}
+              {publicSettings?.payment?.paymentMethods?.cashOnDelivery && (
+                <div
+                  className={`payment-method-card ${paymentMethod === 'cod' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('cod')}
+                >
+                  <div className="payment-icon"><FaMoneyBillWave /></div>
+                  <div className="payment-label">Pay on Delivery</div>
+                </div>
+              )}
+
+              {/* Graceful fallback if NO payment methods are enabled (safety check) */}
+              {(!publicSettings?.payment?.paymentMethods?.mpesa &&
+                !publicSettings?.payment?.paymentMethods?.card &&
+                !publicSettings?.payment?.paymentMethods?.cashOnDelivery) && (
+                  <div className="payment-method-card disabled full-width">
+                    <div className="payment-icon"><FaExclamationCircle /></div>
+                    <div className="payment-label">No payment methods currently available. Please contact support.</div>
+                  </div>
+                )}
             </div>
 
             {paymentMethod === 'mpesa' && (
@@ -592,10 +651,70 @@ function Checkout() {
             )}
 
             {paymentMethod === 'card' && (
-              <div className="payment-config-box coming-soon-box">
-                <FaCreditCard className="pulse-icon" />
-                <h4>Card Payments Coming Soon</h4>
-                <p>We're finalizing our secure integration. For now, please use M-Pesa or Cash on Delivery.</p>
+              <div className="payment-config-box card-input-box animated-fade-in">
+                <div className="card-input-grid">
+                  <div className={`input-group full-width ${errors.cardNo ? 'has-error' : ''}`}>
+                    <label className="input-label">Card Number</label>
+                    <div className="input-with-icon-modern">
+                      <FaCreditCard className="inner-icon" />
+                      <input
+                        type="text"
+                        placeholder="0000 0000 0000 0000"
+                        value={cardInfo.number}
+                        onChange={(e) => handleCardInputChange('number', e.target.value)}
+                        className="premium-input-modern with-icon"
+                        maxLength="19"
+                      />
+                    </div>
+                    {errors.cardNo && <span className="error-text">{errors.cardNo}</span>}
+                  </div>
+
+                  <div className={`input-group ${errors.cardExp ? 'has-error' : ''}`}>
+                    <label className="input-label">Expiry Date</label>
+                    <input
+                      type="text"
+                      placeholder="MM / YY"
+                      value={cardInfo.expiry}
+                      onChange={(e) => handleCardInputChange('expiry', e.target.value)}
+                      className="premium-input-modern"
+                      maxLength="5"
+                    />
+                    {errors.cardExp && <span className="error-text">{errors.cardExp}</span>}
+                  </div>
+
+                  <div className={`input-group ${errors.cardCvv ? 'has-error' : ''}`}>
+                    <label className="input-label">CVV / CVC</label>
+                    <div className="input-with-icon-modern">
+                      <FaLock className="inner-icon" />
+                      <input
+                        type="password"
+                        placeholder="123"
+                        value={cardInfo.cvv}
+                        onChange={(e) => handleCardInputChange('cvv', e.target.value)}
+                        className="premium-input-modern with-icon"
+                        maxLength="4"
+                      />
+                    </div>
+                    {errors.cardCvv && <span className="error-text">{errors.cardCvv}</span>}
+                  </div>
+
+                  <div className={`input-group full-width ${errors.cardName ? 'has-error' : ''}`}>
+                    <label className="input-label">Cardholder Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Kipchumba Langat"
+                      value={cardInfo.name}
+                      onChange={(e) => handleCardInputChange('name', e.target.value)}
+                      className="premium-input-modern"
+                    />
+                    {errors.cardName && <span className="error-text">{errors.cardName}</span>}
+                  </div>
+                </div>
+
+                <div className="card-security-note">
+                  <FaShieldAlt />
+                  <span>Secure bank-level 256-bit encryption active.</span>
+                </div>
               </div>
             )}
 
@@ -658,7 +777,14 @@ function Checkout() {
 
             <div className="manifest-totals">
               <div className="total-row"><span>Cart Subtotal</span><span>KES {subtotal.toLocaleString()}</span></div>
-              {discount > 0 && <div className="total-row discount"><span>Privilege Discount</span><span>- KES {discount.toLocaleString()}</span></div>}
+              {discount > 0 && (
+                <div className="total-row discount">
+                  <span>
+                    {couponData ? `Promo (${couponData.code})` : isSubscription ? 'Subscription Discount' : 'Total Discount'}
+                  </span>
+                  <span>- KES {discount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="total-row"><span>Logistics Fee</span><span>KES {shippingCost.toLocaleString()}</span></div>
               <div className="grand-total-highlight">
                 <div className="total-label">Total</div>

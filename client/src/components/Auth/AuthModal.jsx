@@ -7,7 +7,7 @@ import { forgotPassword, resetPassword, verifyEmail, resendVerification } from '
 import './AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
-    const { login, register, loginWithGoogle, verify2FA, verifyEmail, loading: authLoading, showSuccess, showError, publicSettings } = useContext(AppContext);
+    const { login, register, loginWithGoogle, verify2FA, verifyEmail, loading: authLoading, showSuccess, showError, showNotification, publicSettings } = useContext(AppContext);
 
     // Views: login, signup, forgot-password, reset-password, verify-email, policies
     const [view, setView] = useState(initialView);
@@ -442,11 +442,11 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                         <button
                                             type="button"
                                             className="custom-google-btn login"
-                                            onClick={() => handleGoogleLogin()}
+                                            onClick={() => showNotification('Google login is coming soon!', 'info')}
                                             disabled={loading || authLoading}
                                         >
                                             <FaGoogle />
-                                            <span>Login with Google</span>
+                                            <span>Login with Google (Coming Soon)</span>
                                         </button>
                                     </div>
 
@@ -582,11 +582,11 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                                 <button
                                                     type="button"
                                                     className="custom-google-btn signup"
-                                                    onClick={() => handleGoogleLogin()}
+                                                    onClick={() => showNotification('Google sign-up is coming soon!', 'info')}
                                                     disabled={loading || authLoading}
                                                 >
                                                     <FaGoogle />
-                                                    <span>Sign up with Google</span>
+                                                    <span>Sign up with Google (Coming Soon)</span>
                                                 </button>
                                             </div>
                                             <div className="auth-footer">

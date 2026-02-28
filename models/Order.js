@@ -128,22 +128,36 @@ const orderSchema = new mongoose.Schema({
 
 // Backward Compatibility Virtual for 'status'
 orderSchema.virtual('status').get(function () {
-  if (this.orderStatus === 'cancelled') return 'cancelled';
-  if (this.fulfillmentStatus === 'delivered') return 'delivered';
-  if (this.fulfillmentStatus === 'shipped') return 'shipped';
-  if (this.fulfillmentStatus === 'packed') return 'processing';
+  if (this.orderStatus === 'cancelled') return 'Cancelled';
+  if (this.fulfillmentStatus === 'returned') return 'Returned';
+  if (this.fulfillmentStatus === 'delivered') return 'Delivered';
+  if (this.fulfillmentStatus === 'shipped') return 'Shipped';
+  if (this.fulfillmentStatus === 'packed') return 'Processing';
 
   // If we reach here, it's either confirmed (paid/CoD) or pending
-  // We treat all open uncancelled orders as 'confirmed' at minimum once placed
-  return 'confirmed';
+  // We treat all open uncancelled orders as 'Confirmed' at minimum once placed
+  return 'Confirmed';
 });
 
-// Generate Order Number
+// Generate Order Number & Tracking Number
 orderSchema.pre('save', function (next) {
-  if (this.isNew && !this.orderNumber) {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    this.orderNumber = `ORD-${timestamp}-${random}`;
+  if (this.isNew) {
+    // 1. Generate Order Number
+    if (!this.orderNumber) {
+      const timestamp = Date.now().toString().slice(-8);
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      this.orderNumber = `ORD-${timestamp}-${random}`;
+    }
+
+    // 2. Generate Tracking Number (5 chars total: RC + 3 random)
+    if (!this.trackingNumber) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded I, O, 0, 1 for clarity
+      let randomPart = '';
+      for (let i = 0; i < 3; i++) {
+        randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      this.trackingNumber = `RC${randomPart}`;
+    }
 
     // Initial Log
     this.orderEvents.push({
