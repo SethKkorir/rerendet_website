@@ -96,17 +96,22 @@ app.use('/api/', apiLimiter);
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5004',
-  'http://127.0.0.1:5004'
+  'http://127.0.0.1:5004',
+  'https://rerendet-website.vercel.app',
+  'https://rerendet-website-two.vercel.app',
+  'https://rerendet-coffee.com'
 ];
 if (process.env.CLIENT_URL) allowedOrigins.push(process.env.CLIENT_URL);
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
 app.use(cors({
   origin: (origin, callback) => {
     // Check if origin is allowed
     const isAllowed = !origin ||
-      allowedOrigins.indexOf(origin) !== -1 ||
+      allowedOrigins.includes(origin) ||
       allowedOrigins.some(o => origin.startsWith(o)) ||
-      allowedOrigins.some(o => origin.replace(/\/$/, '') === o.replace(/\/$/, '')); // Handle trailing slash differences
+      allowedOrigins.some(o => origin.replace(/\/$/, '') === o.replace(/\/$/, '')) ||
+      (origin.endsWith('.vercel.app') && origin.includes('rerendet')); // Allow all rerendet vercel previews
 
     if (isAllowed) {
       callback(null, true);
