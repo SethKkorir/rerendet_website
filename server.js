@@ -52,6 +52,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Ensure DB is connected for serverless calls BEFORE hitting any routes
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    await connectDB();
+  }
+  next();
+});
+
 // 1. Basic Middlewares & Security
 app.set('trust proxy', 1);
 
@@ -311,11 +319,5 @@ if (process.env.NODE_ENV !== 'production' || process.env.RENDER || !process.env.
     });
   });
 }
-
-// Ensure DB is connected for serverless calls
-app.use(async (req, res, next) => {
-  await connectDB();
-  next();
-});
 
 export default app;
