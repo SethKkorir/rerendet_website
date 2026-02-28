@@ -18,7 +18,10 @@ import API, {
   getAdminProducts,
   getPublicSettings,
   getCart as apiGetCart,
-  syncCart as apiSyncCart
+  syncCart as apiSyncCart,
+  verifyPassword as apiVerifyPassword,
+  logAbandonedCheckout as apiLogAbandoned,
+  getAbandonedCheckouts as apiGetAbandoned
 } from '../api/api';
 
 export const AppContext = createContext(null);
@@ -52,6 +55,8 @@ export function AppProvider({ children }) {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authView, setAuthView] = useState('login');
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
@@ -96,11 +101,15 @@ export function AppProvider({ children }) {
 
   // ==================== IDLE SESSION MANAGEMENT ====================
   const [isLocked, setIsLocked] = useState(false);
-  const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+  const IDLE_TIMEOUT = 8 * 60 * 1000; // 8 minutes in milliseconds
 
   const checkForInactivity = useCallback(() => {
     // Skip if already locked or not logged in
     if (!user || !token || isLocked) return;
+
+    // ONLY lock out administrators for security. Regular customers driving traffic shouldn't be locked out of their carts.
+    const isAdminUser = user.userType === 'admin' || user.role === 'super-admin' || user.role === 'admin';
+    if (!isAdminUser) return;
 
     const lastActivityStr = localStorage.getItem('lastActivity');
     const lastActivity = lastActivityStr ? parseInt(lastActivityStr, 10) : Date.now();
@@ -248,8 +257,13 @@ export function AppProvider({ children }) {
     setUser(null);
     setToken(null);
     setUserType(null);
-    setCartState([]); // Clear cart state on logout
+    setCartState([]);
+    setIsLocked(false);
+    // Clear token from memory
+    import('../api/api').then(m => m.tokenStore.clear());
+    // Remove any stale legacy localStorage key
     localStorage.removeItem('auth');
+    localStorage.removeItem('lastActivity');
     console.log('🔓 Auth cleared completely');
   }, []);
 
@@ -298,12 +312,16 @@ export function AppProvider({ children }) {
     setToken(authToken);
     setUserType(type);
 
-    // Store in localStorage
-    localStorage.setItem('auth', JSON.stringify({
-      user: userData,
-      token: authToken,
-      userType: type
-    }));
+    // Store token in MEMORY only (never localStorage)
+    import('../api/api').then(m => m.tokenStore.set(authToken));
+
+    // Persist user profile (NOT the token) for page-reload UX
+    // On reload, we use the HttpOnly cookie to silently get a fresh token
+    localStorage.setItem('auth', JSON.stringify({ user: userData, userType: type }));
+
+    // Reset the session lock timer for this new login
+    localStorage.setItem('lastActivity', Date.now().toString());
+    setIsLocked(false);
 
     console.log('🔐 Auth set for:', userData.email, 'Type:', type);
 
@@ -595,13 +613,24 @@ export function AppProvider({ children }) {
       showSuccess('Login successful!');
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Verification failed';
-      showError(errorMessage);
+      showError(error.response?.data?.message || 'Verification failed');
       throw error;
     } finally {
       setLoading(false);
     }
   }, [setAuth, validateToken, showSuccess, showError]);
+
+  // Confirm Password
+  const confirmPassword = useCallback(async (password) => {
+    try {
+      const response = await apiVerifyPassword({ password });
+      return response.data.success;
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Incorrect password';
+      showError(msg);
+      return false;
+    }
+  }, [showError]);
 
   // Admin login
   const loginAdmin = useCallback(async (credentials) => {
@@ -637,8 +666,12 @@ export function AppProvider({ children }) {
   const loginWithGoogle = useCallback(async (googleData) => {
     setLoading(true);
     try {
-      // Expecting googleData to contain the `credential` token from Google
-      const response = await googleLogin({ credential: googleData.credential });
+      // Handle both standard credential (idToken) or custom accessToken
+      const payload = googleData.credential
+        ? { credential: googleData.credential }
+        : { accessToken: googleData.access_token || googleData.accessToken };
+
+      const response = await googleLogin(payload);
 
       // Handle 2FA (No token yet)
       if (response.data.requires2FA) {
@@ -783,10 +816,10 @@ export function AppProvider({ children }) {
   }, [showSuccess, showError]);
 
   // Delete Account
-  const deleteAccount = useCallback(async () => {
+  const deleteAccount = useCallback(async (password) => {
     setLoading(true);
     try {
-      const response = await apiDeleteAccount();
+      const response = await apiDeleteAccount({ password });
       showSuccess('Account deleted successfully. We are sorry to see you go!');
       logout(); // Logout after deletion
       return response.data;
@@ -976,6 +1009,24 @@ export function AppProvider({ children }) {
     }
   }, [showError]);
 
+  const fetchAbandonedCheckouts = useCallback(async () => {
+    try {
+      const response = await apiGetAbandoned();
+      return response.data;
+    } catch (error) {
+      console.error('Fetch abandoned error:', error);
+      throw error;
+    }
+  }, []);
+
+  const logAbandonedCheckout = useCallback(async (data) => {
+    try {
+      await apiLogAbandoned(data);
+    } catch (error) {
+      console.error('Log abandoned error:', error);
+    }
+  }, []);
+
   // ==================== AUTH INITIALIZATION ====================
 
   // Fetch Public Settings
@@ -1014,45 +1065,78 @@ export function AppProvider({ children }) {
   // Ref to track if initialization has already run
   const hasInitialized = useRef(false);
 
-  // Initialize auth from localStorage
+  // Initialize auth — use silent refresh via HttpOnly cookie (no token in localStorage)
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
     const initializeAuth = async () => {
       try {
-        // Fetch public settings on mount
         await fetchPublicSettings();
 
+        // Check if we have cached auth data (token in old format, or just user profile in new format)
         const storedAuth = localStorage.getItem('auth');
         if (storedAuth) {
-          const { user: storedUser, token: storedToken, userType: storedUserType } = JSON.parse(storedAuth);
+          const parsed = JSON.parse(storedAuth);
 
-          if (storedToken && validateToken(storedToken)) {
-            console.log('🔄 Found valid token in storage, verifying with server...');
+          // ── Path 1: Try silent cookie refresh (new secure system) ──
+          console.log('🔄 Attempting silent token refresh via HttpOnly cookie...');
+          try {
+            const { default: axios } = await import('axios');
+            const refreshRes = await axios.post(
+              `${process.env.REACT_APP_API_URL || '/api'}/auth/refresh`,
+              {},
+              { withCredentials: true }
+            );
+            if (refreshRes.data?.data?.token) {
+              const { tokenStore } = await import('../api/api');
+              tokenStore.set(refreshRes.data.data.token);
+              setToken(refreshRes.data.data.token);
 
-            setToken(storedToken);
-
-            try {
-              const response = await getCurrentUser();
-              if (response.data.success) {
-                const userData = response.data.data;
-                const actualUserType = userData.userType || storedUserType;
-
-                // Use setAuth to restore user and cart
-                setAuth(userData, storedToken, actualUserType);
-                console.log('✅ Auth restored from API:', userData.email, 'Type:', actualUserType);
+              const { getCurrentUser } = await import('../api/api');
+              const meRes = await getCurrentUser();
+              if (meRes.data.success) {
+                const userData = meRes.data.data;
+                const actualUserType = userData.userType || (userData.role === 'admin' || userData.role === 'super-admin' ? 'admin' : 'customer');
+                setAuth(userData, refreshRes.data.data.token, actualUserType);
+                console.log(`✅ Auth restored via silent refresh: ${userData.email}`);
               }
-            } catch (error) {
-              console.error('❌ Token validation failed - clearing:', error.message);
-              clearAuth();
-              if (error.response?.status === 401) {
-                showInfo('Your session has expired. Please log in again.');
+              return; // Done — don't fall through
+            }
+          } catch (refreshErr) {
+            const status = refreshErr?.response?.status;
+            console.log(`ℹ️ Silent refresh skipped (${status || refreshErr.message}) — trying legacy token fallback...`);
+          }
+
+          // ── Path 2: Legacy fallback — old localStorage token (pre-dual-token) ──
+          // This bridges users who were logged in before the security upgrade.
+          // On next logout+login they'll get the new cookie and this path won't run.
+          const legacyToken = parsed?.token;
+          if (legacyToken) {
+            console.log('🔁 Found legacy token — attempting one-time bridge login...');
+            try {
+              const { tokenStore, getCurrentUser } = await import('../api/api');
+              tokenStore.set(legacyToken);
+              setToken(legacyToken);
+
+              const meRes = await getCurrentUser();
+              if (meRes.data.success) {
+                const userData = meRes.data.data;
+                const actualUserType = userData.userType || (userData.role === 'admin' || userData.role === 'super-admin' ? 'admin' : 'customer');
+                // Overwrite localStorage with new format (no token)
+                setAuth(userData, legacyToken, actualUserType);
+                console.log(`✅ Auth restored via legacy token: ${userData.email}`);
+              }
+            } catch (legacyErr) {
+              const status = legacyErr?.response?.status;
+              if (status === 401) {
+                console.log('❌ Legacy token expired — clearing auth');
+                clearAuth();
+              } else {
+                // Network error etc — don't force logout, let them retry
+                console.warn('⚠️ Could not verify legacy token (network issue?) — keeping state');
               }
             }
-          } else {
-            console.log('❌ Invalid token found - clearing');
-            clearAuth();
           }
         }
 
@@ -1114,6 +1198,8 @@ export function AppProvider({ children }) {
     isAdmin,
     isSuperAdmin,
     isCustomer,
+    isLocked,
+    unlockSession,
 
     // Notification system
     notifications,
@@ -1142,6 +1228,7 @@ export function AppProvider({ children }) {
     logout,
     clearAuth,
     updateUserProfile,
+    confirmPassword,
     changeUserPassword,
     deleteAccount,
     fetchUserOrders,
@@ -1175,27 +1262,36 @@ export function AppProvider({ children }) {
     toggleCart,
     setIsCartOpen,
     setMobileMenuOpen: setMobileMenuOpenState,
+    showAuthModal,
+    setShowAuthModal,
+    authView,
+    setAuthView,
     publicSettings,
     settingsLoading,
     fetchPublicSettings,
     globalMaintenance,
     setGlobalMaintenance,
     orderRefreshTrigger,
-    refreshOrders
+    refreshOrders,
+    fetchAbandonedCheckouts,
+    logAbandonedCheckout
   }), [
-    user, token, userType, loading, isAuthenticated, isAdmin, isSuperAdmin, isCustomer,
+    user, token, userType, loading, isAuthenticated, isAdmin, isSuperAdmin, isCustomer, isLocked,
     notifications, alert,
     cart, isCartOpen, cartCount, mobileMenuOpen,
+    showAuthModal, authView,
     addNotification, removeNotification, clearNotifications, showSuccess, showError, showWarning, showInfo,
     showAlert, hideAlert,
-    login, loginWithGoogle, loginAdmin, register, logout, clearAuth,
+    login, loginWithGoogle, loginAdmin, register, logout, clearAuth, unlockSession,
     updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
     addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartItemCount,
     openCart, closeCart, toggleCart, setMobileMenuOpenState,
     fetchDashboardStats, fetchSalesAnalytics, fetchAdminUsers, updateUserRole, deleteUser, fetchAdminOrders, fetchAdminProducts,
     publicSettings, settingsLoading, fetchPublicSettings, globalMaintenance,
     orderRefreshTrigger, refreshOrders,
-    isLocked, unlockSession
+    isLocked, unlockSession,
+    fetchAbandonedCheckouts,
+    logAbandonedCheckout
   ]);
 
   return (

@@ -18,6 +18,7 @@ import { FaTools, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import AdminLayout from './components/Admin/AdminLayout';
 import AdminRoute from './components/Admin/AdminRoute';
 import Notification from './components/Notification/Notification';
+import AuthModal from './components/Auth/AuthModal';
 import SessionLock from './components/Auth/SessionLock';
 import WhatsAppSupport from './components/UI/WhatsAppSupport';
 import ProductDetail from './components/Product/ProductDetail';
@@ -29,6 +30,7 @@ import Analytics from './components/Admin/Analytics';
 import Settings from './components/Admin/Settings';
 import ContactsManagement from './components/Admin/ContactsManagement';
 import Marketing from './components/Admin/Marketing';
+import BlogManagement from './components/Admin/BlogManagement';
 import AdminLogin from './components/Admin/AdminLogin';
 import Checkout from './components/Checkout/Checkout';
 import OrderConfirmation from './components/OrderConfirmation/OrderConfirmation';
@@ -37,8 +39,11 @@ import Orders from './pages/Orders';
 import OrderReceipt from './components/Checkout/OrderReceipt';
 import OrderTracking from './components/OrderTracking/OrderTracking';
 import AdminOrders from './components/Admin/Orders';
+import ActivityLogs from './components/Admin/ActivityLogs';
 import Profile from './components/Profile/Profile';
 import PolicyPage from './pages/PolicyPage';
+import Blog from './pages/Blog';
+import BlogPost from './pages/BlogPost';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import './App.css';
@@ -83,7 +88,7 @@ function App() {
   // Check if current route is admin route
   const isAdminRoute = location.pathname.startsWith('/admin');
 
-  const { publicSettings, user, userType, settingsLoading, isAdmin } = useContext(AppContext);
+  const { publicSettings, user, userType, settingsLoading, isAdmin, showAuthModal, setShowAuthModal, authView } = useContext(AppContext);
 
   // Robust Admin check
   const isActualAdmin = user?.role === 'admin' || user?.role === 'super-admin' || userType === 'admin' || isAdmin === true;
@@ -294,7 +299,10 @@ function App() {
       {/* Admin Maintenance Banner - ONLY for Admins */}
       {maintenanceEnabled && isActualAdmin && (
         <div className="maintenance-banner">
-          ⚠️ Maintenance Mode is Active (Visible to Admins only)
+          <div className="maintenance-banner-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🚧</span>
+            <strong>LIVE PREVIEW:</strong> Maintenance Mode is ON. Visitors & customers are currently seeing the 'Offline' screen. You are bypassing it because you are logged in as an Admin.
+          </div>
         </div>
       )}
 
@@ -345,6 +353,8 @@ function App() {
         <Route path="/order-tracking/:id" element={<OrderTracking />} />
         <Route path="/orders/:id" element={<OrderReceipt />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
 
         {/* User Account Routes */}
         <Route path="/account" element={<AccountDashboard />} />
@@ -365,7 +375,9 @@ function App() {
                   <Route path="/users" element={<UsersManagement />} />
                   <Route path="/contacts" element={<ContactsManagement />} />
                   <Route path="/marketing" element={<Marketing />} />
+                  <Route path="/blogs" element={<BlogManagement />} />
                   <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/logs" element={<ActivityLogs />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </AdminLayout>
@@ -385,6 +397,11 @@ function App() {
           <CardModal />
           <BackToTop />
           <WhatsAppSupport />
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            initialView={authView}
+          />
         </>
       )}
     </div>

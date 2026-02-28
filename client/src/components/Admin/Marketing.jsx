@@ -7,7 +7,7 @@ import {
     FaSearch, FaTimes, FaChevronLeft, FaChevronRight,
     FaChartLine, FaEdit, FaEye, FaTrash,
     FaToggleOn, FaToggleOff, FaStar, FaMagic,
-    FaBullhorn, FaCheckCircle, FaRegClock
+    FaBullhorn, FaCheckCircle, FaRegClock, FaHeading, FaParagraph, FaLink, FaImage, FaPlus
 } from 'react-icons/fa';
 import './Marketing.css';
 
@@ -78,6 +78,25 @@ const Marketing = () => {
     const SUB_PER_PAGE = 12;
 
     const [formData, setFormData] = useState({ subject: '', content: '' });
+    const [blocks, setBlocks] = useState([
+        { id: Date.now().toString(), type: 'h2', content: 'Hello Coffee Lovers ☕' },
+        { id: (Date.now() + 1).toString(), type: 'p', content: 'Write your message here...' },
+    ]);
+    const [editorMode, setEditorMode] = useState('visual'); // 'visual' or 'html'
+
+    // Sync HTML content from blocks when they change
+    useEffect(() => {
+        if (editorMode === 'visual') {
+            const html = blocks.map(b => {
+                if (b.type === 'h2') return `<h2 style="color:#D4AF37; margin-bottom: 15px;">${b.content}</h2>`;
+                if (b.type === 'p') return `<p style="margin-bottom: 15px; line-height: 1.6;">${b.content}</p>`;
+                if (b.type === 'image') return `<div style="text-align:center; margin: 20px 0;"><img src="${b.url}" alt="Marketing" style="max-width:100%; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"/></div>`;
+                if (b.type === 'button') return `<p style="text-align:center; margin: 25px 0;"><a href="${b.url}" style="background:#D4AF37; color:white; padding:14px 32px; border-radius:10px; text-decoration:none; font-weight:bold; display:inline-block; box-shadow: 0 4px 10px rgba(212,175,55,0.3);">${b.label} →</a></p>`;
+                return '';
+            }).join('\n');
+            setFormData(prev => ({ ...prev, content: html }));
+        }
+    }, [blocks, editorMode]);
 
     useEffect(() => { fetchSubscribers(); }, [token]);
 
@@ -128,7 +147,37 @@ const Marketing = () => {
 
     const applyTemplate = (template) => {
         setFormData({ subject: template.subject, content: template.content });
-        showNotification(`Template "${template.label}" applied`, 'success');
+        // Attempt to parse blocks from template if it's a simple one, otherwise switch to HTML mode
+        setEditorMode('html');
+        showNotification(`Template "${template.label}" applied (HTML mode)`, 'success');
+    };
+
+    const addBlock = (type) => {
+        const newBlock = {
+            id: Date.now().toString(),
+            type,
+            content: type === 'h2' ? 'New Heading' : type === 'p' ? 'New Paragraph' : '',
+            url: type === 'image' ? 'https://res.cloudinary.com/dln2pifwf/image/upload/v1740697960/coffee-placeholder.jpg' : type === 'button' ? 'https://rerendet.com/shop' : '',
+            label: type === 'button' ? 'Click Here' : ''
+        };
+        setBlocks(prev => [...prev, newBlock]);
+        setEditorMode('visual');
+    };
+
+    const updateBlock = (id, field, value) => {
+        setBlocks(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+    };
+
+    const removeBlock = (id) => {
+        setBlocks(prev => prev.filter(b => b.id !== id));
+    };
+
+    const moveBlock = (index, direction) => {
+        const newBlocks = [...blocks];
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= newBlocks.length) return;
+        [newBlocks[index], newBlocks[newIndex]] = [newBlocks[newIndex], newBlocks[index]];
+        setBlocks(newBlocks);
     };
 
     // ── Subscriber list ──
@@ -252,17 +301,103 @@ const Marketing = () => {
                                 </div>
 
                                 <div className="mk-field">
-                                    <label>Email Content <span className="mk-req">*</span> <span className="mk-hint">(HTML supported)</span></label>
-                                    <textarea
-                                        className="mk-content-textarea"
-                                        value={formData.content}
-                                        onChange={e => setFormData(p => ({ ...p, content: e.target.value }))}
-                                        placeholder={`<h2>Hello Coffee Lovers ☕</h2>\n<p>Write your message here...</p>`}
-                                        rows={14}
-                                        required
-                                    />
+                                    <div className="mk-field-header-row">
+                                        <label>Email Content <span className="mk-req">*</span></label>
+                                        <div className="mk-editor-toggle">
+                                            <button type="button" className={editorMode === 'visual' ? 'active' : ''} onClick={() => setEditorMode('visual')}>Visual Builder</button>
+                                            <button type="button" className={editorMode === 'html' ? 'active' : ''} onClick={() => setEditorMode('html')}>HTML Source</button>
+                                        </div>
+                                    </div>
+
+                                    {editorMode === 'visual' ? (
+                                        <div className="mk-visual-editor">
+                                            <div className="mk-blocks-list">
+                                                {blocks.map((block, index) => (
+                                                    <div key={block.id} className="mk-block-item">
+                                                        <div className="mk-block-sidebar">
+                                                            <div className="mk-block-type-icon">
+                                                                {block.type === 'h2' && <FaHeading />}
+                                                                {block.type === 'p' && <FaParagraph />}
+                                                                {block.type === 'button' && <FaLink />}
+                                                                {block.type === 'image' && <FaImage />}
+                                                            </div>
+                                                            <div className="mk-block-movers">
+                                                                <button type="button" onClick={() => moveBlock(index, 'up')} disabled={index === 0}>▲</button>
+                                                                <button type="button" onClick={() => moveBlock(index, 'down')} disabled={index === blocks.length - 1}>▼</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="mk-block-main">
+                                                            {block.type === 'h2' && (
+                                                                <input
+                                                                    className="mk-input-h2"
+                                                                    value={block.content}
+                                                                    onChange={e => updateBlock(block.id, 'content', e.target.value)}
+                                                                    placeholder="Enter heading..."
+                                                                />
+                                                            )}
+                                                            {block.type === 'p' && (
+                                                                <textarea
+                                                                    className="mk-input-p"
+                                                                    value={block.content}
+                                                                    onChange={e => updateBlock(block.id, 'content', e.target.value)}
+                                                                    placeholder="Enter paragraph text..."
+                                                                    rows={3}
+                                                                />
+                                                            )}
+                                                            {block.type === 'button' && (
+                                                                <div className="mk-input-group">
+                                                                    <input
+                                                                        value={block.label}
+                                                                        onChange={e => updateBlock(block.id, 'label', e.target.value)}
+                                                                        placeholder="Button Label (e.g. Shop Now)"
+                                                                    />
+                                                                    <input
+                                                                        value={block.url}
+                                                                        onChange={e => updateBlock(block.id, 'url', e.target.value)}
+                                                                        placeholder="Link URL"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            {block.type === 'image' && (
+                                                                <div className="mk-input-group">
+                                                                    <input
+                                                                        value={block.url}
+                                                                        onChange={e => updateBlock(block.id, 'url', e.target.value)}
+                                                                        placeholder="Image URL"
+                                                                    />
+                                                                    {block.url && <img src={block.url} alt="preview" className="mk-block-img-preview" />}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <button type="button" className="mk-block-delete" onClick={() => removeBlock(block.id)}>
+                                                            <FaTrash />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="mk-add-block-toolbar">
+                                                <span>Add Block:</span>
+                                                <button type="button" onClick={() => addBlock('h2')}><FaHeading /> Heading</button>
+                                                <button type="button" onClick={() => addBlock('p')}><FaParagraph /> Text</button>
+                                                <button type="button" onClick={() => addBlock('button')}><FaLink /> Button</button>
+                                                <button type="button" onClick={() => addBlock('image')}><FaImage /> Image</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            className="mk-content-textarea"
+                                            value={formData.content}
+                                            onChange={e => setFormData(p => ({ ...p, content: e.target.value }))}
+                                            placeholder={`<h2>Hello Coffee Lovers ☕</h2>\n<p>Write your message here...</p>`}
+                                            rows={14}
+                                            required
+                                        />
+                                    )}
                                     <span className="mk-field-hint">
-                                        Use HTML tags for formatting. Images must be hosted URLs.
+                                        {editorMode === 'visual'
+                                            ? "Easily build your newsletter using content blocks. The system generates clean HTML for you."
+                                            : "Advanced: Edit the HTML structure directly. Use inline styles for compatibility."}
                                     </span>
                                 </div>
 

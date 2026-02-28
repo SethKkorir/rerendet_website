@@ -16,9 +16,29 @@ import nodemailer from 'nodemailer';
 // @route   GET /api/admin/dashboard/stats
 // @access  Private/Admin
 const getDashboardStats = asyncHandler(async (req, res) => {
+  const { timeframe = '30d' } = req.query;
   const today = new Date();
-  const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  let startDate;
+  switch (timeframe) {
+    case '7d':
+      startDate = new Date(new Date().setDate(today.getDate() - 7));
+      break;
+    case '90d':
+      startDate = new Date(new Date().setDate(today.getDate() - 90));
+      break;
+    case '1y':
+      startDate = new Date(new Date().setFullYear(today.getFullYear() - 1));
+      break;
+    case 'all':
+      startDate = new Date(0); // Beginning of time
+      break;
+    case '30d':
+    default:
+      startDate = new Date(new Date().setDate(today.getDate() - 30));
+  }
 
   const [
     totalOrders,
@@ -29,7 +49,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     todayRevenueResult,
     recentOrders,
     lowStockProducts,
-    pendingOrders,
+    pendingCount,
     newUsersThisMonth,
     shippedOrders
   ] = await Promise.all([
@@ -37,14 +57,15 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     Product.countDocuments({ isActive: true }),
     User.countDocuments({ userType: 'customer' }),
     Order.aggregate([
-      { $match: { paymentStatus: 'paid' } },
+      // Include both paid and pending for "Potential Revenue" vs "Actual"
+      { $match: { paymentStatus: { $in: ['paid', 'pending'] } } },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]),
     Order.countDocuments({ createdAt: { $gte: startOfToday } }),
     Order.aggregate([
       {
         $match: {
-          paymentStatus: 'paid',
+          paymentStatus: { $in: ['paid', 'pending'] },
           createdAt: { $gte: startOfToday }
         }
       },
@@ -60,8 +81,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         { 'inventory.stock': { $lte: 10 } },
         { stock: { $lte: 10 } }
       ]
-    }).limit(5),
-    Order.countDocuments({ status: 'pending' }),
+    }).limit(10),
+    Order.countDocuments({ paymentStatus: 'pending' }),
     User.countDocuments({ userType: 'customer', createdAt: { $gte: startOfMonth } }),
     Order.countDocuments({ fulfillmentStatus: 'shipped' })
   ]);
@@ -79,7 +100,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         totalRevenue,
         todayOrders,
         todayRevenue,
-        pendingOrders,
+        pendingOrders: pendingCount,
         newUsersThisMonth,
         shippedOrders
       },
@@ -342,6 +363,9 @@ const createProduct = asyncHandler(async (req, res) => {
     origin,
     flavorNotes,
     badge,
+    material,
+    brand,
+    capacity,
     inventory,
     tags,
     isFeatured
@@ -466,6 +490,9 @@ const createProduct = asyncHandler(async (req, res) => {
     origin: origin?.toString().trim() || '',
     flavorNotes: parsedFlavorNotes,
     badge: badge?.toString().trim() || '',
+    material: material?.toString().trim() || undefined,
+    brand: brand?.toString().trim() || undefined,
+    capacity: capacity?.toString().trim() || undefined,
     inventory: {
       stock: stock,
       lowStockAlert: lowStockAlert
@@ -542,16 +569,21 @@ const updateProduct = asyncHandler(async (req, res) => {
     origin,
     flavorNotes,
     badge,
+    material,
+    brand,
+    capacity,
     inventory,
     tags,
     isFeatured,
     isActive
   } = requestBody;
 
-  // Update fields with proper validation
   if (name !== undefined) product.name = name.toString().trim();
   if (description !== undefined) product.description = description.toString().trim();
   if (category !== undefined) product.category = category.toString();
+  if (material !== undefined) product.material = material?.toString().trim() || undefined;
+  if (brand !== undefined) product.brand = brand?.toString().trim() || undefined;
+  if (capacity !== undefined) product.capacity = capacity?.toString().trim() || undefined;
 
   if (roastLevel !== undefined && category === 'coffee-beans') {
     product.roastLevel = roastLevel.toString();
@@ -678,6 +710,49 @@ const updateProduct = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Quick stock update
+// @route   PATCH /api/admin/products/:id/stock
+// @access  Private/Admin
+const updateProductStock = asyncHandler(async (req, res) => {
+  console.log('📦 [STOCK_UPDATE_HIT]', { id: req.params.id, body: req.body });
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    console.error('❌ [STOCK_UPDATE_ERROR] Product not found:', req.params.id);
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  const { stock, lowStockAlert, adjustment, mode } = req.body;
+
+  if (mode === 'adjust' && adjustment !== undefined) {
+    // Relative adjust: +5 or -3
+    const delta = parseInt(adjustment);
+    if (isNaN(delta)) { res.status(400); throw new Error('Invalid adjustment value'); }
+    product.inventory.stock = Math.max(0, (product.inventory.stock || 0) + delta);
+  } else if (stock !== undefined) {
+    // Absolute set
+    const newStock = parseInt(stock);
+    if (isNaN(newStock) || newStock < 0) { res.status(400); throw new Error('Invalid stock value'); }
+    product.inventory.stock = newStock;
+  }
+
+  if (lowStockAlert !== undefined) {
+    const alert = parseInt(lowStockAlert);
+    if (!isNaN(alert) && alert >= 0) product.inventory.lowStockAlert = alert;
+  }
+
+  product.inStock = product.inventory.stock > 0;
+  const updated = await product.save();
+
+  console.log(`📦 Stock updated: ${product.name} → ${product.inventory.stock} units`);
+
+  res.json({
+    success: true,
+    message: `Stock updated to ${updated.inventory.stock} units`,
+    data: { stock: updated.inventory.stock, lowStockAlert: updated.inventory.lowStockAlert, inStock: updated.inStock }
+  });
+});
+
 // @desc    Delete product - FIXED VERSION
 // @route   DELETE /api/admin/products/:id
 // @access  Private/Admin
@@ -721,7 +796,7 @@ const getUsers = asyncHandler(async (req, res) => {
   }
 
   const users = await User.find(filter)
-    .select('-password')
+    .select('-password -verificationCode -verificationCodeExpires -resetPasswordToken -resetPasswordExpires -twoFactorCode +lockUntil +loginAttempts')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(parseInt(limit));
@@ -1035,240 +1110,148 @@ const updateSettings = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/analytics/sales
 // @access  Private/Admin
 const getSalesAnalytics = asyncHandler(async (req, res) => {
-  const { period = req.query.timeframe || '30d' } = req.query;
+  const period = req.query.period || req.query.timeframe || '30d';
 
   let startDate;
   switch (period) {
-    case '7d':
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
-      break;
-    case '3d':
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 3);
-      break;
-    case '90d':
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 90);
-      break;
-    case '1y':
-      startDate = new Date();
-      startDate.setFullYear(startDate.getFullYear() - 1);
-      break;
-    case '30d':
-    default:
+    case '7d': startDate = new Date(); startDate.setDate(startDate.getDate() - 7); break;
+    case '90d': startDate = new Date(); startDate.setDate(startDate.getDate() - 90); break;
+    case '1y': startDate = new Date(); startDate.setFullYear(startDate.getFullYear() - 1); break;
+    case 'all': startDate = new Date('2020-01-01'); break;
+    case '30d': default:
       startDate = new Date();
       startDate.setDate(startDate.getDate() - 30);
   }
 
-  // Aggregate metrics
-  const [
-    salesStats,
-    categoryStats,
-    totals,
-    topProducts,
-    topCustomers,
-    fulfillmentBreakdown
-  ] = await Promise.all([
-    // Daily sales data for line chart
-    Order.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] }
-        }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          total: { $sum: '$total' },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]),
+  console.log(`📊 [Analytics] Period: ${period}, startDate: ${startDate.toISOString()}`);
 
-    // Category distribution for pie chart
-    Order.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] }
-        }
-      },
-      { $unwind: '$items' },
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'items.product',
-          foreignField: '_id',
-          as: 'productInfo'
-        }
-      },
-      { $unwind: { path: '$productInfo', preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: '$productInfo.category',
-          value: { $sum: '$items.quantity' }
-        }
-      },
-      { $project: { name: { $ifNull: ['$_id', 'Uncategorized'] }, value: 1, _id: 0 } }
-    ]),
+  // Fetch ALL orders
+  const allOrders = await Order.find({})
+    .populate({ path: 'items.product', select: 'name category' })
+    .populate({ path: 'user', select: 'firstName lastName' })
+    .sort({ createdAt: -1 }) // Sort by newest first
+    .lean();
 
-    // Overview totals
-    Order.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate },
-          paymentStatus: { $in: ['paid', 'pending'] }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$total' },
-          totalOrders: { $sum: 1 },
-          productsSold: { $sum: { $size: '$items' } },
-          uniqueCustomers: { $addToSet: '$user' }
-        }
-      }
-    ]),
+  const lastOrderDate = allOrders.length > 0 ? allOrders[0].createdAt : null;
+  console.log(`📦 [Analytics] Total orders in DB: ${allOrders.length}, Last: ${lastOrderDate}`);
 
-    // Top Products
-    Order.aggregate([
-      { $match: { createdAt: { $gte: startDate }, paymentStatus: { $in: ['paid', 'pending'] } } },
-      { $unwind: '$items' },
-      {
-        $group: {
-          _id: '$items.product',
-          sales: { $sum: '$items.quantity' },
-          revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
-        }
-      },
-      { $sort: { sales: -1 } },
-      { $limit: 8 },
-      {
-        $lookup: {
-          from: 'products',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'productInfo'
-        }
-      },
-      { $unwind: { path: '$productInfo', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          name: { $ifNull: ['$productInfo.name', 'Deleted Product'] },
-          sales: 1,
-          revenue: 1
-        }
-      }
-    ]),
+  const filteredOrders = allOrders.filter(o => {
+    try {
+      const d = new Date(o.createdAt);
+      return !isNaN(d.getTime()) && d >= startDate;
+    } catch { return false; }
+  });
 
-    // Top Customers
-    Order.aggregate([
-      { $match: { createdAt: { $gte: startDate }, paymentStatus: { $in: ['paid', 'pending'] } } },
-      {
-        $group: {
-          _id: '$user',
-          orders: { $sum: 1 },
-          spent: { $sum: '$total' }
-        }
-      },
-      { $sort: { spent: -1 } },
-      { $limit: 8 },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'userInfo'
-        }
-      },
-      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          name: {
-            $cond: {
-              if: '$userInfo',
-              then: { $concat: ['$userInfo.firstName', ' ', '$userInfo.lastName'] },
-              else: 'Unknown User'
-            }
-          },
-          orders: 1,
-          spent: 1
-        }
-      }
-    ]),
+  console.log(`✅ [Analytics] Orders in period: ${filteredOrders.length}`);
 
-    // Fulfillment Breakdown
-    Order.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: '$fulfillmentStatus',
-          value: { $sum: 1 }
-        }
-      },
-      {
-        $project: {
-          name: {
-            $switch: {
-              branches: [
-                { case: { $eq: ["$_id", "unfulfilled"] }, then: "Confirmed" },
-                { case: { $eq: ["$_id", "packed"] }, then: "Processing" },
-                { case: { $eq: ["$_id", "shipped"] }, then: "Shipped" },
-                { case: { $eq: ["$_id", "delivered"] }, then: "Delivered" },
-                { case: { $eq: ["$_id", "returned"] }, then: "Returned" }
-              ],
-              default: "Other"
-            }
-          },
-          value: 1,
-          _id: 0
-        }
-      }
-    ])
-  ]);
-
-  const overview = totals[0] || { totalRevenue: 0, totalOrders: 0, productsSold: 0, uniqueCustomers: [] };
-  const activeCustomers = Array.isArray(overview.uniqueCustomers) ? overview.uniqueCustomers.length : 0;
-  const averageOrderValue = overview.totalOrders > 0 ? overview.totalRevenue / overview.totalOrders : 0;
-
-  // Fill in missing dates with 0 revenue for consistent chart
-  const filledSalesStats = [];
-  const currentDate = new Date(startDate);
-  const now = new Date();
-
-  while (currentDate <= now) {
-    const dateStr = currentDate.toISOString().split('T')[0];
-    const existingStat = Array.isArray(salesStats) ? salesStats.find(s => s._id === dateStr) : null;
-
-    filledSalesStats.push({
-      _id: dateStr,
-      total: existingStat ? existingStat.total : 0,
-      count: existingStat ? existingStat.count : 0
-    });
-
-    currentDate.setDate(currentDate.getDate() + 1);
+  // 1. Daily Sales Timeline
+  const dailyMap = {};
+  for (const o of filteredOrders) {
+    try {
+      const key = new Date(o.createdAt).toISOString().split('T')[0];
+      if (!dailyMap[key]) dailyMap[key] = { _id: key, total: 0, orders: 0 };
+      dailyMap[key].total += Number(o.total) || 0;
+      dailyMap[key].orders += 1;
+    } catch { }
   }
+  const salesData = [];
+  const cur = new Date(startDate);
+  const now = new Date();
+  while (cur <= now) {
+    const key = cur.toISOString().split('T')[0];
+    salesData.push(dailyMap[key] || { _id: key, total: 0, orders: 0 });
+    cur.setDate(cur.getDate() + 1);
+  }
+  console.log(`📈 [Analytics] salesData entries: ${salesData.length}, non-zero days: ${salesData.filter(d => d.total > 0 || d.orders > 0).length}`);
+
+  // 2. Category Distribution
+  const catMap = {};
+  for (const o of filteredOrders) {
+    for (const item of (o.items || [])) {
+      const cat = item.product?.category || 'Uncategorized';
+      catMap[cat] = (catMap[cat] || 0) + (Number(item.quantity) || 1);
+    }
+  }
+  const totalItemsCount = Object.values(catMap).reduce((a, b) => a + b, 0) || 1;
+  const categoryDistribution = Object.entries(catMap)
+    .map(([name, count]) => ({ name, value: Math.round((count / totalItemsCount) * 100) }))
+    .sort((a, b) => b.value - a.value);
+
+  // 3. Overview Totals
+  const totalRevenue = filteredOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const totalOrders = filteredOrders.length;
+  const productsSold = filteredOrders.reduce((s, o) => s + (o.items || []).reduce((q, i) => q + (Number(i.quantity) || 0), 0), 0);
+  const uniqueIds = new Set(filteredOrders.map(o => (o.user?._id || o.user)?.toString()).filter(Boolean));
+  const activeCustomers = uniqueIds.size;
+  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  console.log(`💰 [Analytics] Revenue: ${totalRevenue}, Orders: ${totalOrders}, Customers: ${activeCustomers}`);
+
+  // 4. Top Products
+  const productMap = {};
+  for (const o of filteredOrders) {
+    for (const item of (o.items || [])) {
+      const id = (item.product?._id || 'unknown').toString();
+      const name = item.product?.name || item.name || 'Unknown';
+      if (!productMap[id]) productMap[id] = { name, sales: 0, revenue: 0 };
+      productMap[id].sales += Number(item.quantity) || 0;
+      productMap[id].revenue += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+    }
+  }
+  const topProducts = Object.values(productMap).sort((a, b) => b.sales - a.sales).slice(0, 8);
+
+  // 5. Top Customers
+  const customerMap = {};
+  for (const o of filteredOrders) {
+    const id = ((o.user?._id || o.user) || 'unknown').toString();
+    const name = o.user ? ((o.user.firstName || '') + ' ' + (o.user.lastName || '')).trim() || 'Customer' : 'Unknown';
+    if (!customerMap[id]) customerMap[id] = { name, orders: 0, spent: 0 };
+    customerMap[id].orders += 1;
+    customerMap[id].spent += Number(o.total) || 0;
+  }
+  const topCustomers = Object.values(customerMap).sort((a, b) => b.spent - a.spent).slice(0, 8);
+
+  // 6. Fulfillment Breakdown
+  const fulfillmentMap = {};
+  const labelMap = { unfulfilled: 'Confirmed', packed: 'Processing', shipped: 'Shipped', delivered: 'Delivered', returned: 'Returned' };
+  for (const o of allOrders) {
+    const label = labelMap[o.fulfillmentStatus] || 'Confirmed';
+    fulfillmentMap[label] = (fulfillmentMap[label] || 0) + 1;
+  }
+  const fulfillmentTotal = Object.values(fulfillmentMap).reduce((a, b) => a + b, 0) || 1;
+  const fulfillmentBreakdown = Object.entries(fulfillmentMap)
+    .map(([name, count]) => ({ name, value: Math.round((count / fulfillmentTotal) * 100) }));
+
+  // 7. Trend comparison
+  const periodMs = now - startDate;
+  const prevStart = new Date(startDate.getTime() - periodMs);
+  const prevOrders = allOrders.filter(o => {
+    try { const d = new Date(o.createdAt); return !isNaN(d.getTime()) && d >= prevStart && d < startDate; }
+    catch { return false; }
+  });
+  const prevRevenue = prevOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const revenueTrend = prevRevenue > 0
+    ? Number(((totalRevenue - prevRevenue) / prevRevenue * 100).toFixed(1))
+    : (totalRevenue > 0 ? 100 : 0);
+  const ordersTrend = prevOrders.length > 0
+    ? Number(((totalOrders - prevOrders.length) / prevOrders.length * 100).toFixed(1))
+    : 0;
 
   res.json({
     success: true,
     data: {
-      salesData: filledSalesStats,
-      categoryDistribution: categoryStats || [],
-      fulfillmentBreakdown: fulfillmentBreakdown || [],
-      topProducts: topProducts || [],
-      topCustomers: topCustomers || [],
-      totalRevenue: overview.totalRevenue || 0,
-      totalOrders: overview.totalOrders || 0,
-      productsSold: overview.productsSold || 0,
-      activeCustomers: activeCustomers,
-      averageOrderValue: averageOrderValue,
-      conversionRate: overview.totalOrders > 0 ? (overview.totalOrders / (overview.totalOrders * 1.2 + 5) * 100).toFixed(1) : 0,
+      salesData, categoryDistribution, fulfillmentBreakdown,
+      topProducts, topCustomers,
+      totalRevenue, totalOrders, productsSold,
+      activeCustomers, averageOrderValue,
+      revenueTrend, ordersTrend,
+      customersTrend: 0, productsTrend: 0,
+      conversionRate: totalOrders > 0
+        ? Number((totalOrders / (totalOrders * 1.2 + 5) * 100).toFixed(1))
+        : 0,
       retentionRate: 15.2,
-      period
+      period,
+      lastOrderDate, // For showing hints when period is empty
     }
   });
 });
@@ -1466,6 +1449,422 @@ const getAdminOverview = asyncHandler(async (req, res) => {
   });
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXTENDED REPORTS — Abandoned Carts, Refunds, Customers, Low Stock, Coupons
+// ─────────────────────────────────────────────────────────────────────────────
+
+// @desc    Get abandoned cart report
+// @route   GET /api/admin/reports/abandoned-carts
+// @access  Private/Admin
+const getAbandonedCartsReport = asyncHandler(async (req, res) => {
+  const AbandonedCheckout = (await import('../models/AbandonedCheckout.js').catch(() => null))?.default;
+
+  // If no AbandonedCheckout model exists, derive from orders with pending payment
+  const pendingOrders = await Order.find({ paymentStatus: 'pending', orderStatus: 'open' })
+    .populate({ path: 'user', select: 'firstName lastName email' })
+    .lean();
+
+  const totalOrders = await Order.countDocuments({});
+  const totalPaid = await Order.countDocuments({ paymentStatus: 'paid' });
+  const abandonedCount = pendingOrders.length;
+  const abandonedRevenue = pendingOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const cartAbandonmentRate = totalOrders > 0 ? Number(((abandonedCount / totalOrders) * 100).toFixed(1)) : 0;
+
+  // Group by day
+  const dailyMap = {};
+  for (const o of pendingOrders) {
+    try {
+      const key = new Date(o.createdAt).toISOString().split('T')[0];
+      if (!dailyMap[key]) dailyMap[key] = { date: key, count: 0, value: 0 };
+      dailyMap[key].count += 1;
+      dailyMap[key].value += Number(o.total) || 0;
+    } catch { }
+  }
+  const dailyAbandoned = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Recent 10 abandoned
+  const recentAbandoned = pendingOrders.slice(0, 10).map(o => ({
+    orderId: o._id,
+    orderNumber: o.orderNumber,
+    customerName: o.user ? `${o.user.firstName} ${o.user.lastName}` : 'Guest',
+    email: o.user?.email || o.shippingAddress?.email || '—',
+    total: Number(o.total) || 0,
+    items: (o.items || []).length,
+    createdAt: o.createdAt
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      abandonedCount,
+      abandonedRevenue,
+      cartAbandonmentRate,
+      checkoutCompletionRate: totalOrders > 0
+        ? Number(((totalPaid / totalOrders) * 100).toFixed(1))
+        : 0,
+      dailyAbandoned,
+      recentAbandoned
+    }
+  });
+});
+
+// @desc    Get refunds & failed payments report
+// @route   GET /api/admin/reports/payments
+// @access  Private/Admin
+const getPaymentsReport = asyncHandler(async (req, res) => {
+  const allOrders = await Order.find()
+    .populate({ path: 'user', select: 'firstName lastName email' })
+    .lean();
+
+  const paid = allOrders.filter(o => o.paymentStatus === 'paid');
+  const pending = allOrders.filter(o => o.paymentStatus === 'pending');
+  const failed = allOrders.filter(o => o.paymentStatus === 'failed');
+  const refunded = allOrders.filter(o => o.paymentStatus === 'refunded');
+
+  const totalRevenue = paid.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const refundedAmount = refunded.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+  // Payment method breakdown
+  const methodMap = {};
+  for (const o of paid) {
+    const method = o.paymentMethod || 'unknown';
+    if (!methodMap[method]) methodMap[method] = { name: method, count: 0, revenue: 0 };
+    methodMap[method].count += 1;
+    methodMap[method].revenue += Number(o.total) || 0;
+  }
+  const paymentMethods = Object.values(methodMap).sort((a, b) => b.revenue - a.revenue);
+
+  // Monthly trend
+  const monthlyMap = {};
+  for (const o of allOrders) {
+    try {
+      const d = new Date(o.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthlyMap[key]) monthlyMap[key] = { month: key, paid: 0, failed: 0, refunded: 0, pending: 0 };
+      monthlyMap[key][o.paymentStatus] = (monthlyMap[key][o.paymentStatus] || 0) + 1;
+    } catch { }
+  }
+  const monthlyTrend = Object.values(monthlyMap).sort((a, b) => a.month.localeCompare(b.month));
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        totalOrders: allOrders.length,
+        paid: paid.length,
+        pending: pending.length,
+        failed: failed.length,
+        refunded: refunded.length,
+        totalRevenue,
+        refundedAmount,
+        failureRate: allOrders.length > 0
+          ? Number(((failed.length / allOrders.length) * 100).toFixed(1))
+          : 0,
+        refundRate: paid.length > 0
+          ? Number(((refunded.length / paid.length) * 100).toFixed(1))
+          : 0
+      },
+      paymentMethods,
+      monthlyTrend,
+      recentRefunds: refunded.slice(0, 10).map(o => ({
+        orderNumber: o.orderNumber,
+        customer: o.user ? `${o.user.firstName} ${o.user.lastName}` : '—',
+        amount: Number(o.total) || 0,
+        method: o.paymentMethod,
+        date: o.updatedAt
+      })),
+      recentFailed: failed.slice(0, 10).map(o => ({
+        orderNumber: o.orderNumber,
+        customer: o.user ? `${o.user.firstName} ${o.user.lastName}` : '—',
+        amount: Number(o.total) || 0,
+        method: o.paymentMethod,
+        date: o.createdAt
+      }))
+    }
+  });
+});
+
+// @desc    Get new vs returning customers report
+// @route   GET /api/admin/reports/customers
+// @access  Private/Admin
+const getCustomersReport = asyncHandler(async (req, res) => {
+  const allOrders = await Order.find({ paymentStatus: { $in: ['paid', 'pending'] } })
+    .populate({ path: 'user', select: 'firstName lastName email createdAt' })
+    .lean();
+
+  // Group orders by customer
+  const customerOrdersMap = {};
+  for (const o of allOrders) {
+    const id = (o.user?._id || o.user || 'guest').toString();
+    if (!customerOrdersMap[id]) {
+      customerOrdersMap[id] = {
+        id,
+        name: o.user ? `${o.user.firstName || ''} ${o.user.lastName || ''}`.trim() : 'Guest',
+        email: o.user?.email || '—',
+        joinedAt: o.user?.createdAt,
+        orders: [],
+        totalSpent: 0
+      };
+    }
+    customerOrdersMap[id].orders.push(o);
+    customerOrdersMap[id].totalSpent += Number(o.total) || 0;
+  }
+
+  const customers = Object.values(customerOrdersMap);
+  const newCustomers = customers.filter(c => c.orders.length === 1);
+  const returningCustomers = customers.filter(c => c.orders.length > 1);
+  const totalCustomers = customers.length;
+
+  // Average orders per customer
+  const avgOrdersPerCustomer = totalCustomers > 0
+    ? Number((allOrders.length / totalCustomers).toFixed(1))
+    : 0;
+
+  // CLV (Customer Lifetime Value)
+  const totalRevenue = allOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const clv = totalCustomers > 0 ? Number((totalRevenue / totalCustomers).toFixed(0)) : 0;
+  const returningClv = returningCustomers.length > 0
+    ? Number((returningCustomers.reduce((s, c) => s + c.totalSpent, 0) / returningCustomers.length).toFixed(0))
+    : 0;
+
+  // Monthly new customers
+  const allUsers = await User.find({ userType: { $ne: 'admin' } })
+    .select('firstName lastName email createdAt')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const monthlyNew = {};
+  for (const u of allUsers) {
+    try {
+      const d = new Date(u.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthlyNew[key] = (monthlyNew[key] || 0) + 1;
+    } catch { }
+  }
+  const newCustomerTrend = Object.entries(monthlyNew)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([month, count]) => ({ month, count }));
+
+  // Top returning customers
+  const topReturning = returningCustomers
+    .sort((a, b) => b.orders.length - a.orders.length)
+    .slice(0, 8)
+    .map(c => ({ name: c.name, email: c.email, orders: c.orders.length, spent: c.totalSpent }));
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        total: totalCustomers,
+        new: newCustomers.length,
+        returning: returningCustomers.length,
+        newRate: totalCustomers > 0 ? Number(((newCustomers.length / totalCustomers) * 100).toFixed(1)) : 0,
+        returningRate: totalCustomers > 0 ? Number(((returningCustomers.length / totalCustomers) * 100).toFixed(1)) : 0,
+        avgOrdersPerCustomer,
+        clv,
+        returningClv
+      },
+      newCustomerTrend,
+      topReturning,
+      totalRegistered: allUsers.length
+    }
+  });
+});
+
+// @desc    Get low stock & inventory report
+// @route   GET /api/admin/reports/inventory
+// @access  Private/Admin
+const getInventoryReport = asyncHandler(async (req, res) => {
+  const products = await Product.find().lean();
+
+  const LOW_STOCK_THRESHOLD = 10;
+
+  const inStock = products.filter(p => (p.stock || 0) > LOW_STOCK_THRESHOLD);
+  const lowStock = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= LOW_STOCK_THRESHOLD);
+  const outOfStock = products.filter(p => !p.stock || p.stock === 0);
+
+  const totalInventoryValue = products.reduce((s, p) => {
+    const price = p.price || (p.sizes?.[0]?.price) || 0;
+    return s + (Number(price) * Number(p.stock || 0));
+  }, 0);
+
+  const stockList = products
+    .sort((a, b) => (a.stock || 0) - (b.stock || 0))
+    .map(p => ({
+      id: p._id,
+      name: p.name,
+      category: p.category,
+      stock: p.stock || 0,
+      price: p.price || p.sizes?.[0]?.price || 0,
+      status: !p.stock || p.stock === 0 ? 'out'
+        : p.stock <= LOW_STOCK_THRESHOLD ? 'low'
+          : 'ok'
+    }));
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        total: products.length,
+        inStock: inStock.length,
+        lowStock: lowStock.length,
+        outOfStock: outOfStock.length,
+        totalInventoryValue
+      },
+      stockList,
+      lowStockItems: stockList.filter(p => p.status === 'low'),
+      outOfStockItems: stockList.filter(p => p.status === 'out')
+    }
+  });
+});
+
+// @desc    Get coupon usage report
+// @route   GET /api/admin/reports/coupons
+// @access  Private/Admin
+const getCouponsReport = asyncHandler(async (req, res) => {
+  const ordersWithCoupons = await Order.find({
+    couponCode: { $exists: true, $ne: null, $ne: '' }
+  })
+    .populate({ path: 'user', select: 'firstName lastName email' })
+    .lean();
+
+  // Group by coupon code
+  const couponMap = {};
+  for (const o of ordersWithCoupons) {
+    const code = (o.couponCode || '').toUpperCase();
+    if (!code) continue;
+    if (!couponMap[code]) couponMap[code] = { code, uses: 0, totalDiscount: 0, totalRevenue: 0, orders: [] };
+    couponMap[code].uses += 1;
+    couponMap[code].totalDiscount += Number(o.discountAmount) || 0;
+    couponMap[code].totalRevenue += Number(o.total) || 0;
+    couponMap[code].orders.push({
+      orderNumber: o.orderNumber,
+      customer: o.user ? `${o.user.firstName} ${o.user.lastName}` : '—',
+      discount: Number(o.discountAmount) || 0,
+      total: Number(o.total) || 0,
+      date: o.createdAt
+    });
+  }
+
+  const coupons = Object.values(couponMap).sort((a, b) => b.uses - a.uses);
+  const totalDiscountGiven = coupons.reduce((s, c) => s + c.totalDiscount, 0);
+  const totalCouponRevenue = coupons.reduce((s, c) => s + c.totalRevenue, 0);
+
+  res.json({
+    success: true,
+    data: {
+      summary: {
+        totalCouponsUsed: ordersWithCoupons.length,
+        uniqueCodes: coupons.length,
+        totalDiscountGiven,
+        totalCouponRevenue
+      },
+      coupons: coupons.map(c => ({ ...c, orders: c.orders.slice(0, 5) }))
+    }
+  });
+});
+
+// @desc    Export orders as CSV
+// @route   GET /api/admin/export/orders
+// @access  Private/Admin
+const exportOrdersCSV = asyncHandler(async (req, res) => {
+  const { from, to, status } = req.query;
+  const filter = {};
+  if (status) filter.paymentStatus = status;
+  if (from || to) {
+    filter.createdAt = {};
+    if (from) filter.createdAt.$gte = new Date(from);
+    if (to) filter.createdAt.$lte = new Date(to);
+  }
+
+  const orders = await Order.find(filter)
+    .populate({ path: 'user', select: 'firstName lastName email phone' })
+    .lean();
+
+  const escCSV = (val) => {
+    const str = String(val ?? '');
+    return str.includes(',') || str.includes('"') || str.includes('\n')
+      ? `"${str.replace(/"/g, '""')}"`
+      : str;
+  };
+
+  const headers = ['Order #', 'Date', 'Customer', 'Email', 'Phone', 'Items', 'Subtotal', 'Shipping', 'Discount', 'Total', 'Payment Method', 'Payment Status', 'Fulfillment Status', 'Coupon', 'Town', 'County'];
+  const rows = orders.map(o => [
+    o.orderNumber || o._id,
+    o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-KE') : '',
+    o.user ? `${o.user.firstName} ${o.user.lastName}` : o.shippingAddress?.firstName + ' ' + o.shippingAddress?.lastName,
+    o.user?.email || o.shippingAddress?.email || '',
+    o.user?.phone || o.shippingAddress?.phone || '',
+    (o.items || []).length,
+    o.subtotal || 0,
+    o.shippingCost || 0,
+    o.discountAmount || 0,
+    o.total || 0,
+    o.paymentMethod || '',
+    o.paymentStatus || '',
+    o.fulfillmentStatus || '',
+    o.couponCode || '',
+    o.shippingAddress?.town || '',
+    o.shippingAddress?.county || ''
+  ].map(escCSV));
+
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="rerendet-orders-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send(csv);
+});
+
+// @desc    Export customers as CSV
+// @route   GET /api/admin/export/customers
+// @access  Private/Admin
+const exportCustomersCSV = asyncHandler(async (req, res) => {
+  const users = await User.find({ userType: { $ne: 'admin' } })
+    .select('firstName lastName email phone createdAt lastLoginAt isVerified')
+    .lean();
+
+  const orders = await Order.find({ paymentStatus: { $in: ['paid', 'pending'] } })
+    .select('user total')
+    .lean();
+
+  const spendMap = {};
+  const orderCountMap = {};
+  for (const o of orders) {
+    const id = (o.user || '').toString();
+    spendMap[id] = (spendMap[id] || 0) + (Number(o.total) || 0);
+    orderCountMap[id] = (orderCountMap[id] || 0) + 1;
+  }
+
+  const escCSV = (val) => {
+    const str = String(val ?? '');
+    return str.includes(',') || str.includes('"') || str.includes('\n')
+      ? `"${str.replace(/"/g, '""')}"`
+      : str;
+  };
+
+  const headers = ['Name', 'Email', 'Phone', 'Registered', 'Last Login', 'Verified', 'Total Orders', 'Total Spent (KES)'];
+  const rows = users.map(u => {
+    const id = u._id.toString();
+    return [
+      `${u.firstName} ${u.lastName}`,
+      u.email,
+      u.phone || '',
+      u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-KE') : '',
+      u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-KE') : '',
+      u.isVerified ? 'Yes' : 'No',
+      orderCountMap[id] || 0,
+      spendMap[id] || 0
+    ].map(escCSV);
+  });
+
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="rerendet-customers-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send(csv);
+});
+
 export {
   getDashboardStats,
   getOrders,
@@ -1489,5 +1888,13 @@ export {
   deleteUser,
   testEmailConfig,
   checkNewOrders,
-  getAdminOverview
+  getAdminOverview,
+  getAbandonedCartsReport,
+  getPaymentsReport,
+  getCustomersReport,
+  getInventoryReport,
+  getCouponsReport,
+  exportOrdersCSV,
+  exportCustomersCSV,
+  updateProductStock
 };

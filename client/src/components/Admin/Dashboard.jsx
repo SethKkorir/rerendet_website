@@ -10,7 +10,7 @@ import {
   FaShippingFast, FaExclamationTriangle, FaFire,
   FaClock, FaBell, FaClipboardList, FaThList,
   FaChartBar, FaTruck, FaCreditCard, FaMobileAlt,
-  FaLeaf, FaTriangleExclamation
+  FaLeaf
 } from 'react-icons/fa';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -48,7 +48,7 @@ const StatusPill = ({ status }) => {
   );
 };
 
-const PIE_COLORS = ['#D4AF37', '#6F4E37', '#A67B5B', '#E3C099'];
+const PIE_COLORS = ['#D4AF37', '#6F4E37', '#A67B5B', '#E3C099', '#8b5cf6', '#3b82f6'];
 
 // ─── Custom Tooltip ──────────────────────────────────────────────
 const ChartTooltip = ({ active, payload, label }) => {
@@ -68,15 +68,16 @@ const ChartTooltip = ({ active, payload, label }) => {
 
 // ─── Main ────────────────────────────────────────────────────────
 const Dashboard = () => {
-  const { showAlert, fetchDashboardStats, fetchSalesAnalytics, logout, user } = useContext(AppContext);
+  const { showAlert, fetchDashboardStats, fetchSalesAnalytics, logout, user, fetchAbandonedCheckouts, isSuperAdmin } = useContext(AppContext);
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
+  const [abandonedData, setAbandonedData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [analyticsData, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [timeframe, setTimeframe] = useState('30d');
+  const [timeframe, setTimeframe] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
 
   // Theme colors for Recharts
@@ -102,26 +103,23 @@ const Dashboard = () => {
   const fetchAll = async (silent = false) => {
     try {
       if (!silent) setLoading(true); else setRefreshing(true);
-      const [sRes, aRes] = await Promise.all([
+      const [sRes, aRes, abRes] = await Promise.all([
         fetchDashboardStats(timeframe),
         fetchSalesAnalytics(timeframe),
+        fetchAbandonedCheckouts()
       ]);
       if (sRes.success) setStats(sRes.data);
+      if (abRes.success) setAbandonedData(abRes.data);
       if (aRes.success) {
         setAnalytics(aRes.data);
         const raw = aRes.data.salesData || [];
         const formatted = raw.map(d => ({
           name: d._id ? new Date(d._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Unknown',
           revenue: Number(d.total || 0),
-          orders: Number(d.count || 0),
+          orders: Number(d.orders || 0),
         }));
 
-        const hasData = formatted.length > 0 && !formatted.every(d => d.revenue === 0);
-        setChartData(
-          !hasData
-            ? [1200, 2100, 1800, 2400, 1900, 2800, 3200].map((v, i) => ({ name: `Day ${i + 1}`, revenue: v, orders: Math.floor(v / 400), isMock: true }))
-            : formatted
-        );
+        setChartData(formatted);
       }
     } catch { showAlert('Failed to load dashboard', 'error'); }
     finally { setLoading(false); setRefreshing(false); }
@@ -135,7 +133,7 @@ const Dashboard = () => {
       id: 'revenue',
       label: 'Total Revenue',
       value: fmtKES(stats?.overview?.totalRevenue),
-      change: 12.4,
+      change: 0,
       sub: `${fmtKES((stats?.overview?.totalRevenue || 0) / 30)} / day avg`,
       icon: <FaDollarSign />, accent: '#D4AF37',
     },
@@ -143,7 +141,7 @@ const Dashboard = () => {
       id: 'orders',
       label: 'Total Orders',
       value: (stats?.overview?.totalOrders || 0).toLocaleString(),
-      change: 8.1,
+      change: 0,
       sub: `${stats?.overview?.pendingOrders || 0} awaiting fulfillment`,
       icon: <FaShoppingBag />, accent: '#3b82f6',
     },
@@ -151,7 +149,7 @@ const Dashboard = () => {
       id: 'customers',
       label: 'Customers',
       value: (stats?.overview?.totalUsers || 0).toLocaleString(),
-      change: 5.3,
+      change: 0,
       sub: `${stats?.overview?.newUsersThisMonth || 0} new this month`,
       icon: <FaUsers />, accent: '#8b5cf6',
     },
@@ -163,7 +161,15 @@ const Dashboard = () => {
       sub: `${stats?.lowStockProducts?.length || 0} low stock alerts`,
       icon: <FaBox />, accent: '#10b981',
     },
-  ], [stats]);
+    {
+      id: 'abandoned',
+      label: 'Lost Sales',
+      value: (abandonedData?.length || 0).toLocaleString(),
+      change: 0,
+      sub: `Failed payment attempts`,
+      icon: <FaExclamationTriangle />, accent: '#ef4444',
+    }
+  ], [stats, abandonedData]);
 
   // Quick actions
   const quickActions = [
@@ -200,7 +206,7 @@ const Dashboard = () => {
         <div className="db-header-right">
           {/* Timeframe pills */}
           <div className="db-tf-pills">
-            {[['7d', '7D'], ['30d', '30D'], ['90d', '90D']].map(([val, lbl]) => (
+            {[['7d', '7D'], ['30d', '30D'], ['90d', '90D'], ['1y', '1Y'], ['all', 'ALL']].map(([val, lbl]) => (
               <button
                 key={val}
                 className={`db-tf-pill ${timeframe === val ? 'active' : ''}`}
@@ -215,8 +221,8 @@ const Dashboard = () => {
             {[
               { id: 'overview', label: 'Overview', icon: <FaChartLine /> },
               { id: 'reports', label: 'Reports', icon: <FaChartBar /> },
-              { id: 'logs', label: 'Logs', icon: <FaThList /> },
-            ].map(t => (
+              isSuperAdmin && { id: 'logs', label: 'Logs', icon: <FaThList /> },
+            ].filter(Boolean).map(t => (
               <button key={t.id} className={`db-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
                 {t.icon} {t.label}
               </button>
@@ -304,9 +310,6 @@ const Dashboard = () => {
                     <Area type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={2} fill="url(#gOrd)" animationDuration={1500} />
                   </AreaChart>
                 </ResponsiveContainer>
-                {chartData[0]?.isMock && (
-                  <div className="db-mock-notice">Sample data — connect your sales API to see live figures</div>
-                )}
               </motion.div>
 
               {/* Donut + Quick Actions */}
@@ -324,25 +327,22 @@ const Dashboard = () => {
                   <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie
-                        data={[
-                          { name: 'Coffee', value: 45 },
-                          { name: 'Tea', value: 25 },
-                          { name: 'Gear', value: 20 },
-                          { name: 'Other', value: 10 },
-                        ]}
+                        data={analyticsData?.categoryDistribution || []}
                         cx="50%" cy="50%" innerRadius={52} outerRadius={72}
                         paddingAngle={3} dataKey="value"
                       >
-                        {PIE_COLORS.map((c, i) => <Cell key={i} fill={c} />)}
+                        {(analyticsData?.categoryDistribution || []).map((entry, i) => (
+                          <Cell key={`cell-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        ))}
                       </Pie>
                       <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '10px', fontSize: '12px' }} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="db-donut-legend">
-                    {[['Coffee', '#D4AF37'], ['Tea', '#6F4E37'], ['Gear', '#A67B5B'], ['Other', '#E3C099']].map(([name, c]) => (
-                      <div key={name} className="db-donut-row">
-                        <span className="db-donut-dot" style={{ background: c }} />
-                        <span>{name}</span>
+                    {(analyticsData?.categoryDistribution || []).map((cat, i) => (
+                      <div key={cat.name} className="db-donut-row">
+                        <span className="db-donut-dot" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span>{cat.name}</span>
                       </div>
                     ))}
                   </div>
@@ -493,6 +493,41 @@ const Dashboard = () => {
                     </div>
                   ))}
                 </motion.div>
+
+                {/* Abandoned Checkouts Alerts */}
+                <motion.div
+                  className="db-panel"
+                  style={{ marginTop: '1.5rem', borderLeft: '4px solid #ef4444' }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                >
+                  <div className="db-panel-head">
+                    <div>
+                      <h3 style={{ color: '#ef4444' }}>Payment Failures</h3>
+                      <span className="db-panel-sub">Recent drop-offs during checkout</span>
+                    </div>
+                  </div>
+                  {abandonedData?.length > 0 ? (
+                    <div className="db-stock-list">
+                      {abandonedData.slice(0, 3).map((ab, i) => (
+                        <div key={ab._id} className="db-stock-row" style={{ padding: '0.75rem 0' }}>
+                          <div className="db-stock-info">
+                            <span className="db-stock-name" style={{ fontWeight: 600 }}>{ab.user?.firstName} {ab.user?.lastName}</span>
+                            <span className="db-stock-count" style={{ fontSize: '0.7rem', color: '#ef4444' }}>
+                              KES {ab.totalAmount?.toLocaleString()} · {ab.failureReason?.split('.')[0]}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {new Date(ab.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>No recent failures</p>
+                  )}
+                </motion.div>
               </div>
             </div>
           </motion.div>
@@ -505,10 +540,10 @@ const Dashboard = () => {
           <motion.div key="reports" className="db-reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div className="db-kpi-grid">
               {[
-                { label: 'Avg. Order Value', value: fmtKES(analyticsData?.averageOrderValue), icon: <FaDollarSign />, accent: '#D4AF37', trend: '+5.2%' },
-                { label: 'Conversion Rate', value: `${analyticsData?.conversionRate || 3.5}%`, icon: <FaChartLine />, accent: '#3b82f6', trend: '+0.8%' },
-                { label: 'Retention Rate', value: `${analyticsData?.retentionRate || 15.2}%`, icon: <FaUsers />, accent: '#8b5cf6', trend: '+2.1%' },
-                { label: 'Products Sold', value: (analyticsData?.productsSold || 0).toLocaleString(), icon: <FaBox />, accent: '#10b981', trend: '+12%' },
+                { label: 'Avg. Order Value', value: fmtKES(analyticsData?.averageOrderValue), icon: <FaDollarSign />, accent: '#D4AF37', trend: '0%' },
+                { label: 'Conversion Rate', value: `${analyticsData?.conversionRate || 0}%`, icon: <FaChartLine />, accent: '#3b82f6', trend: '0%' },
+                { label: 'Retention Rate', value: `${analyticsData?.retentionRate || 0}%`, icon: <FaUsers />, accent: '#8b5cf6', trend: '0%' },
+                { label: 'Products Sold', value: (analyticsData?.productsSold || 0).toLocaleString(), icon: <FaBox />, accent: '#10b981', trend: '0%' },
               ].map((k, i) => (
                 <motion.div key={k.label} className="db-kpi-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }} style={{ '--kpi-accent': k.accent }}>
                   <div className="db-kpi-top">
@@ -559,9 +594,9 @@ const Dashboard = () => {
         )}
 
         {/* ══════════════════════════════════
-            LOGS TAB
+            LOGS TAB (SUPER ADMIN ONLY)
          ══════════════════════════════════ */}
-        {activeTab === 'logs' && (
+        {activeTab === 'logs' && isSuperAdmin && (
           <motion.div key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <ActivityLogs />
           </motion.div>

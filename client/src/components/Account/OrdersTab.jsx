@@ -1,14 +1,17 @@
-import React from 'react';
-import { FaBox, FaShoppingBag, FaCheckCircle, FaClock, FaTruck, FaBoxOpen } from 'react-icons/fa';
+import React, { useContext } from 'react';
+import { FaBox, FaShoppingBag, FaCheckCircle, FaClock, FaTruck, FaBoxOpen, FaEye, FaRedo } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { AppContext } from '../../context/AppContext';
 
 const OrdersTab = ({ orders, loading }) => {
     const navigate = useNavigate();
+    const { addToCart } = useContext(AppContext);
 
     // Helper to determine active step based on fulfillment and order status
     const getStepStatus = (order, step) => {
         const { fulfillmentStatus, paymentStatus, orderStatus } = order;
-        const currentStatus = order.status; // from virtual
+        // virtual status might be on order.status if populated correctly or derived
+        const currentStatus = order.status;
 
         if (orderStatus === 'cancelled') return 'cancelled';
 
@@ -69,37 +72,56 @@ const OrdersTab = ({ orders, loading }) => {
 
                             {/* Granular Tracking Stepper */}
                             <div className="order-tracking-preview">
-                                {/* Step 1: Confirmed */}
                                 <div className={`track-step ${getStepStatus(order, 'confirmed')}`}>
                                     <div className="step-dot"><FaCheckCircle /></div>
                                     <span className="step-label">Confirmed</span>
                                 </div>
                                 <div className={`track-line ${getStepStatus(order, 'processing') === 'completed' || getStepStatus(order, 'processing') === 'active' ? 'active' : ''}`}></div>
 
-                                {/* Step 2: Processing */}
                                 <div className={`track-step ${getStepStatus(order, 'processing')}`}>
                                     <div className="step-dot"><FaBoxOpen /></div>
                                     <span className="step-label">Processing</span>
                                 </div>
                                 <div className={`track-line ${getStepStatus(order, 'shipped') === 'completed' || getStepStatus(order, 'shipped') === 'active' ? 'active' : ''}`}></div>
 
-                                {/* Step 3: Shipped */}
                                 <div className={`track-step ${getStepStatus(order, 'shipped')}`}>
                                     <div className="step-dot"><FaTruck /></div>
                                     <span className="step-label">Shipped</span>
                                 </div>
                                 <div className={`track-line ${getStepStatus(order, 'delivered') === 'completed' ? 'active' : ''}`}></div>
 
-                                {/* Step 4: Delivered */}
                                 <div className={`track-step ${getStepStatus(order, 'delivered')}`}>
                                     <div className="step-dot"><FaBox /></div>
                                     <span className="step-label">Delivered</span>
                                 </div>
                             </div>
 
-                            <div className="order-actions">
-                                <button className="btn-outline btn-sm" onClick={() => navigate(`/order-tracking/${order._id}`)}>
-                                    View Details & Tracking
+                            <div className="order-items-preview">
+                                {order.items?.slice(0, 3).map((item, idx) => (
+                                    <div key={idx} className="item-mini-tag">
+                                        <span className="item-name">{item.product?.name || item.name}</span>
+                                        <span className="item-qty">x{item.quantity}</span>
+                                    </div>
+                                ))}
+                                {order.items?.length > 3 && <span className="more-items">+{order.items.length - 3} more</span>}
+                            </div>
+
+                            <div className="order-actions-modern">
+                                <button className="btn-order-outline" onClick={() => navigate(`/order-tracking/${order._id}`)}>
+                                    <FaEye /> View Details
+                                </button>
+                                <button
+                                    className="btn-order-primary"
+                                    onClick={() => {
+                                        order.items.forEach(item => {
+                                            if (item.product) {
+                                                addToCart(item.product, item.quantity, item.size);
+                                            }
+                                        });
+                                        navigate('/cart');
+                                    }}
+                                >
+                                    <FaRedo /> Buy Again
                                 </button>
                             </div>
                         </div>

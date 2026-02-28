@@ -15,7 +15,9 @@ function CartSidebar() {
     removeFromCart,
     updateCartQuantity,
     clearCart,
-    showNotification
+    showNotification,
+    setShowAuthModal,
+    setAuthView
   } = useContext(AppContext);
 
   const navigate = useNavigate();
@@ -42,8 +44,15 @@ function CartSidebar() {
       showNotification('Your collection is empty', 'warning');
       return;
     }
-    closeCart();
-    navigate(user ? '/checkout' : '/login');
+
+    if (user) {
+      closeCart();
+      navigate('/checkout');
+    } else {
+      closeCart();
+      setAuthView('signup');
+      setShowAuthModal(true);
+    }
   };
 
   const handleQuantityUpdate = (item, delta) => {
@@ -117,7 +126,7 @@ function CartSidebar() {
                       <FaLeaf className="leaf-icon" />
                     </div>
                     <h3>Start Your Journey</h3>
-                    <p>Your treasure chest is currently empty. Explore our highland estates to find the perfect brew.</p>
+                    <p>Your treasure chest is currently empty. Explore our highland farms to find the perfect brew.</p>
                     <button className="btn-premium" onClick={openShop} style={{ padding: '1rem 2rem' }}>
                       Start Shopping
                     </button>
@@ -181,7 +190,7 @@ function CartSidebar() {
                     <span className="p-total-label">Subtotal</span>
                     <span className="p-total-value">KES {displayTotal.toLocaleString()}</span>
                   </div>
-                  <p className="p-shipping-note">Premium shipping & estate taxes calculated at checkout.</p>
+                  <p className="p-shipping-note">Premium shipping & local taxes calculated at checkout.</p>
                 </div>
 
                 <div className="p-cart-actions">

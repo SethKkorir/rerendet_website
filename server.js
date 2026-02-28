@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-// CACHE BUSTER: 2026-02-10 22:15
+// CACHE BUSTER: 2026-02-28 03:22 - Trigger Restart
 console.log(`🚀 [BACKEND] Starting server`);
 import express from 'express';
 import mongoose from 'mongoose';
@@ -12,6 +12,7 @@ import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import xss from 'xss-clean';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -37,6 +38,7 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
 import marketingRoutes from './routes/marketingRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
 
 // Import models
 import User from './models/User.js';
@@ -152,6 +154,9 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
 
+// Cookie parser — needed to read the HttpOnly refresh token cookie
+app.use(cookieParser());
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -166,7 +171,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/', maintenanceMode);
 
 // 2. API Routes
-
+app.use('/api/blogs', blogRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -180,6 +185,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/newsletter', subscriberRoutes);
+app.use('/api/marketing', marketingRoutes);
 app.use('/api/marketing', marketingRoutes);
 
 // Custom public routes with rate limiting

@@ -1,6 +1,9 @@
 // controllers/userController.js
 import User from '../models/User.js';
 import asyncHandler from 'express-async-handler';
+import Settings from '../models/Settings.js';
+import sendEmail from '../utils/sendEmail.js';
+import { getSecurityAlertEmail } from '../utils/emailTemplates.js';
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -62,7 +65,10 @@ const updateUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
 
   if (user) {
-    // Securely update whitelist fields
+    // Track if email is changing for security alert
+    const oldEmail = user.email;
+    const isEmailChanging = req.body.email && req.body.email !== oldEmail;
+
     user.firstName = req.body.firstName || user.firstName;
     user.lastName = req.body.lastName || user.lastName;
     user.email = req.body.email || user.email;
@@ -85,6 +91,25 @@ const updateUser = asyncHandler(async (req, res) => {
     }
 
     const updatedUser = await user.save();
+
+    // Send security alert if email was changed (sent to OLD email as warning)
+    if (isEmailChanging) {
+      try {
+        let logoUrl;
+        try {
+          const settings = await Settings.getSettings();
+          logoUrl = settings?.store?.logo;
+        } catch (e) { }
+
+        await sendEmail({
+          to: oldEmail,
+          subject: 'Security Alert: Account Email Changed',
+          html: getSecurityAlertEmail(user.firstName, `Your account email address was changed to: ${req.body.email}`, logoUrl)
+        });
+      } catch (err) {
+        console.error('Failed to send email change alert:', err);
+      }
+    }
 
     res.json({
       success: true,

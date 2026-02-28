@@ -1,4 +1,27 @@
-/* Analytics.css — Premium Dashboard */
+/* src/components/Admin/Analytics.css */
+
+/* ==============================================
+   CSS VARIABLES
+============================================== */
+:root {
+  --bg-home: #0f0c0a;
+  --bg-surface: #1a1714;
+  --bg-deep: #25211e;
+  --text-main: #f5f0e8;
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+  --border-main: #3a3530;
+  --border-light: #2d2926;
+  --color-primary: #D4AF37;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* ==============================================
+   ANIMATIONS
+============================================== */
 @keyframes anFade {
   from {
     opacity: 0;
@@ -17,24 +40,24 @@
   }
 }
 
-/* ══════════════════════════════════
-   BASE
-══════════════════════════════════ */
+/* ==============================================
+   BASE LAYOUT
+============================================== */
 .analytics-dashboard {
   padding: 2rem;
   background: var(--bg-home);
   min-height: 100vh;
   color: var(--text-main);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   animation: anFade 0.4s ease-out;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-/* ══════════════════════════════════
+/* ==============================================
    HEADER
-══════════════════════════════════ */
+============================================== */
 .an-header {
   display: flex;
   align-items: flex-start;
@@ -62,8 +85,10 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
+/* Timeframe Pills */
 .an-timeframe-pills {
   display: flex;
   background: var(--bg-surface);
@@ -97,6 +122,7 @@
   color: white;
 }
 
+/* Refresh & Export buttons */
 .an-refresh-btn {
   width: 40px;
   height: 40px;
@@ -127,9 +153,51 @@
   animation: anSpin 0.75s linear infinite;
 }
 
-/* ══════════════════════════════════
-   TAB NAV
-══════════════════════════════════ */
+.an-export-btns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.an-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9px;
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Outfit', sans-serif;
+  white-space: nowrap;
+}
+
+.an-export-btn:hover {
+  background: var(--color-primary);
+  color: #000;
+}
+
+.an-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.an-export-btn--alt {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.an-export-btn--alt:hover {
+  background: #8b5cf6;
+  color: white;
+}
+
+/* ==============================================
+   TAB NAVIGATION
+============================================== */
 .an-tab-nav {
   display: flex;
   background: var(--bg-surface);
@@ -139,6 +207,7 @@
   gap: 0.2rem;
   overflow-x: auto;
   align-self: flex-start;
+  max-width: 100%;
 }
 
 .an-tab {
@@ -165,18 +234,18 @@
   color: white;
 }
 
-/* ══════════════════════════════════
-   SECTION WRAPPER
-══════════════════════════════════ */
+/* ==============================================
+   SECTION
+============================================== */
 .an-section {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-/* ══════════════════════════════════
+/* ==============================================
    KPI GRID
-══════════════════════════════════ */
+============================================== */
 .an-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -282,7 +351,7 @@
   font-weight: 600;
 }
 
-/* Trend Badge */
+/* Trend badge on stat cards */
 .an-trend {
   display: inline-flex;
   align-items: center;
@@ -308,7 +377,33 @@
   color: #6b7280;
 }
 
-/* ── Secondary KPIs ── */
+/* Trend badge on chart subtitles */
+.an-trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.01em;
+}
+
+.an-trend-badge.up {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.an-trend-badge.down {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* ==============================================
+   SECONDARY KPIS
+============================================== */
 .an-secondary-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -352,14 +447,14 @@
   letter-spacing: -0.02em;
 }
 
-/* ══════════════════════════════════
-   CHART CARDS
-══════════════════════════════════ */
+/* ==============================================
+   CHARTS ROW & CARD
+============================================== */
 .an-charts-row {
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 1.25rem;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 @media (max-width: 1100px) {
@@ -368,13 +463,19 @@
   }
 }
 
+/* Span full row */
+.an-chart-lg {
+  grid-column: 1 / -1;
+}
+
 .an-chart-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-main);
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  padding-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .an-chart-header {
@@ -397,21 +498,31 @@
   color: var(--text-muted);
   margin: 0;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-/* Recharts container padding */
-.an-chart-card .recharts-responsive-container {
-  margin-top: 0.5rem;
-  padding: 0 1rem;
+/* CRITICAL: must be stretch so Recharts ResponsiveContainer fills width */
+.an-chart-body {
+  padding: 1.25rem;
+  flex: 1;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
-/* Category layout */
+/* ==============================================
+   CATEGORY ROW
+============================================== */
 .an-category-row {
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  padding: 0 1.5rem 0.5rem;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .an-category-legend {
@@ -452,9 +563,9 @@
   text-align: right;
 }
 
-/* ══════════════════════════════════
+/* ==============================================
    PROGRESS BAR
-══════════════════════════════════ */
+============================================== */
 .an-progress-bg {
   width: 100%;
   height: 7px;
@@ -466,21 +577,22 @@
 .an-progress-fill {
   height: 100%;
   border-radius: 99px;
+  transition: width 0.8s ease-out;
 }
 
-/* ══════════════════════════════════
+/* ==============================================
    LEADERBOARD
-══════════════════════════════════ */
+============================================== */
 .an-leaderboard {
-  padding: 0.5rem 1.5rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  width: 100%;
 }
 
 .an-leader-row {
   display: grid;
-  grid-template-columns: 36px 1fr 200px 80px 100px;
+  grid-template-columns: 36px 1fr 200px 80px 110px;
   align-items: center;
   gap: 1rem;
   padding: 0.9rem 1rem;
@@ -527,6 +639,10 @@
   justify-content: center;
 }
 
+.an-leader-name {
+  overflow: hidden;
+}
+
 .an-leader-name strong {
   font-size: 0.9rem;
   font-weight: 700;
@@ -534,6 +650,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
 }
 
 .an-leader-sales {
@@ -550,35 +667,107 @@
   text-align: right;
 }
 
-/* Customer cells */
-.an-customer-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.an-leader-bar {
+  min-width: 0;
 }
 
-.an-customer-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  color: white;
+/* ==============================================
+   TABLE STYLES
+============================================== */
+.an-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.an-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.an-table th {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-main);
+}
+
+.an-table td {
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+
+.an-table tr:last-child td {
+  border-bottom: none;
+}
+
+.an-table tr:hover td {
+  background: var(--bg-deep);
+}
+
+.an-table code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  background: var(--bg-deep);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.an-muted {
+  color: var(--text-muted) !important;
+  font-size: 0.82rem;
+}
+
+/* ==============================================
+   BADGES
+============================================== */
+.an-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* ==============================================
+   EMPTY STATE
+============================================== */
+.an-empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 800;
-  flex-shrink: 0;
+  padding: 3rem 2rem;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  width: 100%;
 }
 
-.an-customer-cell strong {
+.an-empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+
+.an-empty-state p {
   font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-main);
+  font-weight: 600;
+  max-width: 300px;
+  line-height: 1.5;
+  margin: 0;
 }
 
-/* ══════════════════════════════════
+/* ==============================================
    LOADING SCREEN
-══════════════════════════════════ */
+============================================== */
 .an-loading-screen {
   display: flex;
   flex-direction: column;
@@ -600,16 +789,9 @@
   animation: anSpin 0.85s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
-/* ══════════════════════════════════
+/* ==============================================
    RESPONSIVE
-══════════════════════════════════ */
-@media (max-width: 1100px) {
-  .an-leader-row {
-    grid-template-columns: 36px 1fr 120px 60px 90px;
-    gap: 0.75rem;
-  }
-}
-
+============================================== */
 @media (max-width: 768px) {
   .analytics-dashboard {
     padding: 1rem;
@@ -617,6 +799,15 @@
 
   .an-header {
     flex-direction: column;
+  }
+
+  .an-header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .an-timeframe-pills {
+    flex-wrap: wrap;
   }
 
   .an-leader-row {
@@ -634,5 +825,20 @@
 
   .an-cat-row {
     grid-template-columns: 10px 100px 1fr 35px;
+  }
+
+  .an-chart-body {
+    min-height: 250px;
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .an-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .an-stat-value {
+    font-size: 1.25rem;
   }
 }

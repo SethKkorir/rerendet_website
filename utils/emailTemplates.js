@@ -49,7 +49,7 @@ const getBaseTemplate = (title, content, options = {}) => {
           <div class="social-tray">
              <a href="#">Instagram</a> • <a href="#">Twitter</a> • <a href="#">Facebook</a>
           </div>
-          <p>&copy; ${year} Rerendet Coffee Estates. All rights reserved.</p>
+          <p>&copy; ${year} Rerendet Coffees. All rights reserved.</p>
           <div style="margin-top: 15px;">
              <a href="${frontendUrl}/track">Order Status</a>
              <a href="${frontendUrl}/shipping-policy">Shipping</a>
@@ -89,6 +89,12 @@ export const getWelcomeEmail = (name, logoUrl) => {
     <div class="info-card">
       <span class="info-card-title">MEMBER BENEFIT</span>
       <p style="margin: 0; font-style: italic;">"As a registered member, you'll earn 1 loyalty point for every KES 100 spent. Collect points to redeem for limited-batch reserve releases."</p>
+    </div>
+
+    <div style="background: #eef2ff; border-left: 4px solid #4f46e5; padding: 20px; border-radius: 8px; margin: 30px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #1e1b4b; display: flex; align-items: center; gap: 8px;">🛡️ Protect Your Account</h4>
+      <p style="margin: 0; font-size: 14px; color: #312e81;">For maximum security, we highly recommend enabling <strong>Two-Factor Authentication (2FA)</strong>. This adds an extra layer of protection, ensuring that only you can access your profile and order history.</p>
+      <a href="${frontendUrl}/account" style="display: inline-block; margin-top: 15px; color: #4f46e5; font-weight: 700; text-decoration: none; font-size: 14px;">Enable Security →</a>
     </div>
 
     <p>Our beans are waiting. Start your first order and taste the peak of quality.</p>
@@ -245,3 +251,88 @@ export const getNewsletterEmail = (title, bodyContent, logoUrl) => {
   `;
   return getBaseTemplate(title, content, { logoUrl });
 };
+export const getSecurityAlertEmail = (name, action, logoUrl) => {
+  const content = `
+    <h1>Security Notification</h1>
+    <p>Dear ${name},</p>
+    <p>This is an automated transmission to inform you that a security-sensitive change was made to your account:</p>
+    
+    <div class="info-card" style="border-left-color: #ef4444;">
+      <span class="info-card-title">ACTION TAKEN</span>
+      <p style="margin: 0; font-size: 18px; font-weight: 700;">${action}</p>
+      <p style="margin-top: 10px; font-size: 14px;">Timestamp: ${new Date().toLocaleString()}</p>
+    </div>
+
+    <p>If you initiated this change, no further action is required. Your account remains protected with our bank-grade encryption protocols.</p>
+    
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 12px; margin: 30px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #856404;">⚠️ Not You?</h4>
+      <p style="margin: 0; font-size: 14px; color: #666;">If you did <strong>not</strong> authorize this change, please contact our security team immediately or reset your password to regain exclusive control of your account.</p>
+    </div>
+  `;
+  return getBaseTemplate('Security Notification - Rerendet Coffee', content, { logoUrl });
+};
+
+// ── Admin Misuse Alert (sent to Super Admin) ─────────────────────────────────
+export const getAdminMisuseAlert = ({ adminName, adminEmail, action, entityName, ipAddress, timestamp, details, logoUrl }) => {
+  const adminPanelUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const content = `
+    <h1 style="color: #dc2626;">🚨 Admin Security Alert</h1>
+    <p>This is an automated internal security notification. A <strong>high-risk administrative action</strong> was performed and requires your attention.</p>
+
+    <div class="info-card" style="border-left: 4px solid #dc2626; background: #fef2f2;">
+      <span class="info-card-title" style="color: #dc2626;">⚠️ HIGH-RISK ACTION DETECTED</span>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px; width: 35%;">Admin User</td><td style="font-weight: 700;">${adminName} (${adminEmail})</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Action</td><td style="font-weight: 700; color: #dc2626;">${action}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Affected</td><td style="font-weight: 700;">${entityName || '—'}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">IP Address</td><td style="font-family: monospace;">${ipAddress || 'Unknown'}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Timestamp</td><td>${timestamp}</td></tr>
+        ${details ? `<tr><td style="padding: 6px 0; color: #666; font-size: 13px; vertical-align: top;">Details</td><td style="font-size: 13px;">${JSON.stringify(details, null, 2)}</td></tr>` : ''}
+      </table>
+    </div>
+
+    <p>If this action was expected and authorized, no further steps are required. If this activity looks suspicious, please investigate the admin account immediately.</p>
+
+    <div style="text-align: center;">
+      <a href="${adminPanelUrl}/admin" class="premium-btn" style="background: #dc2626;">Review Admin Logs</a>
+    </div>
+  `;
+  return getBaseTemplate('🚨 Admin Security Alert - Rerendet', content, { logoUrl });
+};
+
+// ── Fraud / Repeated Payment Failure Alert (sent to Super Admin) ─────────────
+export const getFraudAlert = ({ userName, userEmail, userId, failureCount, totalAttempted, paymentMethods, timeWindow, logoUrl }) => {
+  const adminPanelUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const content = `
+    <h1 style="color: #f59e0b;">🕵️ Fraud Risk Detected</h1>
+    <p>Our automated monitoring system has flagged a customer showing signs of <strong>suspicious repeated payment failure activity</strong>.</p>
+
+    <div class="info-card" style="border-left: 4px solid #f59e0b; background: #fffbeb;">
+      <span class="info-card-title" style="color: #d97706;">⚠️ PAYMENT FRAUD SIGNAL</span>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px; width: 40%;">Customer</td><td style="font-weight: 700;">${userName}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Email</td><td>${userEmail}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">User ID</td><td style="font-family: monospace; font-size: 12px;">${userId}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Failed Attempts</td><td style="font-weight: 700; color: #dc2626;">${failureCount} failures in ${timeWindow}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Total KES Attempted</td><td style="font-weight: 700;">KES ${(totalAttempted || 0).toLocaleString()}</td></tr>
+        <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Methods Used</td><td>${(paymentMethods || []).join(', ')}</td></tr>
+      </table>
+    </div>
+
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 12px; margin: 30px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #856404;">Recommended Action</h4>
+      <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #666; line-height: 2;">
+        <li>Review this customer's order and payment history</li>
+        <li>Consider temporarily freezing their account if the pattern continues</li>
+        <li>Contact the customer directly if this appears to be a genuine issue</li>
+      </ul>
+    </div>
+
+    <div style="text-align: center;">
+      <a href="${adminPanelUrl}/admin/users" class="premium-btn" style="background: #d97706;">Review Customer Account</a>
+    </div>
+  `;
+  return getBaseTemplate('🕵️ Fraud Risk Alert - Rerendet', content, { logoUrl });
+};
+

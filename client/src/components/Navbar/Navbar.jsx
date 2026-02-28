@@ -10,7 +10,6 @@ import {
   FaMoon
 } from 'react-icons/fa';
 import { AppContext } from '../../context/AppContext';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import AuthModal from '../Auth/AuthModal';
 import './Navbar.css';
 
@@ -24,7 +23,10 @@ function Navbar() {
     logout,
     publicSettings,
     fetchPublicSettings,
-    showNotification
+    showNotification,
+    showAuthModal,
+    setShowAuthModal,
+    setAuthView
   } = useContext(AppContext);
 
   const navigate = useNavigate();
@@ -32,8 +34,6 @@ function Navbar() {
   // State management
   const [isScrolled, setIsScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authView, setAuthView] = useState('login');
 
   // Scroll effect
   useEffect(() => {
@@ -94,7 +94,7 @@ function Navbar() {
 
   const navLinks = [
     { name: 'Shop', href: '#coffee-shop' },
-    { name: 'Blog', href: '#blog', isComingSoon: true },
+    { name: 'Blog', href: '/blog' },
     { name: 'About', href: '#about' },
     { name: 'Contact', href: '#contact' },
   ];
@@ -105,118 +105,117 @@ function Navbar() {
       setMobileMenuOpen(false);
       return;
     }
-    scrollToSection(link.href);
+
+    if (link.href.startsWith('/')) {
+      navigate(link.href);
+      setMobileMenuOpen(false);
+    } else {
+      scrollToSection(link.href);
+    }
   };
 
   return (
-    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || "697141801323-d2uc6n2f7b2kcckpk1kk6he1du30l1kn.apps.googleusercontent.com"}>
-      <>
-        {/* Main Header */}
-        <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>
-          <div className="header__container">
-            <div className="header__logo" onClick={() => navigate('/')}>
-              <img
-                src={publicSettings?.store?.logo || "/rerendet-logo.png"}
-                alt={publicSettings?.store?.name || "Rerendet Coffee"}
-                className="header__logo-img"
-              />
-              <span className="header__logo-text">
-                Rerendet <span>Coffee</span>
-              </span>
-            </div>
-
-            {/* Desktop Navigation */}
-            <nav className="header__nav">
-              {navLinks.map((link) => (
-                <button
-                  key={link.name}
-                  onClick={() => handleNavClick(link)}
-                  className="header__nav-link"
-                >
-                  {link.name}
-                </button>
-              ))}
-            </nav>
-
-            {/* Actions */}
-            <div className="header__actions">
-              {/* Theme Toggle */}
-              <button className="theme-toggle" onClick={toggleTheme}>
-                {darkMode ? <FaSun /> : <FaMoon />}
-              </button>
-
-              {/* Account */}
-              <button
-                className="header__account"
-                onClick={() => user ? navigate('/account') : openAuth('login')}
-              >
-                <FaUser />
-              </button>
-
-              {/* Cart */}
-              <div className="header__cart-wrapper">
-                <button className="header__cart" onClick={() => setIsCartOpen(true)}>
-                  <FaShoppingBag />
-                  {cartCount > 0 && (
-                    <span className="header__cart-badge">
-                      {cartCount > 99 ? '99+' : cartCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Mobile Menu Toggle */}
-              <button
-                className="header__mobile-trigger"
-                onClick={toggleMobileMenu}
-              >
-                {mobileMenuOpen ? <FaTimes /> : <FaBars />}
-              </button>
-            </div>
+    <>
+      {/* Main Header */}
+      <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>
+        <div className="header__container">
+          <div className="header__logo" onClick={() => navigate('/')}>
+            <img
+              src={publicSettings?.store?.logo || "/rerendet-logo.png"}
+              alt={publicSettings?.store?.name || "Rerendet Coffee"}
+              className="header__logo-img"
+            />
+            <span className="header__logo-text">
+              Rerendet <span>Coffee</span>
+            </span>
           </div>
 
-          {/* Mobile Menu */}
-          <div className={`header__mobile-menu ${mobileMenuOpen ? 'active' : ''}`}>
-            <nav className="header__mobile-nav">
-              {navLinks.map((link) => (
-                <button
-                  key={link.name}
-                  onClick={() => handleNavClick(link)}
-                  className="header__mobile-nav-link"
-                >
-                  {link.name}
-                </button>
-              ))}
-              {user ? (
-                <>
-                  <button className="header__mobile-nav-link" onClick={() => navigate('/account')}>
-                    My Account
-                  </button>
-                  <button className="header__mobile-nav-link" onClick={() => { logout(); setMobileMenuOpen(false); }}>
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="header__mobile-nav-link"
-                  onClick={() => openAuth('login')}
-                >
-                  Sign In
-                </button>
-              )}
-            </nav>
+          {/* Desktop Navigation */}
+          <nav className="header__nav">
+            {navLinks.map((link) => (
+              <button
+                key={link.name}
+                onClick={() => handleNavClick(link)}
+                className="header__nav-link"
+              >
+                {link.name}
+              </button>
+            ))}
+          </nav>
+
+          {/* Actions */}
+          <div className="header__actions">
+            {/* Theme Toggle */}
+            <button className="theme-toggle" onClick={toggleTheme}>
+              {darkMode ? <FaSun /> : <FaMoon />}
+            </button>
+
+            {/* Account */}
+            <button
+              className="header__account"
+              onClick={() => user ? navigate('/account') : openAuth('login')}
+            >
+              <FaUser />
+            </button>
+
+            {/* Cart */}
+            <div className="header__cart-wrapper">
+              <button className="header__cart" onClick={() => setIsCartOpen(true)}>
+                <FaShoppingBag />
+                {cartCount > 0 && (
+                  <span className="header__cart-badge">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              className="header__mobile-trigger"
+              onClick={toggleMobileMenu}
+            >
+              {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+            </button>
           </div>
-        </header>
+        </div>
 
-        {/* Auth Modal Component */}
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          initialView={authView}
-        />
+        {/* Mobile Menu */}
+        <div className={`header__mobile-menu ${mobileMenuOpen ? 'active' : ''}`}>
+          <nav className="header__mobile-nav">
+            {navLinks.map((link) => (
+              <button
+                key={link.name}
+                onClick={() => handleNavClick(link)}
+                className="header__mobile-nav-link"
+              >
+                {link.name}
+              </button>
+            ))}
+            {user ? (
+              <>
+                <button className="header__mobile-nav-link" onClick={() => navigate('/account')}>
+                  My Account
+                </button>
+                <button className="header__mobile-nav-link" onClick={() => { logout(); setMobileMenuOpen(false); }}>
+                  Logout
+                </button>
+              </>
+            ) : (
+              <button
+                className="header__mobile-nav-link"
+                onClick={() => openAuth('login')}
+              >
+                Sign In
+              </button>
+            )}
+          </nav>
+        </div>
+      </header>
 
-      </>
-    </GoogleOAuthProvider>
+
+
+    </>
   );
 }
 

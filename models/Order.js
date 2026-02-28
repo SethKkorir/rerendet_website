@@ -21,9 +21,10 @@ const shippingAddressSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String, required: true },
   country: { type: String, required: true },
-  city: { type: String, required: true },
+  county: { type: String },
+  town: { type: String },
   address: { type: String, required: true },
-  county: { type: String, required: true },
+  city: { type: String }, // Keep for legacy
   postalCode: { type: String }
 });
 

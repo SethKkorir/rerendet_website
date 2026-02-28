@@ -1,17 +1,17 @@
-// src/components/Auth/AuthModal.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaCoffee, FaTimes, FaEye, FaEyeSlash, FaArrowLeft, FaEnvelope, FaLock, FaUser } from 'react-icons/fa';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
+import { FaCoffee, FaTimes, FaEye, FaEyeSlash, FaArrowLeft, FaEnvelope, FaLock, FaUser, FaGoogle } from 'react-icons/fa';
 import { AppContext } from '../../context/AppContext';
 import { forgotPassword, resetPassword, verifyEmail, resendVerification } from '../../api/api';
 import './AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
-    const { login, register, loginWithGoogle, verify2FA, verifyEmail, loading: authLoading, showSuccess, showError } = useContext(AppContext);
+    const { login, register, loginWithGoogle, verify2FA, verifyEmail, loading: authLoading, showSuccess, showError, publicSettings } = useContext(AppContext);
 
-    // Views: login, signup, forgot-password, reset-password, verify-email
+    // Views: login, signup, forgot-password, reset-password, verify-email, policies
     const [view, setView] = useState(initialView);
+    const [policyType, setPolicyType] = useState('termsConditions');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState({});
@@ -26,6 +26,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
     const [forgotEmail, setForgotEmail] = useState('');
     const [resetData, setResetData] = useState({ code: '', newPassword: '', confirmPassword: '' });
     const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
+    const [resendTimer, setResendTimer] = useState(0);
 
     // Reset state when modal opens/closes
     useEffect(() => {
@@ -33,8 +34,37 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
             setView(initialView);
             setErrors({});
             setSignupStep(1);
+            setResendTimer(0);
         }
     }, [isOpen, initialView]);
+
+    // Resend Timer Logic
+    useEffect(() => {
+        let timer;
+        if (resendTimer > 0) {
+            timer = setInterval(() => setResendTimer(t => t - 1), 1000);
+        }
+        return () => clearInterval(timer);
+    }, [resendTimer]);
+
+    // GOOGLE LOGIN (Custom Hook)
+    const handleGoogleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            try {
+                const data = await loginWithGoogle({ accessToken: tokenResponse.access_token });
+                if (data?.requires2FA) {
+                    setLoginData(prev => ({ ...prev, email: data.email }));
+                    setSignupData(prev => ({ ...prev, email: data.email }));
+                    setView('2fa-login');
+                } else {
+                    onClose();
+                }
+            } catch (err) {
+                // Handled in context
+            }
+        },
+        onError: () => setErrors({ general: 'Google Auth failed' })
+    });
 
     if (!isOpen) return null;
 
@@ -58,6 +88,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
         if (!loginData.email || !loginData.password) return setErrors({ general: 'All fields are required' });
 
         setLoading(true);
+        setErrors({});
         try {
             const data = await login(loginData);
             if (data?.requires2FA) {
@@ -68,30 +99,11 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                 onClose();
             }
         } catch (err) {
-            // Error handled in context, but we check if verification needed
-            if (err.message?.includes('verified')) {
-                setSignupData(prev => ({ ...prev, email: loginData.email }));
-                setView('verify-email');
-            }
+            // Explicitly set the error here so it shows in the modal
+            const msg = err.response?.data?.message || err.message || 'Login failed';
+            setErrors({ general: msg });
         } finally {
             setLoading(false);
-        }
-    };
-
-    // GOOGLE LOGIN
-    const handleGoogleSuccess = async (response) => {
-        try {
-            const data = await loginWithGoogle(response);
-            if (data?.requires2FA) {
-                // Pre-fill email for verification
-                setLoginData(prev => ({ ...prev, email: data.email }));
-                setSignupData(prev => ({ ...prev, email: data.email }));
-                setView('2fa-login');
-            } else {
-                onClose();
-            }
-        } catch (err) {
-            // Error handled in context
         }
     };
 
@@ -111,6 +123,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
             if (!signupData.firstName || !signupData.lastName) return setErrors({ general: 'Names are required' });
             setSignupStep(4);
         }
+        setErrors({}); // Clear errors when moving forward
     };
 
     const handleSignupSubmit = async (e) => {
@@ -118,28 +131,30 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
         if (!signupData.agreeTerms) return setErrors({ agreeTerms: 'You must agree to the terms' });
 
         setLoading(true);
+        setErrors({});
         try {
             await register(signupData); // This triggers email sending on backend
             setView('verify-email');
         } catch (err) {
-            // Handled in context
+            const msg = err.response?.data?.message || err.message || 'Registration failed';
+            setErrors({ general: msg });
         } finally {
             setLoading(false);
         }
     };
 
     // VERIFICATION
-    const handleVerification = async (e) => {
-        e.preventDefault();
-        const code = verificationCode.join('');
+    const handleVerification = async (e, forcedCode = null) => {
+        if (e) e.preventDefault();
+        const code = forcedCode || verificationCode.join('');
         if (code.length !== 6) return setErrors({ code: 'Enter full 6-digit code' });
 
         setLoading(true);
         try {
             const email = view === 'reset-password' ? forgotEmail : signupData.email || loginData.email;
 
-            if (view === 'reset-password') {
-                // handleVerification logic for reset password would go here if not handled in handleResetPassword
+            if (view === '2fa-login') {
+                return await handle2FASubmit(null, code);
             }
 
             // Email Verification
@@ -154,30 +169,74 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
     };
 
     const handleVerificationInput = (index, value) => {
-        if (!/^\d*$/.test(value)) return;
+        const char = value.slice(-1);
+        if (char && !/^\d$/.test(char)) return;
 
         const newCode = [...verificationCode];
-        newCode[index] = value.slice(-1); // Only take last digit if pasted/repeated
+        newCode[index] = char;
         setVerificationCode(newCode);
 
         // Auto move to next input
-        if (value && index < 5) {
+        if (char && index < 5) {
             const nextInput = document.getElementById(`v-${index + 1}`);
             if (nextInput) nextInput.focus();
         }
 
-        // AUTO-SUBMIT once 6 digits are reached
+        // Trigger auto-submit if full
         const fullCode = newCode.join('');
         if (fullCode.length === 6) {
-            // Determine which flow we are in
-            if (view === 'verify-email') {
-                handleVerification({ preventDefault: () => { } });
-            } else if (view === 'reset-password') {
-                // handleResetPassword also uses the code, but wait for user to click 
-                // because they need to enter a new password too.
-            } else if (view === '2fa-login') {
-                handle2FASubmit({ preventDefault: () => { } });
-            }
+            setErrors(prev => ({ ...prev, code: '' }));
+            // We'll let the user see the digits for a split second before auto-submitting
+            setTimeout(() => {
+                if (view === 'verify-email') handleVerification(null, fullCode);
+                else if (view === '2fa-login') handle2FASubmit(null, fullCode);
+                else if (view === 'reset-password') setErrors(prev => ({ ...prev, code: '' })); // Just clear error for reset view
+            }, 100);
+        }
+    };
+
+    const handleKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !verificationCode[index] && index > 0) {
+            const prevInput = document.getElementById(`v-${index - 1}`);
+            if (prevInput) prevInput.focus();
+        }
+    };
+
+    const handlePaste = (e) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 6);
+        if (!/^\d+$/.test(pastedData)) return;
+
+        const newCode = pastedData.split('').concat(Array(6 - pastedData.length).fill('')).slice(0, 6);
+        setVerificationCode(newCode);
+
+        // Focus the appropriate input
+        const nextIndex = pastedData.length < 6 ? pastedData.length : 5;
+        const nextInput = document.getElementById(`v-${nextIndex}`);
+        if (nextInput) nextInput.focus();
+
+        if (pastedData.length === 6) {
+            setErrors(prev => ({ ...prev, code: '' }));
+            setTimeout(() => {
+                if (view === 'verify-email') handleVerification(null, pastedData);
+                else if (view === '2fa-login') handle2FASubmit(null, pastedData);
+            }, 100);
+        }
+    };
+
+    const handleResendCode = async () => {
+        if (resendTimer > 0) return;
+
+        setLoading(true);
+        try {
+            const email = view === 'reset-password' ? forgotEmail : signupData.email || loginData.email;
+            await resendVerification(email);
+            showSuccess('A new verification code has been sent.');
+            setResendTimer(60); // 60s cooldown
+        } catch (err) {
+            showError(err.response?.data?.message || 'Failed to resend code');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -187,13 +246,14 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
         if (!validateEmail(forgotEmail)) return setErrors({ email: 'Invalid email' });
 
         setLoading(true);
+        setErrors({});
         try {
             await forgotPassword({ email: forgotEmail });
             showSuccess('Reset code sent to your email');
             setView('reset-password');
             setVerificationCode(['', '', '', '', '', '']); // reset code for next step
         } catch (err) {
-            setErrors({ general: err.response?.data?.message || 'Failed to send code' });
+            setErrors({ general: err.response?.data?.message || err.message || 'Failed to send code' });
         } finally {
             setLoading(false);
         }
@@ -214,18 +274,20 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                 newPassword: resetData.newPassword
             });
             showSuccess('Password reset successfully! Please login.');
+            setErrors({});
             setView('login');
         } catch (err) {
-            setErrors({ general: err.response?.data?.message || 'Reset failed' });
+            const msg = err.response?.data?.message || err.message || 'Reset failed';
+            setErrors({ general: msg });
         } finally {
             setLoading(false);
         }
     };
 
     // 2FA SUBMIT
-    const handle2FASubmit = async (e) => {
-        e.preventDefault();
-        const code = verificationCode.join('');
+    const handle2FASubmit = async (e, forcedCode = null) => {
+        if (e) e.preventDefault();
+        const code = forcedCode || verificationCode.join('');
         if (code.length !== 6) return setErrors({ code: 'Enter full 6-digit code' });
 
         setLoading(true);
@@ -274,11 +336,14 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                 >
                     <button className="close-auth-btn" onClick={onClose} aria-label="Close modal"><FaTimes /></button>
 
-                    {(view !== 'login' && view !== '2fa-login' && (view !== 'signup' || signupStep > 1)) && (
+                    {(view !== 'login' && view !== '2fa-login' && (view !== 'signup' || signupStep > 1 || view === 'policies')) && (
                         <button
                             className="back-btn"
                             onClick={() => {
-                                if (view === 'signup' && signupStep > 1) {
+                                setErrors({});
+                                if (view === 'policies') {
+                                    setView('signup');
+                                } else if (view === 'signup' && signupStep > 1) {
                                     setSignupStep(s => s - 1);
                                 } else {
                                     setView('login');
@@ -294,6 +359,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                     <div className="auth-content">
                         {/* Header Section */}
                         <div className="auth-header">
+                            <div className="auth-premium-watermark">PREMIUM</div>
                             <div className="auth-logo">
                                 <img src="/rerendet-logo.png" alt="Rerendet" />
                             </div>
@@ -303,14 +369,16 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                 {view === 'forgot-password' && 'Reset Password'}
                                 {view === 'verify-email' && 'Verify Email'}
                                 {view === 'reset-password' && 'New Password'}
-                                {view === '2fa-login' && 'Two-Factor Auth'}
+                                {view === '2fa-login' && 'Security Verification'}
+                                {view === 'policies' && (policyType === 'termsConditions' ? 'Terms & Conditions' : 'Privacy Policy')}
                             </h2>
                             <p className="auth-subtitle">
-                                {view === 'login' && 'Login to access your personalized coffee journey'}
-                                {view === 'signup' && 'Join us for the best coffee experience'}
+                                {view === 'login' && 'Log in to manage your orders and profile'}
+                                {view === 'signup' && 'Join our community for a premium experience'}
                                 {view === 'forgot-password' && "Don't worry, we'll help you get back in"}
                                 {view === 'verify-email' && 'We sent a code to your email'}
                                 {view === '2fa-login' && 'Enter the code sent to your email'}
+                                {view === 'policies' && 'Please review our guiding principles'}
                             </p>
                         </div>
 
@@ -371,12 +439,15 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     <div className="auth-divider"><span>OR</span></div>
 
                                     <div className="social-login-wrapper">
-                                        <GoogleLogin
-                                            onSuccess={handleGoogleSuccess}
-                                            onError={() => setErrors({ general: 'Google Login Failed' })}
-                                            theme="filled_black"
-                                            shape="pill"
-                                        />
+                                        <button
+                                            type="button"
+                                            className="custom-google-btn login"
+                                            onClick={() => handleGoogleLogin()}
+                                            disabled={loading || authLoading}
+                                        >
+                                            <FaGoogle />
+                                            <span>Login with Google</span>
+                                        </button>
                                     </div>
 
                                     <div className="auth-footer">
@@ -493,7 +564,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                                     style={{ width: '20px', height: '20px', accentColor: 'var(--color-primary)' }}
                                                 />
                                                 <label style={{ fontSize: '0.85rem', textTransform: 'none', letterSpacing: 'normal', fontWeight: '500', padding: 0 }}>
-                                                    I agree to <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: '700' }}>Terms & Conditions</a>
+                                                    I agree to <button type="button" onClick={(e) => { e.preventDefault(); setPolicyType('termsConditions'); setView('policies'); }} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: '700', textDecoration: 'none', padding: 0 }}>Terms & Conditions</button>
                                                 </label>
                                             </div>
                                             {errors.agreeTerms && <span className="error-text">{errors.agreeTerms}</span>}
@@ -505,9 +576,23 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     </button>
 
                                     {signupStep === 1 && (
-                                        <div className="auth-footer">
-                                            Already have an account? <button type="button" className="link-btn" onClick={() => setView('login')}>Log In</button>
-                                        </div>
+                                        <>
+                                            <div className="auth-divider"><span>OR</span></div>
+                                            <div className="social-login-wrapper">
+                                                <button
+                                                    type="button"
+                                                    className="custom-google-btn signup"
+                                                    onClick={() => handleGoogleLogin()}
+                                                    disabled={loading || authLoading}
+                                                >
+                                                    <FaGoogle />
+                                                    <span>Sign up with Google</span>
+                                                </button>
+                                            </div>
+                                            <div className="auth-footer">
+                                                Already have an account? <button type="button" className="link-btn" onClick={() => { setView('login'); setErrors({}); }}>Log In</button>
+                                            </div>
+                                        </>
                                     )}
                                 </motion.form>
                             )}
@@ -558,7 +643,7 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                         )}
                                     </div>
 
-                                    <div className="verification-grid">
+                                    <div className="verification-grid" onPaste={handlePaste}>
                                         {verificationCode.map((digit, i) => (
                                             <input
                                                 key={i} id={`v-${i}`}
@@ -566,7 +651,9 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                                 value={digit}
                                                 maxLength={1}
                                                 onChange={e => handleVerificationInput(i, e.target.value)}
+                                                onKeyDown={e => handleKeyDown(i, e)}
                                                 autoFocus={i === 0}
+                                                autoComplete="one-time-code"
                                             />
                                         ))}
                                     </div>
@@ -600,16 +687,54 @@ const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
                                     )}
 
                                     <button type="submit" className="primary-btn" disabled={loading} style={{ marginTop: '1rem' }}>
-                                        {loading ? 'Verifying...' : (view === 'reset-password' ? 'Reset Password' : 'Verify')}
+                                        {loading ? 'Verifying...' : (view === 'reset-password' ? 'Reset Password' : 'Confirm Verification')}
                                     </button>
 
-                                    <div className="auth-footer">
-                                        <button type="button" className="link-btn" onClick={() => {
-                                            // Resend logic if needed
-                                            showSuccess("Code resent (simulation)");
-                                        }}>Resend Code</button>
+                                    <div className="verification-extra-links">
+                                        <div className="resend-container">
+                                            {resendTimer > 0 ? (
+                                                <span className="timer-text">Resend code in {resendTimer}s</span>
+                                            ) : (
+                                                <button type="button" className="link-btn" onClick={handleResendCode} disabled={loading}>
+                                                    Resend Code
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="policy-note">
+                                            By verifying, you confirm you've read our <button type="button" onClick={(e) => { e.preventDefault(); setPolicyType('termsConditions'); setView('policies'); }} className="link-btn-small">Terms of Service</button> and <button type="button" onClick={(e) => { e.preventDefault(); setPolicyType('privacyPolicy'); setView('policies'); }} className="link-btn-small">Privacy Policy</button>
+                                        </div>
                                     </div>
                                 </motion.form>
+                            )}
+
+                            {/* POLICIES VIEW */}
+                            {view === 'policies' && (
+                                <motion.div
+                                    key="policies"
+                                    variants={contentVariants}
+                                    initial="hidden" animate="visible" exit="exit"
+                                    className="auth-policy-content"
+                                >
+                                    <div className="policy-text-wrap">
+                                        <div
+                                            className="policy-body-rendered"
+                                            dangerouslySetInnerHTML={{
+                                                __html: (publicSettings?.policies?.[policyType] || "Policy content is currently being updated.")
+                                                    .replace(/\n/g, '<br/>')
+                                                    .replace(/## (.*)/g, '<h3>$1</h3>')
+                                                    .replace(/# (.*)/g, '<h2>$1</h2>')
+                                            }}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="primary-btn"
+                                        style={{ marginTop: '2rem' }}
+                                        onClick={() => setView('signup')}
+                                    >
+                                        I Understand
+                                    </button>
+                                </motion.div>
                             )}
 
                         </AnimatePresence>

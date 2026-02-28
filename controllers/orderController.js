@@ -12,6 +12,7 @@ import { getOrderConfirmationEmail, getOrderStatusEmail } from '../utils/emailTe
 import { sendLowStockAlert } from '../utils/adminNotificationService.js';
 import Coupon from '../models/Coupon.js';
 import Subscription from '../models/Subscription.js';
+import AbandonedCheckout from '../models/AbandonedCheckout.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -804,6 +805,42 @@ const calculateShippingCost = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Log a failed or abandoned checkout attempt
+// @route   POST /api/orders/abandoned
+// @access  Private
+const logAbandonedCheckout = asyncHandler(async (req, res) => {
+  const { items, totalAmount, paymentMethod, failureReason, shippingAddress } = req.body;
+
+  const abandoned = await AbandonedCheckout.create({
+    user: req.user._id,
+    items,
+    totalAmount,
+    paymentMethod,
+    failureReason,
+    shippingAddress
+  });
+
+  res.status(201).json({
+    success: true,
+    data: abandoned
+  });
+});
+
+// @desc    Get abandoned checkouts (Admin)
+// @route   GET /api/orders/abandoned
+// @access  Private/Admin
+const getAbandonedCheckouts = asyncHandler(async (req, res) => {
+  const abandoned = await AbandonedCheckout.find()
+    .populate('user', 'firstName lastName email phone')
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+  res.json({
+    success: true,
+    data: abandoned
+  });
+});
+
 // @desc    Generate PDF invoice for order
 // @route   GET /api/orders/:id/invoice
 // @access  Private
@@ -867,11 +904,13 @@ const validateCoupon = asyncHandler(async (req, res) => {
 
 export {
   createOrder,
-  validateCoupon,
   getUserOrders,
   getOrderById,
   getOrders,
   updateOrderStatus,
   calculateShippingCost,
-  generateOrderInvoice
+  logAbandonedCheckout,
+  getAbandonedCheckouts,
+  generateOrderInvoice,
+  validateCoupon
 };

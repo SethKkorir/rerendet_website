@@ -60,6 +60,8 @@
   flex-direction: column;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   transform-style: preserve-3d;
+  height: 580px;
+  /* Slightly more height to allow bigger image */
 }
 
 .coffee-card:hover {
@@ -68,21 +70,23 @@
 }
 
 .coffee-image-container {
-  height: 320px;
+  height: 250px;
+  /* Increased back slightly for better visibility */
   position: relative;
   overflow: hidden;
   background: var(--bg-deep);
-  margin: 1.5rem;
+  margin: 1rem 1rem 0.75rem;
+  /* Tighter margins */
   border-radius: var(--radius-lg);
   transform: translateZ(20px);
+  flex-shrink: 0;
 }
 
 .coffee-image-container img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  /* Better for product bags */
-  padding: 2rem;
+  padding: 0.75rem;
   transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -110,13 +114,13 @@
 .premium-view-btn {
   background: white;
   color: var(--color-secondary);
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: var(--transition-smooth);
@@ -130,13 +134,13 @@
 
 .coffee-badge {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: 0.75rem;
+  right: 0.75rem;
   background: var(--color-primary);
   color: white;
-  padding: 0.5rem 1rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 99px;
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -146,75 +150,97 @@
 
 .fresh-badge-glow {
   position: absolute;
-  bottom: 1rem;
-  left: 1rem;
+  bottom: 0.75rem;
+  left: 0.75rem;
   background: rgba(255, 255, 255, 0.9);
   color: var(--color-accent);
-  padding: 0.4rem 0.8rem;
+  padding: 0.3rem 0.65rem;
   border-radius: 99px;
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: 0.58rem;
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   backdrop-filter: blur(4px);
   border: 1px solid rgba(212, 175, 55, 0.2);
 }
 
 .coffee-info {
-  padding: 0 2.5rem 2.5rem;
+  padding: 0 1.5rem 1.5rem;
   flex: 1;
   display: flex;
   flex-direction: column;
   transform: translateZ(40px);
+  justify-content: space-between;
+  /* Aligns content and footer */
 }
 
 .coffee-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+  height: 50px;
+  /* Fixed header height for title alignment */
 }
 
 .coffee-title {
   font-family: var(--font-heading);
-  font-size: 1.6rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: var(--text-main);
   flex: 1;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  /* Standard property */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* Truncate after 2 lines */
 }
 
 .price-tag-compact {
   font-family: var(--font-body);
   font-weight: 800;
   color: var(--color-primary-dark);
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   white-space: nowrap;
+  margin-left: 0.5rem;
 }
 
 .coffee-origin {
   color: var(--text-muted);
-  font-size: 0.95rem;
-  margin-bottom: 1.25rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
   letter-spacing: 0.02em;
+  height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .flavor-notes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 2rem;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  height: 52px;
+  /* Fixed height for note container to align footer */
+  align-content: flex-start;
+  overflow: hidden;
 }
 
 .flavor-pill {
   background: transparent;
   color: var(--text-muted);
-  padding: 0.35rem 0.85rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 99px;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 600;
   border: 1px solid var(--border-main);
   transition: var(--transition-smooth);
+  white-space: nowrap;
 }
 
 .coffee-card:hover .flavor-pill {
@@ -223,20 +249,28 @@
   background: rgba(212, 175, 55, 0.03);
 }
 
+.card-footer {
+  margin-top: auto;
+  /* Push to bottom */
+}
+
 .btn-premium-add {
+  /* Existing styles preserved, ensure it fits fixed height */
   width: 100%;
-  padding: 1.1rem;
+  padding: 0.75rem;
   background: linear-gradient(135deg, var(--color-secondary), #1e293b);
   color: white;
-  border-radius: 16px;
+  border-radius: 10px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.5rem;
   transition: var(--transition-smooth);
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
   cursor: pointer;
+  border: none;
+  font-size: 0.85rem;
 }
 
 .btn-premium-add:hover {
@@ -480,6 +514,164 @@
 
   .modal-details {
     padding: 2.5rem;
+  }
+
+  .modal-details h2 {
+    font-size: 2rem;
+  }
+}
+
+/* ══════════════════════════════════
+   CATEGORY FILTER TABS
+══════════════════════════════════ */
+.shop-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin: 0 auto 3rem;
+  padding: 0 1rem;
+}
+
+.shop-cat-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.25rem;
+  border: 1px solid var(--border-main);
+  border-radius: 99px;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Outfit', sans-serif;
+}
+
+.shop-cat-tab:hover {
+  color: var(--text-main);
+  border-color: var(--color-primary);
+}
+
+.shop-cat-tab.active {
+  font-weight: 700;
+}
+
+.shop-cat-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+/* ══════════════════════════════════
+   CARD CATEGORY BADGE (top-left)
+══════════════════════════════════ */
+.card-cat-badge {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+  backdrop-filter: blur(4px);
+  z-index: 5;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════
+   PER-CATEGORY CARD VARIANTS
+══════════════════════════════════ */
+/* Equipment cards: object-fit cover works better than contain */
+.coffee-card--equipment .coffee-image-container img,
+.coffee-card--generic .coffee-image-container img {
+  object-fit: cover;
+  padding: 0.5rem;
+}
+
+/* ══════════════════════════════════
+   STOCK INDICATOR ON CARD
+══════════════════════════════════ */
+.card-stock-indicator {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.card-stock-indicator.ok {
+  color: #10b981;
+}
+
+.card-stock-indicator.low {
+  color: #f59e0b;
+}
+
+.card-stock-indicator.out {
+  color: #ef4444;
+}
+
+/* ══════════════════════════════════
+   MODAL STOCK BADGE
+══════════════════════════════════ */
+.modal-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.modal-stock-badge.ok {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.modal-stock-badge.low {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.modal-stock-badge.out {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* ══════════════════════════════════
+   EMPTY STATE
+══════════════════════════════════ */
+.shop-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 5rem 2rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .shop-category-tabs {
+    gap: 0.4rem;
+  }
+
+  .shop-cat-tab {
+    font-size: 0.8rem;
+    padding: 0.45rem 0.9rem;
   }
 
   .modal-details h2 {

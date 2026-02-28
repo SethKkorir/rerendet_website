@@ -12,7 +12,8 @@ import {
   FaClock, FaInfoCircle, FaEye, FaPencilAlt,
   FaMobileAlt, FaPlug, FaSync, FaTrash,
   FaAward, FaLeaf, FaHistory, FaCalendarAlt,
-  FaChevronDown, FaChevronRight
+  FaChevronDown, FaChevronRight,
+  FaFileContract, FaChartLine, FaBullhorn
 } from 'react-icons/fa';
 import './Settings.css';
 
@@ -132,15 +133,30 @@ const Settings = () => {
   const [logoPreview, setLogoPreview] = useState('');
   const [aboutImageFile, setAboutImageFile] = useState(null);
   const [aboutImagePreview, setAboutImagePreview] = useState('');
-  const [notifyCustomers, setNotifyCustomers] = useState(false);
   const [emailTestStatus, setEmailTestStatus] = useState(null); // null | 'testing' | 'ok' | 'fail'
+  const [notifyCustomers, setNotifyCustomers] = useState(false);
   const [activeModal, setActiveModal] = useState(null);
-  const [policyTab, setPolicyTab] = useState('privacy');
-  const [policyPreview, setPolicyPreview] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [twoFactorForm, setTwoFactorForm] = useState({ password: '' });
 
-  const hasUnsaved = JSON.stringify(settings) !== JSON.stringify(savedSettings);
+  // ── Helpers ──
+  const set = (section, field, value) => {
+    setSettings(p => ({
+      ...p,
+      [section]: { ...p[section], [field]: value }
+    }));
+  };
+
+  const setNested = (section, sub, field, value) => {
+    setSettings(p => ({
+      ...p,
+      [section]: {
+        ...p[section],
+        [sub]: { ...p[section]?.[sub], [field]: value }
+      }
+    }));
+  };
+
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
   // ── Nav tabs ──
   const TABS = [
@@ -156,17 +172,14 @@ const Settings = () => {
     { id: 'maintenance', icon: <FaTools />, label: 'Maintenance' },
   ];
 
-  const POLICY_TABS = [
-    { id: 'privacy', label: '🔒 Privacy Policy' },
-    { id: 'terms', label: '📋 Terms & Conditions' },
-    { id: 'refund', label: '↩️ Refund Policy' },
-    { id: 'shipping', label: '🚚 Shipping Policy' },
-  ];
-
-  const POLICY_KEYS = { privacy: 'privacyPolicy', terms: 'termsConditions', refund: 'refundPolicy', shipping: 'shippingPolicy' };
+  const hasUnsaved = JSON.stringify(settings) !== JSON.stringify(savedSettings);
 
   // ── Data fetch ──
-  useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => {
+    if (token) {
+      fetchSettings();
+    }
+  }, [token]);
 
   const fetchSettings = async () => {
     try {
@@ -185,6 +198,8 @@ const Settings = () => {
     } catch { showNotification('Failed to load settings', 'error'); }
     finally { setLoading(false); }
   };
+
+
 
   // ── Save ──
   const handleSaveSettings = async () => {
@@ -249,12 +264,6 @@ const Settings = () => {
     setTimeout(() => setEmailTestStatus(null), 4000);
   };
 
-  // ── Settings helpers ──
-  const set = (section, field, value) =>
-    setSettings(p => ({ ...p, [section]: { ...p[section], [field]: value } }));
-
-  const setNested = (section, sub, field, value) =>
-    setSettings(p => ({ ...p, [section]: { ...p[section], [sub]: { ...p[section]?.[sub], [field]: value } } }));
 
   // ── Security ──
   const handleChangePassword = async () => {
@@ -682,123 +691,72 @@ const Settings = () => {
               )}
 
               {/* ════════════════════════════════
-                  POLICIES  — Rich editor
+                  POLICIES
                ════════════════════════════════ */}
               {activeTab === 'policies' && (
                 <>
-                  {/* Policy sub-tabs */}
-                  <div className="st-policy-tabs">
-                    {POLICY_TABS.map(pt => (
-                      <button
-                        key={pt.id}
-                        className={`st-policy-tab ${policyTab === pt.id ? 'active' : ''}`}
-                        onClick={() => setPolicyTab(pt.id)}
-                      >
-                        {pt.label}
-                        {s.policies?.[POLICY_KEYS[pt.id]] && (
-                          <span className="st-policy-dot" title="Has content" />
-                        )}
-                      </button>
-                    ))}
-                    <button
-                      className={`st-policy-preview-btn ${policyPreview ? 'active' : ''}`}
-                      onClick={() => setPolicyPreview(p => !p)}
-                    >
-                      <FaEye /> {policyPreview ? 'Edit' : 'Preview'}
-                    </button>
-                  </div>
+                  <Section title="Privacy Policy" subtitle="Manage how you handle customer data" icon={<FaLock />} accent="#10b981">
+                    <Field label="Privacy Policy Content" hint="HTML is supported">
+                      <textarea
+                        className="st-textarea"
+                        rows={10}
+                        value={s.policies?.privacyPolicy || ''}
+                        onChange={e => set('policies', 'privacyPolicy', e.target.value)}
+                        placeholder="Enter your privacy policy HTML..."
+                      />
+                    </Field>
+                  </Section>
 
-                  <AnimatePresence mode="wait">
-                    {POLICY_TABS.filter(pt => pt.id === policyTab).map(pt => {
-                      const key = POLICY_KEYS[pt.id];
-                      const content = s.policies?.[key] || '';
-                      return (
-                        <motion.div key={pt.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                          <Section
-                            title={pt.label}
-                            subtitle={`${wc(content)} words · ${content.length} characters`}
-                            icon={<FaFileAlt />}
-                            accent="#D4AF37"
-                          >
-                            {policyPreview ? (
-                              <div className="st-policy-preview-body">
-                                {content
-                                  ? <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br/>') }} />
-                                  : <div className="st-policy-empty"><FaFileAlt /><p>No content yet — click Edit to write your policy</p></div>}
-                              </div>
-                            ) : (
-                              <>
-                                {/* Formatting toolbar */}
-                                <div className="st-policy-toolbar">
-                                  <span className="st-toolbar-label">HTML Formatting</span>
-                                  {[
-                                    ['<strong>…</strong>', 'Bold'],
-                                    ['<em>…</em>', 'Italic'],
-                                    ['<h2>…</h2>', 'Heading'],
-                                    ['<ul><li>…</li></ul>', 'List'],
-                                    ['<a href="#">…</a>', 'Link'],
-                                    ['<br/>', 'Line Break'],
-                                  ].map(([snippet, lbl]) => (
-                                    <button
-                                      key={lbl}
-                                      className="st-toolbar-btn"
-                                      title={`Insert ${lbl}`}
-                                      onClick={() => {
-                                        const ta = document.getElementById(`policy-ta-${pt.id}`);
-                                        if (!ta) return;
-                                        const start = ta.selectionStart, end = ta.selectionEnd;
-                                        const selected = content.slice(start, end) || '…';
-                                        const tag = snippet.replace('…', selected);
-                                        const newVal = content.slice(0, start) + tag + content.slice(end);
-                                        setNested('policies', key, undefined, newVal);
-                                        // can't update key via setNested for flat field — use set directly
-                                        setSettings(p => ({ ...p, policies: { ...p.policies, [key]: newVal } }));
-                                      }}
-                                    >
-                                      {lbl}
-                                    </button>
-                                  ))}
-                                  <button
-                                    className="st-toolbar-btn danger"
-                                    title="Clear all content"
-                                    onClick={() => { if (window.confirm('Clear this policy?')) setSettings(p => ({ ...p, policies: { ...p.policies, [key]: '' } })); }}
-                                  >
-                                    <FaTrash /> Clear
-                                  </button>
-                                </div>
+                  <Section title="Terms & Conditions" subtitle="The legal agreement between you and your customers" icon={<FaFileContract />} accent="#3b82f6">
+                    <Field label="Terms Content" hint="HTML is supported">
+                      <textarea
+                        className="st-textarea"
+                        rows={10}
+                        value={s.policies?.termsConditions || ''}
+                        onChange={e => set('policies', 'termsConditions', e.target.value)}
+                        placeholder="Enter your terms and conditions HTML..."
+                      />
+                    </Field>
+                  </Section>
 
-                                <textarea
-                                  id={`policy-ta-${pt.id}`}
-                                  className="st-policy-textarea"
-                                  value={content}
-                                  onChange={e => setSettings(p => ({ ...p, policies: { ...p.policies, [key]: e.target.value } }))}
-                                  placeholder={`Write your ${pt.label} here…\n\nYou can use HTML tags for formatting:\n<h2>Section Title</h2>\n<p>Paragraph text…</p>\n<ul><li>List item</li></ul>`}
-                                  rows={20}
-                                  spellCheck
-                                />
-                                <div className="st-policy-footer">
-                                  <span className="st-hint">{wc(content)} words · {content.length} chars · HTML supported</span>
-                                </div>
-                              </>
-                            )}
-                          </Section>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
+                  <Section title="Refund Policy" subtitle="Details about returns and exchanges" icon={<FaHistory />} accent="#f59e0b">
+                    <Field label="Refund Policy Content" hint="HTML is supported">
+                      <textarea
+                        className="st-textarea"
+                        rows={10}
+                        value={s.policies?.refundPolicy || ''}
+                        onChange={e => set('policies', 'refundPolicy', e.target.value)}
+                        placeholder="Enter your refund policy HTML..."
+                      />
+                    </Field>
+                  </Section>
 
-                  {/* Customer notify */}
-                  <div className="st-notify-banner">
-                    <label>
-                      <input type="checkbox" checked={notifyCustomers} onChange={e => setNotifyCustomers(e.target.checked)} />
-                      📢 Notify all customers about policy changes via email
-                    </label>
-                    <p className="st-notify-subtext">
-                      When enabled, a policy update email will be sent to all registered customers the next time you save settings.
-                    </p>
-                  </div>
+                  <Section title="Shipping Policy" subtitle="Information about delivery times and methods" icon={<FaStore />} accent="#8b5cf6">
+                    <Field label="Shipping Policy Content" hint="HTML is supported">
+                      <textarea
+                        className="st-textarea"
+                        rows={10}
+                        value={s.policies?.shippingPolicy || ''}
+                        onChange={e => set('policies', 'shippingPolicy', e.target.value)}
+                        placeholder="Enter your shipping policy HTML..."
+                      />
+                    </Field>
+                  </Section>
+
+                  <Section title="Policy Update Notifications" subtitle="Alert your customers when policies change" icon={<FaBullhorn />} accent="#ec4899">
+                    <div className="st-notify-banner">
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={notifyCustomers} onChange={e => setNotifyCustomers(e.target.checked)} />
+                        <strong style={{ fontSize: '0.9rem' }}>📢 Notify all customers about policy changes via email</strong>
+                      </label>
+                      <p className="st-hint" style={{ marginTop: '0.5rem', marginLeft: '1.75rem' }}>
+                        When enabled, an update notification will be sent to all registered customers the next time you save settings.
+                      </p>
+                    </div>
+                  </Section>
                 </>
               )}
+
 
               {/* ════════════════════════════════
                   ABOUT SECTION
@@ -1013,7 +971,6 @@ const Settings = () => {
   );
 };
 
-// Filler for FaChartLine (not imported originally — silent fallback)
-const FaChartLine = () => <span>📈</span>;
+
 
 export default Settings;

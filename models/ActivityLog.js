@@ -8,14 +8,7 @@ const activityLogSchema = new mongoose.Schema({
     },
     action: {
         type: String,
-        required: true,
-        enum: [
-            'CREATE_PRODUCT', 'UPDATE_PRODUCT', 'DELETE_PRODUCT',
-            'UPDATE_ORDER', 'DELETE_ORDER',
-            'UPDATE_USER', 'DELETE_USER',
-            'UPDATE_SETTINGS', 'REPLY_CONTACT', 'DELETE_CONTACT',
-            'LOGIN', 'EXPORT_DATA'
-        ]
+        required: true
     },
     entityId: {
         type: String, // The ID of the thing being changed (Product ID, User ID etc)

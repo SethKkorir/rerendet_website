@@ -1,6 +1,6 @@
-// models/User.js - WITH EXPLICIT COLLECTION NAME
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { encrypt, decrypt } from '../utils/cryptoUtils.js';
 
 const userSchema = new mongoose.Schema({
   // Basic info
@@ -26,7 +26,9 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    trim: true
+    trim: true,
+    get: decrypt,
+    set: encrypt
   },
   password: {
     type: String,
@@ -98,6 +100,8 @@ const userSchema = new mongoose.Schema({
     phone: String,
     address: String,
     city: String,
+    county: String,
+    town: String,
     zip: String,
     country: String,
     deliveryOption: String
@@ -105,7 +109,18 @@ const userSchema = new mongoose.Schema({
 
   // Wallet / Payment Methods
   wallet: {
-    mpesaPhone: { type: String, trim: true }
+    mpesaPhone: {
+      type: String,
+      trim: true,
+      get: decrypt,
+      set: encrypt
+    },
+    card: {
+      holderName: String,
+      numberMasked: String, // e.g. **** **** **** 4242
+      expiryDate: String,
+      brand: String // visa, mastercard, etc.
+    }
   },
 
   // Audit and security
@@ -131,7 +146,9 @@ const userSchema = new mongoose.Schema({
     }
   ]
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Virtuals
@@ -193,7 +210,6 @@ userSchema.methods.toJSON = function () {
   return user;
 };
 
-// EXPLICIT COLLECTION NAME - Try 'users' first, if doesn't work try 'user'
 const User = mongoose.model('User', userSchema, 'users');
 
 export default User;

@@ -1,6 +1,6 @@
 // context/PaymentContext.js
 import React, { createContext, useState, useContext } from 'react';
-import axios from 'axios';
+import API from '../api/api'; // Uses in-memory token via interceptors
 
 const PaymentContext = createContext();
 
@@ -21,28 +21,14 @@ export const PaymentProvider = ({ children }) => {
   const initiateMpesaPayment = async (orderId, phoneNumber) => {
     setPaymentLoading(true);
     setPaymentError(null);
-    
     try {
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      };
-
-      const { data } = await axios.post(
-        '/api/payments/mpesa/stk-push',
-        { orderId, phoneNumber },
-        config
-      );
-
+      const { data } = await API.post('/payments/mpesa/stk-push', { orderId, phoneNumber });
       setPaymentStatus({
         type: 'mpesa',
         status: 'initiated',
         data: data.data,
         paymentId: data.data.paymentId
       });
-
       return data;
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Payment initiation failed';
@@ -57,28 +43,14 @@ export const PaymentProvider = ({ children }) => {
   const initiateAirtelPayment = async (orderId, phoneNumber) => {
     setPaymentLoading(true);
     setPaymentError(null);
-    
     try {
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      };
-
-      const { data } = await axios.post(
-        '/api/payments/airtel/request',
-        { orderId, phoneNumber },
-        config
-      );
-
+      const { data } = await API.post('/payments/airtel/request', { orderId, phoneNumber });
       setPaymentStatus({
         type: 'airtel',
         status: 'initiated',
         data: data.data,
         paymentId: data.data.paymentId
       });
-
       return data;
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Payment initiation failed';
@@ -92,24 +64,11 @@ export const PaymentProvider = ({ children }) => {
   // Check payment status
   const checkPaymentStatus = async (paymentId, paymentType) => {
     try {
-      const config = {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      };
-
-      const endpoint = paymentType === 'mpesa' 
-        ? `/api/payments/mpesa/status/${paymentId}`
-        : `/api/payments/airtel/status/${paymentId}`;
-
-      const { data } = await axios.get(endpoint, config);
-
-      setPaymentStatus(prev => ({
-        ...prev,
-        status: data.data.status,
-        data: data.data
-      }));
-
+      const endpoint = paymentType === 'mpesa'
+        ? `/payments/mpesa/status/${paymentId}`
+        : `/payments/airtel/status/${paymentId}`;
+      const { data } = await API.get(endpoint);
+      setPaymentStatus(prev => ({ ...prev, status: data.data.status, data: data.data }));
       return data.data;
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Failed to check payment status';

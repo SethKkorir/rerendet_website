@@ -111,37 +111,37 @@
 /* --- Semantic Layout Control --- */
 .container {
   width: 100%;
-  max-width: 1600px;
-  /* Enhanced for wide TV screens */
+  max-width: 1400px;
+  /* Reduced from 1600px */
   margin-left: auto;
   margin-right: auto;
-  padding-left: clamp(1rem, 5vw, 4rem);
-  padding-right: clamp(1rem, 5vw, 4rem);
+  padding-left: clamp(1rem, 3vw, 2.5rem);
+  padding-right: clamp(1rem, 3vw, 2.5rem);
 }
 
-/* Fluid Typography */
+/* Fluid Typography - scaled down */
 h1 {
-  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-size: clamp(2rem, 6vw, 4rem);
 }
 
 h2 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-size: clamp(1.75rem, 5vw, 3rem);
 }
 
 h3 {
-  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-size: clamp(1.25rem, 3vw, 1.8rem);
 }
 
 body {
   font-family: var(--font-main);
   background-color: var(--bg-home);
   color: var(--text-main);
-  line-height: 1.6;
+  line-height: 1.5;
   min-height: 100vh;
   overflow-x: hidden;
   transition: background-color 0.4s ease, color 0.4s ease;
-  font-size: clamp(0.9rem, 1vw + 0.5rem, 1.1rem);
-  /* Adaptive base text */
+  font-size: clamp(0.85rem, 0.8vw + 0.4rem, 1rem);
+  /* Slightly smaller base text */
 }
 
 /* Global Form Resets */
@@ -151,13 +151,14 @@ select {
   background-color: var(--bg-input);
   color: var(--text-main);
   border: 1px solid var(--border-main);
-  padding: 0.85rem 1.25rem;
+  padding: 0.75rem 1rem;
+  /* Reduced from 0.85rem 1.25rem */
   border-radius: var(--radius-md);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  /* Reduced from 1rem */
   transition: var(--transition-fast);
   width: 100%;
-  /* Better for mobile-first */
 }
 
 input:focus,

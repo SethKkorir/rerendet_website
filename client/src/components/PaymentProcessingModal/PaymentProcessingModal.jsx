@@ -53,10 +53,17 @@ const PaymentProcessingModal = ({
                 onSuccess({ transactionId: txId, method: 'mpesa' });
             }, 1500);
         } else {
+            const reasons = [
+                'Insufficient funds in your M-Pesa wallet',
+                'Incorrect PIN entered on your phone',
+                'Transaction timed out (took too long to authorize)',
+                'Payment cancelled by user'
+            ];
+            const reason = reasons[Math.floor(Math.random() * reasons.length)];
             setStatus('failed');
-            setMessage('M-Pesa authorization failed or timed out');
+            setMessage(reason);
             setTimeout(() => {
-                onFailure('Payment was cancelled or failed by user');
+                onFailure(reason);
             }, 2500);
         }
     };
@@ -82,10 +89,17 @@ const PaymentProcessingModal = ({
                 onSuccess({ transactionId: txId, method: 'card' });
             }, 1500);
         } else {
+            const reasons = [
+                'Card was declined by the issuer.',
+                'Incorrect CVV or expiry date provided.',
+                '3D Secure verification failed.',
+                'Daily transaction limit exceeded.'
+            ];
+            const reason = reasons[Math.floor(Math.random() * reasons.length)];
             setStatus('failed');
-            setMessage('Card was declined by the issuer.');
+            setMessage(reason);
             setTimeout(() => {
-                onFailure('Card payment failed');
+                onFailure(reason);
             }, 2500);
         }
     };
@@ -144,11 +158,28 @@ const PaymentProcessingModal = ({
                             </button>
                         )}
                         {status === 'failed' && (
-                            <button className="btn-modal btn-retry" onClick={onCancel}>
-                                Try Different Method
-                            </button>
+                            <>
+                                <button className="btn-modal btn-retry" onClick={paymentMethod === 'mpesa' ? simulateMpesaPayment : simulateCardPayment}>
+                                    Retry {paymentMethod === 'mpesa' ? 'M-Pesa' : 'Payment'}
+                                </button>
+                                <button className="btn-modal btn-cancel" onClick={onCancel}>
+                                    Different Method
+                                </button>
+                            </>
                         )}
                     </div>
+
+                    {/* Failure Tips */}
+                    {status === 'failed' && paymentMethod === 'mpesa' && (
+                        <div className="failure-tips">
+                            <h4>Why did it fail?</h4>
+                            <ul>
+                                <li>Insufficient funds in your M-Pesa wallet</li>
+                                <li>Incorrect PIN entered on your phone</li>
+                                <li>Transaction timed out (took too long to authorize)</li>
+                            </ul>
+                        </div>
+                    )}
 
                     {/* Premium Instructions */}
                     {status === 'processing' && paymentMethod === 'mpesa' && (

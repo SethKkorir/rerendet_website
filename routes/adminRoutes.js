@@ -1,4 +1,4 @@
-// routes/adminRoutes.js - COMPLETE WITH ALL MISSING ENDPOINTS
+// routes/adminRoutes.js - COMPLETE WITH ALL ENDPOINTS
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, admin } from '../middleware/authMiddleware.js';
@@ -13,6 +13,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  updateProductStock,
   getUsers,
   getContacts,
   updateContactStatus,
@@ -27,7 +28,14 @@ import {
   deleteUser,
   testEmailConfig,
   checkNewOrders,
-  getAdminOverview
+  getAdminOverview,
+  getAbandonedCartsReport,
+  getPaymentsReport,
+  getCustomersReport,
+  getInventoryReport,
+  getCouponsReport,
+  exportOrdersCSV,
+  exportCustomersCSV
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -55,6 +63,7 @@ router.put('/orders/:id/status', adminAuth(['orders:update_status']), updateOrde
 router.get('/products', adminAuth(['products:manage']), getProducts);
 router.post('/products', adminAuth(['products:manage']), upload.array('images', 5), createProduct);
 router.put('/products/:id', adminAuth(['products:manage']), upload.array('images', 5), updateProduct);
+router.patch('/products/:id/stock', adminAuth(['products:manage']), updateProductStock);
 router.delete('/products/:id', adminAuth(['products:manage']), deleteProduct);
 
 // ==================== USER MANAGEMENT ====================
@@ -81,5 +90,16 @@ router.post('/upload/logo', adminAuth(['settings:manage']), upload.single('logo'
 // ==================== ANALYTICS ====================
 router.get('/analytics/sales', adminAuth(['analytics:view']), getSalesAnalytics);
 router.get('/logs', adminAuth(['logs:view']), getActivityLogs);
+
+// ==================== EXTENDED REPORTS ====================
+router.get('/reports/abandoned-carts', adminAuth(['analytics:view']), getAbandonedCartsReport);
+router.get('/reports/payments', adminAuth(['analytics:view']), getPaymentsReport);
+router.get('/reports/customers', adminAuth(['analytics:view']), getCustomersReport);
+router.get('/reports/inventory', adminAuth(['analytics:view']), getInventoryReport);
+router.get('/reports/coupons', adminAuth(['analytics:view']), getCouponsReport);
+
+// ==================== CSV EXPORTS ====================
+router.get('/export/orders', adminAuth(['analytics:view']), exportOrdersCSV);
+router.get('/export/customers', adminAuth(['analytics:view']), exportCustomersCSV);
 
 export default router;

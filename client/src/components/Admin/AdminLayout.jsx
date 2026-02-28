@@ -9,7 +9,7 @@ import {
   FaEnvelope, FaChartBar, FaCog, FaSignOutAlt,
   FaBars, FaTimes, FaBell, FaUserCircle,
   FaInfoCircle, FaExclamationCircle, FaBullhorn,
-  FaSun, FaMoon, FaChevronLeft, FaChevronRight, FaStore,
+  FaSun, FaMoon, FaChevronLeft, FaChevronRight, FaStore, FaHistory, FaPenNib
 } from 'react-icons/fa';
 import './AdminLayout.css';
 import './AdminMobile.css';
@@ -45,6 +45,7 @@ const NAV_GROUPS = [
     label: 'Growth',
     items: [
       { id: 'marketing', label: 'Marketing', Icon: FaBullhorn, path: '/admin/marketing', color: '#ec4899', bg: 'rgba(236,72,153,0.18)' },
+      { id: 'blogs', label: 'Blogs', Icon: FaPenNib, path: '/admin/blogs', color: '#8b5cf6', bg: 'rgba(139,92,246,0.18)' },
       { id: 'analytics', label: 'Analytics', Icon: FaChartBar, path: '/admin/analytics', color: '#06b6d4', bg: 'rgba(6,182,212,0.18)' },
     ],
   },
@@ -52,6 +53,7 @@ const NAV_GROUPS = [
     label: 'System',
     items: [
       { id: 'settings', label: 'Settings', Icon: FaCog, path: '/admin/settings', color: '#94a3b8', bg: 'rgba(148,163,184,0.18)' },
+      { id: 'logs', label: 'Security Logs', Icon: FaHistory, path: '/admin/logs', color: '#ef4444', bg: 'rgba(239,68,68,0.18)' },
     ],
   },
 ];
@@ -115,6 +117,28 @@ const AdminLayout = ({ children }) => {
     const id = setInterval(poll, 30000);
     return () => clearInterval(id);
   }, [token, showNotification]);
+
+  // ── Inactivity Timeout (Session Guard) ──
+  useEffect(() => {
+    let timeout;
+    const resetTimer = () => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        showNotification('Session expired due to inactivity', 'warning');
+        handleLogout();
+      }, 15 * 60 * 1000); // 15 Minutes
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keypress', resetTimer);
+    resetTimer();
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keypress', resetTimer);
+    };
+  }, []);
 
   const unreadCount = adminNotifications.filter(n => !n.read).length;
 

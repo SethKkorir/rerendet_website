@@ -1024,3 +1024,219 @@
         align-items: stretch;
     }
 }
+
+/* ══════════════════════════════════
+   VISUAL BLOCK EDITOR
+══════════════════════════════════ */
+.mk-field-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.mk-editor-toggle {
+    display: flex;
+    background: var(--bg-deep);
+    border: 1px solid var(--border-main);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.mk-editor-toggle button {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-family: 'Outfit', sans-serif;
+}
+
+.mk-editor-toggle button.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.mk-visual-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    background: var(--bg-home);
+    border: 1px solid var(--border-main);
+    border-radius: var(--radius-lg);
+}
+
+.mk-blocks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mk-block-item {
+    display: flex;
+    gap: 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    padding: 1rem;
+    border-radius: 12px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.mk-block-item:hover {
+    border-color: var(--color-primary-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.mk-block-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mk-block-type-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--bg-deep);
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.mk-block-movers {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mk-block-movers button {
+    width: 24px;
+    height: 18px;
+    padding: 0;
+    font-size: 0.6rem;
+    background: var(--bg-deep);
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.mk-block-movers button:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.mk-block-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mk-input-h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--border-light);
+    outline: none;
+    width: 100%;
+    padding: 0.25rem 0;
+}
+
+.mk-input-p {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.5rem;
+    color: var(--text-main);
+    font-family: 'Outfit', sans-serif;
+    outline: none;
+    resize: vertical;
+}
+
+.mk-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.mk-input-group input {
+    background: var(--bg-deep);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    outline: none;
+}
+
+.mk-block-img-preview {
+    max-width: 120px;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+    margin-top: 0.25rem;
+}
+
+.mk-block-delete {
+    align-self: flex-start;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.mk-block-delete:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.mk-add-block-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-main);
+}
+
+.mk-add-block-toolbar span {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+.mk-add-block-toolbar button {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    border-radius: 8px;
+    color: var(--text-main);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Outfit', sans-serif;
+}
+
+.mk-add-block-toolbar button:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}

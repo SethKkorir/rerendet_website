@@ -1,32 +1,62 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-
-// Load environment variables
 dotenv.config();
 
-const generateToken = (userId) => {
-  // Check if JWT_SECRET is set, otherwise use a fallback (Critical for Vercel initial setup)
-  const secret = process.env.JWT_SECRET || 'rerendet_coffee_secret_fallback_2024';
+const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET || 'rerendet_access_secret_fallback';
+const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'rerendet_refresh_secret_fallback';
 
-  if (!process.env.JWT_SECRET) {
-    console.warn('⚠️ JWT_SECRET not set. Using fallback secret.');
-  }
+if (!process.env.JWT_SECRET) console.warn('⚠️ JWT_SECRET not set. Using fallback (UNSAFE).');
+if (!process.env.JWT_REFRESH_SECRET) console.warn('⚠️ JWT_REFRESH_SECRET not set. Using fallback (UNSAFE).');
 
-  try {
-    const token = jwt.sign(
-      { id: userId },
-      secret,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-      }
-    );
-
-    console.log('✅ Token generated successfully for user:', userId);
-    return token;
-  } catch (error) {
-    console.error('❌ Token generation failed:', error.message);
-    throw new Error('Failed to generate authentication token');
-  }
+// ── Access Token — short-lived, lives in memory ──────────────────────────────
+export const generateAccessToken = (userId) => {
+  return jwt.sign(
+    { id: userId, type: 'access' },
+    ACCESS_TOKEN_SECRET,
+    { expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m' }
+  );
 };
 
+// ── Refresh Token — long-lived, lives in HttpOnly cookie ─────────────────────
+export const generateRefreshToken = (userId) => {
+  return jwt.sign(
+    { id: userId, type: 'refresh' },
+    REFRESH_TOKEN_SECRET,
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d' }
+  );
+};
+
+// ── Verify Access Token ───────────────────────────────────────────────────────
+export const verifyAccessToken = (token) => {
+  return jwt.verify(token, ACCESS_TOKEN_SECRET);
+};
+
+// ── Verify Refresh Token ──────────────────────────────────────────────────────
+export const verifyRefreshToken = (token) => {
+  return jwt.verify(token, REFRESH_TOKEN_SECRET);
+};
+
+// ── Set Refresh Token as HttpOnly Cookie ─────────────────────────────────────
+export const setRefreshTokenCookie = (res, refreshToken) => {
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,          // JS cannot read this — XSS-proof
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+    sameSite: 'strict',     // No cross-site requests
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+    path: '/api/auth/refresh' // Cookie only sent to the refresh endpoint
+  });
+};
+
+// ── Clear Refresh Token Cookie ────────────────────────────────────────────────
+export const clearRefreshTokenCookie = (res) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/auth/refresh'
+  });
+};
+
+// ── Legacy — kept for compatibility, wraps generateAccessToken ───────────────
+const generateToken = (userId) => generateAccessToken(userId);
 export default generateToken;

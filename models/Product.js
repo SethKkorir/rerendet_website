@@ -15,12 +15,13 @@ const productSchema = new mongoose.Schema({
     maxlength: [2000, 'Description cannot exceed 2000 characters']
   },
 
-  // Pricing & Sizes (CoffeeShop expects this structure)
+  // Pricing & Sizes — size name is free text so non-coffee products can use 'Standard', 'Large', etc.
   sizes: [{
     size: {
       type: String,
       required: true,
-      enum: ['250g', '500g', '1000g']
+      trim: true,
+      maxlength: [50, 'Size name too long']
     },
     price: {
       type: Number,
@@ -38,11 +39,11 @@ const productSchema = new mongoose.Schema({
     }
   }],
 
-  // Product Details
+  // Product category — open string so admins can create custom categories
   category: {
     type: String,
     required: [true, 'Product category is required'],
-    enum: ['coffee-beans', 'brewing-equipment', 'accessories', 'merchandise'],
+    trim: true,
     default: 'coffee-beans'
   },
   roastLevel: {
@@ -54,6 +55,10 @@ const productSchema = new mongoose.Schema({
   },
   flavorNotes: [String],
   origin: String,
+  // Extra fields for non-coffee categories (equipment, accessories, etc.)
+  brand: { type: String, trim: true },
+  material: { type: String, trim: true },
+  capacity: { type: String, trim: true },
 
   // Badge for special labels (CoffeeShop expects this)
   badge: {

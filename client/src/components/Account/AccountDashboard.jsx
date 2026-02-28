@@ -3,7 +3,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
 import {
   FaUser, FaShoppingBag, FaMapMarkerAlt, FaCreditCard,
-  FaSignOutAlt, FaLock, FaTimes
+  FaSignOutAlt, FaLock, FaTimes, FaHome, FaShieldAlt, FaHistory, FaCheckCircle
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import './AccountDashboard.css';
@@ -15,6 +15,96 @@ import WalletTab from './WalletTab';
 import ProfileTab from './ProfileTab';
 import SecurityTab from './SecurityTab';
 
+// Internal Overview Tab
+const OverviewTab = ({ user, orders, onNavigate }) => {
+  const unpaidOrders = orders.filter(o => o.paymentStatus !== 'paid').length;
+
+  return (
+    <div className="overview-tab">
+      {!user.twoFactorEnabled && (
+        <div className="security-unhealthy-banner">
+          <div className="unhealthy-icon-box">
+            <FaShieldAlt />
+          </div>
+          <div className="unhealthy-content">
+            <h4 className="unhealthy-title">Security Recommendation</h4>
+            <p className="unhealthy-desc">Your account is currently protected by password only. Enable Two-Factor Authentication (2FA) for an extra layer of defense.</p>
+          </div>
+          <button className="enable-2fa-cta" onClick={() => onNavigate('security')}>
+            Secure Account
+          </button>
+        </div>
+      )}
+
+      <div className="overview-stats-grid">
+        <div className="overview-stat-card">
+          <div className="stat-icon-wrap"><FaShoppingBag /></div>
+          <div className="stat-content">
+            <span className="stat-value">{orders.length}</span>
+            <span className="stat-label">Total Orders</span>
+          </div>
+        </div>
+        <div className="overview-stat-card">
+          <div className="stat-icon-wrap"><FaCreditCard /></div>
+          <div className="stat-content">
+            <span className="stat-value">{unpaidOrders}</span>
+            <span className="stat-label">Unpaid Orders</span>
+          </div>
+        </div>
+        <div className={`overview-stat-card ${user.twoFactorEnabled ? 'security-card' : 'at-risk-card'}`}>
+          <div className="stat-icon-wrap"><FaShieldAlt /></div>
+          <div className="stat-content">
+            <span className={`stat-value ${user.twoFactorEnabled ? 'text-success' : 'text-warning'}`}>
+              {user.twoFactorEnabled ? 'Secure' : 'At Risk'}
+            </span>
+            <span className="stat-label">Account Health</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="overview-sections-grid">
+        <div className="overview-section-main">
+          <h3>Security Overview</h3>
+          <div className="security-health-banner">
+            <div className="health-info">
+              <FaCheckCircle className="text-success" />
+              <div>
+                <p className="health-title">SSL Encryption Active</p>
+                <p className="health-desc">Your connection to Rerendet is end-to-end encrypted.</p>
+              </div>
+            </div>
+          </div>
+          <div className="security-features-list">
+            <div className="sec-feature-item">
+              <FaLock />
+              <span>Two-Factor Authentication: <strong>{user.twoFactorEnabled ? 'Enabled' : 'Disabled'}</strong></span>
+            </div>
+            <div className="sec-feature-item">
+              <FaHistory />
+              <span>Last Login: <strong>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Just now'}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="overview-section-side">
+          <h3>Wallet</h3>
+          <div className="wallet-mini-card">
+            <div className="mpesa-brand">
+              <img src="/M-PESA_LOGO-01.svg.png" alt="M-Pesa" style={{ height: '20px' }} />
+            </div>
+            {user.wallet?.mpesaPhone || user.phone ? (
+              <p className="wallet-number">{user.wallet?.mpesaPhone || user.phone}</p>
+            ) : (
+              <p className="wallet-number-empty">No number linked</p>
+            )}
+            <span className="wallet-status">Primary Method</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function AccountDashboard() {
   const {
     user,
@@ -24,24 +114,16 @@ function AccountDashboard() {
   } = useContext(AppContext);
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('orders'); // Default to orders for utility
+  const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Redirect logic removed to allow admins to view user dashboard if needed
-  // useEffect(() => {
-  //   if (user && (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin')) {
-  //     console.log('🛡️ Admin detected on account page. Redirecting to Admin Dashboard...');
-  //     navigate('/admin');
-  //   }
-  // }, [user, navigate]);
 
   // Real Data State
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // Load orders only when Orders tab is active or on mount if active
+  // Load orders for Overview and Orders tab
   useEffect(() => {
-    if (user && activeTab === 'orders') {
+    if (user && (activeTab === 'orders' || activeTab === 'overview')) {
       loadOrders(true);
     }
   }, [user, activeTab, orderRefreshTrigger]);
@@ -49,7 +131,7 @@ function AccountDashboard() {
   // LIVE POLLING: Refresh order list every 20 seconds
   useEffect(() => {
     let pollInterval;
-    if (user && activeTab === 'orders') {
+    if (user && (activeTab === 'orders' || activeTab === 'overview')) {
       pollInterval = setInterval(() => {
         loadOrders(false);
       }, 20000);
@@ -60,9 +142,11 @@ function AccountDashboard() {
   const loadOrders = async (showLoading = true) => {
     if (showLoading) setOrdersLoading(true);
     try {
-      const data = await fetchUserOrders(1);
-      if (data?.data?.orders) {
-        setOrders(data.data.orders);
+      const payload = await fetchUserOrders(1, 15);
+      if (payload?.data?.orders) {
+        setOrders(payload.data.orders);
+      } else if (payload?.orders) {
+        setOrders(payload.orders);
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -78,6 +162,7 @@ function AccountDashboard() {
 
   // Tabs Configuration
   const tabs = [
+    { id: 'overview', label: 'Overview', icon: <FaHome /> },
     { id: 'orders', label: 'My Orders', icon: <FaShoppingBag /> },
     { id: 'addresses', label: 'Addresses', icon: <FaMapMarkerAlt /> },
     { id: 'wallet', label: 'Wallet', icon: <FaCreditCard /> },
@@ -85,7 +170,7 @@ function AccountDashboard() {
     { id: 'security', label: 'Security', icon: <FaLock /> },
   ];
 
-  if (!user) return null; // Or redirect
+  if (!user) return null;
 
   return (
     <div className="modern-account-dashboard">
@@ -93,12 +178,22 @@ function AccountDashboard() {
         {/* Sidebar */}
         <aside className={`modern-sidebar ${isSidebarOpen ? 'open' : ''}`}>
           <div className="user-card-modern">
-            <div className="avatar-modern">
-              <FaUser />
+            <div className="avatar-modern-wrap">
+              <div className="avatar-modern">
+                {user.firstName?.charAt(0) || <FaUser />}
+              </div>
+              <div className="avatar-glow" />
             </div>
             <div className="user-info-modern">
-              <h3>{user.firstName}</h3>
-              <p>{user.email}</p>
+              <span className="membership-badge">Rerendet Member</span>
+              <h3>{user.firstName} {user.lastName}</h3>
+              <p className="user-email">{user.email}</p>
+              <div className="user-stats-mini">
+                <div className="stat-pill">
+                  <span className="stat-label">Member Since</span>
+                  <span className="stat-value">{user.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'New Member'}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -126,10 +221,10 @@ function AccountDashboard() {
             {isSidebarOpen ? <FaTimes /> : <FaUser />}
           </button>
 
-          {/* Grand Welcome Section - Only shows on main view or as part of tabs */}
           <div className="tab-header">
             <p>Member Dashboard</p>
             <h2>
+              {activeTab === 'overview' && 'Overview'}
               {activeTab === 'orders' && 'Orders'}
               {activeTab === 'addresses' && 'Addresses'}
               {activeTab === 'wallet' && 'Wallet'}
@@ -139,6 +234,7 @@ function AccountDashboard() {
           </div>
 
           <div className="dashboard-view-container">
+            {activeTab === 'overview' && <OverviewTab user={user} orders={orders} onNavigate={setActiveTab} />}
             {activeTab === 'orders' && <OrdersTab orders={orders} loading={ordersLoading} />}
             {activeTab === 'addresses' && <AddressesTab />}
             {activeTab === 'wallet' && <WalletTab />}

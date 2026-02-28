@@ -1,12 +1,13 @@
 .hero-modern {
-  min-height: 100vh;
+  min-height: 80vh;
+  /* Reduced from 100vh to avoid forced full-page scroll */
   display: flex;
   align-items: center;
   position: relative;
   overflow: hidden;
   background-color: var(--bg-home);
-  padding: 6rem 0 4rem;
-  /* Reduced to flow better with nav */
+  padding: 4rem 0 2rem;
+  /* Reduced from 6rem 0 4rem */
 }
 
 .hero-floating-beans {

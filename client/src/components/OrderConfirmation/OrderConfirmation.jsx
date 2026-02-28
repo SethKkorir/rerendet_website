@@ -7,7 +7,7 @@ import {
     FaCheckCircle, FaCoffee, FaTruck, FaDownload,
     FaHome, FaReceipt, FaStar, FaLeaf, FaMagic,
     FaEnvelope, FaShieldAlt, FaCreditCard, FaMapMarkerAlt,
-    FaClock, FaGift, FaArrowRight
+    FaClock, FaGift, FaArrowRight, FaUser, FaList
 } from 'react-icons/fa';
 import './OrderConfirmation.css';
 
@@ -379,8 +379,11 @@ const OrderConfirmation = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.85 }}
                 >
-                    <button className="oc-btn primary" onClick={() => navigate(`/order-tracking/${order._id}`)}>
+                    <button className="oc-btn primary" onClick={() => navigate(`/order-tracking/${id || order?._id}`)}>
                         <FaTruck /> Live Tracking
+                    </button>
+                    <button className="oc-btn outline" onClick={() => navigate('/account')}>
+                        <FaUser /> Go to Dashboard
                     </button>
                     <button className="oc-btn outline" onClick={handleDownloadInvoice}>
                         <FaReceipt /> Digital Invoice

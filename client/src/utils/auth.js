@@ -1,111 +1,50 @@
-// src/utils/auth.js - TOKEN MANAGER UTILITY
-class AuthTokenManager {
-  constructor() {
-    this.tokenKey = 'authToken';
-    this.userKey = 'userData';
-  }
+// src/utils/auth.js — SECURE VERSION
+// Token is stored in MEMORY via tokenStore, NOT localStorage.
+// This file is kept for legacy compatibility but delegates to tokenStore.
+import { tokenStore } from '../api/api';
 
-  // Clear ALL storage completely
+class AuthTokenManager {
+  // Clear auth state (memory + any stale localStorage)
   clearAllStorage() {
     try {
-      localStorage.clear();
+      tokenStore.clear();
+      localStorage.removeItem('auth');
+      localStorage.removeItem('lastActivity');
       sessionStorage.clear();
-      
-      // Clear any cookies that might be set
-      document.cookie.split(';').forEach(cookie => {
-        const eqPos = cookie.indexOf('=');
-        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-      });
-      
-      console.log('✅ All storage cleared successfully');
+      console.log('✅ All auth state cleared');
     } catch (error) {
-      console.error('❌ Error clearing storage:', error);
+      console.error('❌ Error clearing auth state:', error);
     }
   }
 
-  // Store token in ONE location only
+  // Store token in MEMORY only
   setToken(token) {
     try {
-      this.clearAllStorage(); // Clear old tokens first
-      localStorage.setItem(this.tokenKey, token);
-      console.log('✅ Token stored securely in localStorage');
+      tokenStore.set(token);
+      console.log('✅ Token stored in memory (XSS-safe)');
     } catch (error) {
       console.error('❌ Error storing token:', error);
     }
   }
 
-  // Get token from single source
+  // Get token from memory
   getToken() {
     try {
-      return localStorage.getItem(this.tokenKey);
+      return tokenStore.get();
     } catch (error) {
       console.error('❌ Error getting token:', error);
       return null;
     }
   }
 
-  // Remove token
+  // Remove token from memory
   removeToken() {
     try {
-      localStorage.removeItem(this.tokenKey);
-      localStorage.removeItem(this.userKey);
-      console.log('✅ Token removed from storage');
+      tokenStore.clear();
+      console.log('✅ Token removed from memory');
     } catch (error) {
       console.error('❌ Error removing token:', error);
     }
-  }
-
-  // Validate token with server
-  async validateToken() {
-    const token = this.getToken();
-    
-    if (!token) {
-      console.log('❌ No token found in storage');
-      this.redirectToLogin();
-      return null;
-    }
-
-    try {
-      const response = await fetch('/api/auth/validate-token', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Token is valid for user:', data.user.email);
-        return data.user;
-      } else {
-        console.log('❌ Token validation failed - server rejected token');
-        this.removeToken();
-        this.redirectToLogin();
-        return null;
-      }
-    } catch (error) {
-      console.error('❌ Token validation error:', error);
-      this.removeToken();
-      this.redirectToLogin();
-      return null;
-    }
-  }
-
-  // Safe API call with token validation
-  async safeApiCall(url, options = {}) {
-    const user = await this.validateToken();
-    if (!user) {
-      throw new Error('Authentication required');
-    }
-
-    const token = this.getToken();
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`
-      }
-    });
   }
 
   // Redirect to login
@@ -116,19 +55,11 @@ class AuthTokenManager {
     }
   }
 
-  // Check if user is authenticated
-  async isAuthenticated() {
-    const user = await this.validateToken();
-    return !!user;
-  }
-
-  // Check if user is admin
-  async isAdmin() {
-    const user = await this.validateToken();
-    return user && (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin');
+  // Check if user is authenticated (has in-memory token)
+  isAuthenticated() {
+    return !!tokenStore.get();
   }
 }
 
-// Create singleton instance
 const authTokenManager = new AuthTokenManager();
 export default authTokenManager;

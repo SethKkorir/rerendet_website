@@ -7,7 +7,7 @@ import {
   FaSync, FaTimes, FaShoppingBag, FaMapMarkerAlt,
   FaTrash, FaUserTag, FaShieldAlt, FaUserCheck,
   FaUserClock, FaChevronLeft, FaChevronRight,
-  FaCrown, FaUsers, FaUserShield
+  FaCrown, FaUsers, FaUserShield, FaLockOpen, FaLock
 } from 'react-icons/fa';
 import './UsersManagement.css';
 
@@ -64,6 +64,9 @@ const UsersManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [stats, setStats] = useState({ total: 0, admins: 0, verified: 0, recent: 0 });
+
+  // Helper: check if a user account is currently locked
+  const isUserLocked = (user) => user.lockUntil && new Date(user.lockUntil) > new Date();
 
   const fetchUsers = async () => {
     try {
@@ -139,6 +142,20 @@ const UsersManagement = () => {
       fetchUsers();
     } catch { showAlert('Failed to delete some users', 'error'); }
     finally { setLoading(false); }
+  };
+
+  const handleUnlockUser = async (userId) => {
+    try {
+      const API = (await import('../../api/api')).default;
+      await API.put(`/auth/admin/unlock/${userId}`);
+      showAlert('Account unlocked successfully', 'success');
+      fetchUsers();
+      if (selectedUser?._id === userId) {
+        setSelectedUser(prev => ({ ...prev, lockUntil: null, loginAttempts: 0 }));
+      }
+    } catch {
+      showAlert('Failed to unlock account', 'error');
+    }
   };
 
   const handleSelectAll = (e) => setSelectedUsers(e.target.checked ? users.map(u => u._id) : []);
@@ -295,9 +312,16 @@ const UsersManagement = () => {
                     <span className="um-date">{formatDate(user.createdAt)}</span>
                   </td>
                   <td>
-                    <span className={`um-verified-badge ${user.isVerified ? 'yes' : 'no'}`}>
-                      {user.isVerified ? '✓ Verified' : '⌛ Pending'}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span className={`um-verified-badge ${user.isVerified ? 'yes' : 'no'}`}>
+                        {user.isVerified ? '✓ Verified' : '⌛ Pending'}
+                      </span>
+                      {isUserLocked(user) && (
+                        <span className="um-verified-badge no" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                          <FaLock style={{ fontSize: '0.65rem' }} /> Locked
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div className="um-actions">
@@ -363,6 +387,8 @@ const UsersManagement = () => {
             onClose={() => setSelectedUser(null)}
             onRoleChange={handleRoleChange}
             onDelete={handleDeleteUser}
+            onUnlock={handleUnlockUser}
+            isLocked={isUserLocked(selectedUser)}
           />
         )}
       </AnimatePresence>
@@ -371,14 +397,21 @@ const UsersManagement = () => {
 };
 
 // ─── User Profile Drawer ────────────────────────────────────────
-const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete }) => {
+const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete, onUnlock, isLocked }) => {
   const [role, setRole] = useState(user.userType || user.role || 'customer');
+  const [unlocking, setUnlocking] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleRoleSave = async () => {
     setSaving(true);
     await onRoleChange(user._id, role);
     setSaving(false);
+  };
+
+  const handleUnlock = async () => {
+    setUnlocking(true);
+    await onUnlock(user._id);
+    setUnlocking(false);
   };
 
   const initials = getInitials(user.firstName, user.lastName);
@@ -420,6 +453,11 @@ const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete }) => {
             <span className={`um-verified-badge large ${user.isVerified ? 'yes' : 'no'}`}>
               {user.isVerified ? '✓ Verified Account' : '⌛ Unverified Account'}
             </span>
+            {isLocked && (
+              <span className="um-verified-badge large no" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FaLock /> Account Locked
+              </span>
+            )}
           </div>
         </div>
 
@@ -508,6 +546,25 @@ const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete }) => {
               </motion.button>
             )}
           </div>
+
+          {/* Account Lock Management */}
+          {isLocked && (
+            <div className="um-drawer-section" style={{ border: '1px solid rgba(239,68,68,0.25)', borderRadius: '12px', padding: '1.25rem' }}>
+              <h4 className="um-drawer-section-title" style={{ color: '#ef4444' }}><FaLock /> Account Locked</h4>
+              <p className="um-drawer-section-hint">
+                This account is temporarily locked due to multiple failed login attempts.
+                The customer cannot log in until the lock expires or you manually unlock it.
+              </p>
+              <button
+                className="um-save-role-btn"
+                style={{ background: 'linear-gradient(135deg, #10b981, #059669)', marginTop: '0.75rem' }}
+                onClick={handleUnlock}
+                disabled={unlocking}
+              >
+                <FaLockOpen /> {unlocking ? 'Unlocking…' : 'Unlock Account Now'}
+              </button>
+            </div>
+          )}
 
           {/* Danger Zone */}
           <div className="um-drawer-section danger-zone">

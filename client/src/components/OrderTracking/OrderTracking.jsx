@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     FaBox, FaTruck, FaCheckCircle, FaClock, FaMapMarkerAlt,
     FaCalendarAlt, FaChevronLeft, FaPhoneAlt, FaFileAlt,
-    FaHistory, FaSync
+    FaHistory, FaSync, FaCoffee, FaWarehouse, FaMapMarkedAlt
 } from 'react-icons/fa';
 import './OrderTracking.css';
 
@@ -25,12 +26,15 @@ const OrderTracking = () => {
 
     // REAL-TIME POLLING: Fetch every 10 seconds for "Live" experience
     useEffect(() => {
+        // Stop polling if order is already delivered
+        if (order?.fulfillmentStatus === 'delivered') return;
+
         const pollInterval = setInterval(() => {
             fetchOrderDetails(false);
         }, 10000);
 
         return () => clearInterval(pollInterval);
-    }, [id]);
+    }, [id, order?.fulfillmentStatus]);
 
     const fetchOrderDetails = async (isInitial = false) => {
         try {
@@ -46,7 +50,6 @@ const OrderTracking = () => {
 
             const result = await response.json();
             if (result.success) {
-                // Only update state if data changed to prevent unnecessary re-renders
                 setOrder(result.data);
                 setLastUpdated(new Date());
             }
@@ -63,16 +66,17 @@ const OrderTracking = () => {
 
     const getStatusIcon = (status) => {
         const s = status?.toLowerCase();
-        if (s === 'confirmed' || s === 'unfulfilled') return <FaCheckCircle className="icon confirmed" />;
-        if (s === 'processing' || s === 'packed') return <FaClock className="icon processing" />;
-        if (s === 'shipped') return <FaTruck className="icon shipped" />;
-        if (s === 'delivered') return <FaBox className="icon delivered" />;
-        if (s === 'returned') return <FaHistory className="icon returned" />;
-        return <FaClock className="icon" />;
+        if (s === 'confirmed' || s === 'unfulfilled') return <FaCheckCircle />;
+        if (s === 'processing' || s === 'packed') return <FaWarehouse />;
+        if (s === 'shipped') return <FaTruck />;
+        if (s === 'delivered' || s === 'arrived') return <FaBox />;
+        if (s === 'returned') return <FaHistory />;
+        return <FaClock />;
     };
 
     const getStatusLabel = (status) => {
-        const s = status?.toLowerCase();
+        if (!status) return 'Unknown';
+        const s = status.toLowerCase();
         if (s === 'unfulfilled') return 'Confirmed';
         if (s === 'packed') return 'Processing';
         return s.charAt(0).toUpperCase() + s.slice(1);
@@ -80,167 +84,241 @@ const OrderTracking = () => {
 
     if (loading) {
         return (
-            <div className="tracking-loading">
-                <div className="loader"></div>
-                <p>Establishing live connection...</p>
+            <div className="tracking-loader-screen">
+                <motion.div
+                    className="coffee-loader"
+                    animate={{
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 5, -5, 0]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    <FaCoffee />
+                </motion.div>
+                <p>Syncing tracking data...</p>
             </div>
         );
     }
 
     if (!order) return null;
 
-    // Map the new granular fulfillmentStatus to progress bar
-    const fStatus = order.fulfillmentStatus;
+    const fStatus = order.fulfillmentStatus || 'unfulfilled';
     const currentStatusIndex = fStatus === 'delivered' ? 3 : fStatus === 'shipped' ? 2 : fStatus === 'packed' ? 1 : 0;
 
     const progressSteps = [
-        { id: 'unfulfilled', label: 'Confirmed', icon: <FaCheckCircle /> },
-        { id: 'packed', label: 'Packed & Ready', icon: <FaClock /> },
-        { id: 'shipped', label: 'On its Way', icon: <FaTruck /> },
-        { id: 'delivered', label: 'Arrived', icon: <FaBox /> }
+        { id: 'unfulfilled', label: 'Confirmed', icon: <FaCheckCircle />, desc: 'Order received' },
+        { id: 'packed', label: 'Processing', icon: <FaWarehouse />, desc: 'Items packed & ready' },
+        { id: 'shipped', label: 'In Transit', icon: <FaTruck />, desc: 'Departed facility' },
+        { id: 'delivered', label: 'Delivered', icon: <FaBox />, desc: 'Arrived at your door' }
     ];
 
-    return (
-        <div className="order-tracking-container fade-in">
-            <div className="tracking-header">
-                <div className="header-top">
-                    <button className="back-btn" onClick={() => navigate(-1)}>
-                        <FaChevronLeft /> <span>Account</span>
-                    </button>
-                    <div className="live-status-indicator">
-                        <span className="pulse-dot"></span>
-                        Live Tracking Active
-                    </div>
-                </div>
-                <div className="header-main">
-                    <h1>Order #{order.orderNumber}</h1>
-                    <div className="last-update">
-                        Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </div>
-                </div>
-            </div>
+    const containerVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: {
+                duration: 0.6,
+                staggerChildren: 0.1
+            }
+        }
+    };
 
-            <div className="tracking-content">
-                {/* Progress Bar */}
-                <div className="tracking-progress-section">
-                    <div className="progress-steps-container">
-                        {progressSteps.map((step, index) => (
-                            <div
-                                key={step.id}
-                                className={`progress-step ${index <= currentStatusIndex ? 'active' : ''} ${index < currentStatusIndex ? 'completed' : ''}`}
-                            >
-                                <div className="step-icon">
-                                    {step.icon}
-                                </div>
-                                <div className="step-label">{step.label}</div>
-                            </div>
-                        ))}
-                        <div className="progress-line">
-                            <div
-                                className="progress-line-fill"
-                                style={{ width: `${(currentStatusIndex / (progressSteps.length - 1)) * 100}%` }}
-                            ></div>
+    const itemVariants = {
+        hidden: { opacity: 0, y: 15 },
+        visible: { opacity: 1, y: 0 }
+    };
+
+    return (
+        <motion.div
+            className="ot-wrapper"
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+        >
+            {/* Dynamic Header */}
+            <header className="ot-header">
+                <div className="ot-header-nav">
+                    <button className="ot-back-link" onClick={() => navigate('/account')}>
+                        <FaChevronLeft /> <span>Back to Dashboard</span>
+                    </button>
+                    <div className="ot-live-pulse-container">
+                        <span className="ot-pulse-indicator"></span>
+                        <span className="ot-live-text">Live Order Tracker</span>
+                    </div>
+                </div>
+
+                <div className="ot-header-content">
+                    <motion.div variants={itemVariants} className="ot-order-id-badge">
+                        Order #{order.orderNumber}
+                    </motion.div>
+                    <motion.h1 variants={itemVariants}>Track Your Order</motion.h1>
+                    <motion.p variants={itemVariants} className="ot-last-sync">
+                        Last synced from logistics: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </motion.p>
+                </div>
+            </header>
+
+            <div className="ot-main-container">
+                {/* Visual Journey - Progress Section */}
+                <motion.section variants={itemVariants} className="ot-journey-section glass-card">
+                    <div className="ot-journey-header">
+                        <h2>Shipment Journey</h2>
+                        <div className={`ot-main-status-pill ${fStatus}`}>
+                            {getStatusLabel(fStatus)}
                         </div>
                     </div>
-                </div>
 
-                <div className="tracking-details-grid">
-                    {/* Timeline Section */}
-                    <div className="timeline-section">
-                        <div className="section-title-wrap">
-                            <h3>Tracking History</h3>
-                            <button className="btn-refresh-mini" onClick={() => fetchOrderDetails(false)} title="Force Refresh">
+                    <div className="ot-stepper-container">
+                        {progressSteps.map((step, index) => {
+                            const isCompleted = index < currentStatusIndex || fStatus === 'delivered';
+                            const isActive = index === currentStatusIndex;
+
+                            return (
+                                <div key={step.id} className={`ot-step ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}>
+                                    <div className="ot-step-visual">
+                                        <div className="ot-step-circle">
+                                            {step.icon}
+                                        </div>
+                                        {index < progressSteps.length - 1 && (
+                                            <div className="ot-step-connector">
+                                                <div
+                                                    className="ot-connector-fill"
+                                                    style={{ width: isCompleted ? '100%' : '0%' }}
+                                                ></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="ot-step-info">
+                                        <div className="ot-step-label">{step.label}</div>
+                                        <div className="ot-step-desc">{step.desc}</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </motion.section>
+
+                <div className="ot-details-grid">
+                    {/* Logistical History - Timeline */}
+                    <motion.section variants={itemVariants} className="ot-timeline-section glass-card">
+                        <div className="ot-section-cap">
+                            <h3><FaHistory /> Tracking History</h3>
+                            <button className="ot-refresh-btn" onClick={() => fetchOrderDetails(false)}>
                                 <FaSync />
                             </button>
                         </div>
-                        <div className="tracking-timeline">
-                            {order.trackingHistory && order.trackingHistory.length > 0 ? (
-                                order.trackingHistory.slice().reverse().map((event, index) => (
-                                    <div key={index} className="timeline-item">
-                                        <div className="timeline-icon-container">
-                                            {getStatusIcon(event.status)}
-                                        </div>
-                                        <div className="timeline-content">
-                                            <div className="timeline-status">
-                                                {getStatusLabel(event.status)}
-                                                <span className="timeline-time">
-                                                    {new Date(event.timestamp).toLocaleString([], {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </span>
-                                            </div>
-                                            <div className="timeline-message">{event.message}</div>
-                                            {event.location && (
-                                                <div className="timeline-location">
-                                                    <FaMapMarkerAlt /> {event.location}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="no-history">
-                                    <FaClock />
-                                    <p>We're preparing your shipment. History events will appear here once processed.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Info Section */}
-                    <div className="tracking-info-sidebar">
-                        <div className="info-card premium">
-                            <h4>Current Parcel Status</h4>
-                            <div className="info-item highlight">
-                                <div className={`status-pill ${order.fulfillmentStatus}`}>
-                                    {getStatusLabel(order.fulfillmentStatus)}
-                                </div>
-                            </div>
+                        <div className="ot-timeline">
+                            <AnimatePresence mode="popLayout">
+                                {order.trackingHistory && order.trackingHistory.length > 0 ? (
+                                    order.trackingHistory.slice().reverse().map((event, index) => (
+                                        <motion.div
+                                            key={index}
+                                            className="ot-timeline-item"
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: index * 0.05 }}
+                                        >
+                                            <div className="ot-timeline-marker">
+                                                <div className={`ot-marker-dot ${event.status?.toLowerCase()}`}>
+                                                    {getStatusIcon(event.status)}
+                                                </div>
+                                            </div>
+                                            <div className="ot-timeline-content">
+                                                <div className="ot-timeline-header">
+                                                    <span className="ot-event-tag">{getStatusLabel(event.status)}</span>
+                                                    <span className="ot-event-date">
+                                                        {new Date(event.timestamp).toLocaleString([], {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </span>
+                                                </div>
+                                                <p className="ot-event-msg">{event.message}</p>
+                                                {event.location && (
+                                                    <div className="ot-event-location">
+                                                        <FaMapMarkerAlt /> {event.location}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    ))
+                                ) : (
+                                    <div className="ot-empty-timeline">
+                                        <FaCoffee className="ot-empty-icon" />
+                                        <p>Your items are currently being prepared in our facility. History will arrive soon.</p>
+                                    </div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </motion.section>
+
+                    {/* Meta Sidebar - Address & ID */}
+                    <div className="ot-sidebar">
+                        <motion.div variants={itemVariants} className="ot-info-box glass-card premium">
+                            <h4>Real-Time Overview</h4>
+
                             {order.trackingNumber && (
-                                <div className="info-item courier-box">
-                                    <div className="courier-icon"><FaTruck /></div>
-                                    <div>
-                                        <label>Tracking ID</label>
-                                        <span className="tracking-number">{order.trackingNumber}</span>
+                                <div className="ot-meta-item courier">
+                                    <div className="ot-meta-icon"><FaMapMarkedAlt /></div>
+                                    <div className="ot-meta-value">
+                                        <label>Logistics ID</label>
+                                        <div className="ot-tracking-code">{order.trackingNumber}</div>
                                     </div>
                                 </div>
                             )}
+
                             {order.estimatedDeliveryDate && (
-                                <div className="info-item">
-                                    <FaCalendarAlt />
-                                    <div>
+                                <div className="ot-meta-item">
+                                    <div className="ot-meta-icon"><FaCalendarAlt /></div>
+                                    <div className="ot-meta-value">
                                         <label>Expected Arrival</label>
-                                        <span>{new Date(order.estimatedDeliveryDate).toLocaleDateString('en-US', {
+                                        <div className="ot-arrival-date">{new Date(order.estimatedDeliveryDate).toLocaleDateString('en-US', {
                                             weekday: 'long',
                                             month: 'long',
                                             day: 'numeric'
-                                        })}</span>
+                                        })}</div>
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </motion.div>
 
-                        <div className="info-card">
-                            <h4>Delivery Address</h4>
-                            <div className="address-display">
-                                <p className="customer-name">{order.shippingAddress.firstName} {order.shippingAddress.lastName}</p>
-                                <p className="address-line">{order.shippingAddress.address}</p>
-                                <p className="address-line">{order.shippingAddress.city}, {order.shippingAddress.county}</p>
-                                <p className="phone-line"><FaPhoneAlt /> {order.shippingAddress.phone}</p>
+                        <motion.div variants={itemVariants} className="ot-info-box glass-card">
+                            <h4>Destination Details</h4>
+                            <div className="ot-address-card">
+                                <div className="ot-dest-header">
+                                    <FaMapMarkerAlt />
+                                    <span>{order.shippingAddress.firstName} {order.shippingAddress.lastName}</span>
+                                </div>
+                                <div className="ot-dest-body">
+                                    <p>{order.shippingAddress.address}</p>
+                                    <p>{order.shippingAddress.city}, {order.shippingAddress.county}</p>
+                                    <div className="ot-dest-phone">
+                                        <FaPhoneAlt /> {order.shippingAddress.phone}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        </motion.div>
 
-                        <button className="btn-receipt-modern" onClick={() => navigate(`/orders/${order._id}`)}>
-                            <FaFileAlt /> Download Receipt
-                        </button>
+                        <motion.button
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="ot-actions-btn"
+                            onClick={() => navigate(`/orders/${id || order?._id}`)}
+                        >
+                            <FaFileAlt />
+                            <span>Digital Receipt</span>
+                        </motion.button>
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
 export default OrderTracking;
+
