@@ -1,12 +1,12 @@
-import React, { useContext, useState, useEffect, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import {
   FaEye, FaTimes, FaPlus, FaLeaf, FaShoppingBag,
-  FaTools, FaTag, FaBoxOpen, FaGlobe, FaFire,
-  FaFilter, FaStar, FaShieldAlt
+  FaTag, FaBoxOpen, FaGlobe, FaFire,
+  FaStar, FaShieldAlt, FaArrowRight, FaCheck
 } from 'react-icons/fa';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, useScroll, useMotionTemplate } from 'framer-motion';
 import FloatingBeans from '../UI/FloatingBeans';
 import AdPlacement from '../AdPlacement/AdPlacement';
 import { isFreshlyRoasted } from '../../utils/productHelpers';
@@ -24,134 +24,320 @@ const isInStock = (product) => {
   return product?.inStock !== false;
 };
 
-/* Category meta — icons, labels, colours. Anything not listed falls back to the default */
 const CAT_META = {
-  'coffee-beans': { icon: '☕', label: 'Coffee Beans', color: '#D4AF37', cardType: 'coffee' },
-  'brewing-equipment': { icon: '⚙️', label: 'Brewing Equipment', color: '#3b82f6', cardType: 'equipment' },
-  'accessories': { icon: '🎒', label: 'Accessories', color: '#8b5cf6', cardType: 'generic' },
-  'merchandise': { icon: '🛍️', label: 'Merchandise', color: '#10b981', cardType: 'generic' },
+  'coffee-beans': { icon: '◉', label: 'Coffee Beans', color: '#D4AF37', accent: '#b8932a', cardType: 'coffee' },
+  'brewing-equipment': { icon: '◈', label: 'Brewing Equipment', color: '#60a5fa', accent: '#3b82f6', cardType: 'equipment' },
+  'accessories': { icon: '◆', label: 'Accessories', color: '#a78bfa', accent: '#8b5cf6', cardType: 'generic' },
+  'merchandise': { icon: '◇', label: 'Merchandise', color: '#34d399', accent: '#10b981', cardType: 'generic' },
 };
-const getCatMeta = (cat) => CAT_META[cat] || { icon: '📦', label: cat || 'Product', color: '#6b7280', cardType: 'generic' };
+const getCatMeta = (cat) => CAT_META[cat] || { icon: '◎', label: cat || 'Product', color: '#94a3b8', accent: '#64748b', cardType: 'generic' };
+
+/* ─── Tilt Card Hook ────────────────────────────────────── */
+const useTilt = () => {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const mx = useSpring(x, { stiffness: 150, damping: 20 });
+  const my = useSpring(y, { stiffness: 150, damping: 20 });
+  const rotateX = useTransform(my, [-0.5, 0.5], ['8deg', '-8deg']);
+  const rotateY = useTransform(mx, [-0.5, 0.5], ['-8deg', '8deg']);
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    x.set((e.clientX - r.left) / r.width - 0.5);
+    y.set((e.clientY - r.top) / r.height - 0.5);
+  };
+  const onLeave = () => { x.set(0); y.set(0); };
+  return { rotateX, rotateY, onMove, onLeave };
+};
 
 /* ─── Product Card ──────────────────────────────────────── */
 const ProductCard = ({ product, index, handleAddToCart, addingToCart, setSelectedProduct }) => {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const mouseXSpring = useSpring(x);
-  const mouseYSpring = useSpring(y);
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['10deg', '-10deg']);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-10deg', '10deg']);
-
-  const handleMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    x.set((e.clientX - rect.left) / rect.width - 0.5);
-    y.set((e.clientY - rect.top) / rect.height - 0.5);
-  };
-
+  const { rotateX, rotateY, onMove, onLeave } = useTilt();
+  const [hovered, setHovered] = useState(false);
   const productInStock = isInStock(product);
   const fresh = product.category === 'coffee-beans' && isFreshlyRoasted(product.roastDate);
   const meta = getCatMeta(product.category);
+  const adding = addingToCart === product.variationKey;
 
   return (
     <motion.div
-      className="coffee-card-wrapper"
-      initial={{ opacity: 0, y: 30 }}
+      className="cs-card-outer"
+      initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.05, duration: 0.6 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ delay: index * 0.07, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
     >
       <motion.div
-        className={`coffee-card coffee-card--${meta.cardType}`}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => { x.set(0); y.set(0); }}
+        className={`cs-card cs-card--${meta.cardType}${!productInStock ? ' cs-card--oos' : ''}`}
+        onMouseMove={onMove}
+        onMouseLeave={onLeave}
+        onHoverStart={() => setHovered(true)}
+        onHoverEnd={() => setHovered(false)}
         style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+        whileHover={{ scale: 1.015 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       >
-        {/* Image */}
-        <div className="coffee-image-container" style={{ transform: 'translateZ(50px)' }}>
-          <Link to={`/product/${product.seo?.slug || product._id}`} className="image-link">
-            <img
+        {/* ── Glow layer ── */}
+        <div className="cs-card-glow" style={{ '--glow': meta.color }} />
+
+        {/* ── Image zone ── */}
+        <div className="cs-img-zone" style={{ transform: 'translateZ(30px)' }}>
+          <Link to={`/product/${product.seo?.slug || product._id}`} className="cs-img-link">
+            <motion.img
               src={getProductImage(product)}
               alt={product.name}
+              className="cs-img"
+              animate={{ scale: hovered ? 1.08 : 1, y: hovered ? -6 : 0 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               onError={(e) => {
                 e.target.src = `https://via.placeholder.com/600x600/1a1714/D4AF37?text=${encodeURIComponent(product.name)}`;
               }}
             />
           </Link>
 
-          {/* Category badge (top-left) */}
-          <div className="card-cat-badge" style={{ background: `${meta.color}22`, color: meta.color, borderColor: `${meta.color}44` }}>
-            {meta.icon} {meta.label}
+          {/* Category pill */}
+          <div className="cs-cat-pill" style={{ '--c': meta.color }}>
+            <span className="cs-cat-icon">{meta.icon}</span>
+            {meta.label}
           </div>
 
-          {/* Quick view */}
-          <div className="card-overlay-actions">
-            <motion.button
-              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              className="premium-view-btn"
-              onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); }}
-            >
-              <FaEye />
-            </motion.button>
-          </div>
+          {/* Quick view trigger */}
+          <AnimatePresence>
+            {hovered && (
+              <motion.button
+                className="cs-quickview-btn"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.18 }}
+                onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); }}
+                whileTap={{ scale: 0.94 }}
+              >
+                <FaEye /> Quick View
+              </motion.button>
+            )}
+          </AnimatePresence>
 
-          {fresh && <div className="fresh-badge-glow"><FaLeaf className="fresh-icon" /> FRESHLY ROASTED</div>}
-          {product.badge && <div className="coffee-badge">{product.badge}</div>}
-          {!productInStock && <div className="out-of-stock-badge">Sold Out</div>}
+          {/* Badges */}
+          {fresh && (
+            <div className="cs-fresh-badge">
+              <FaLeaf /> Fresh Roast
+            </div>
+          )}
+          {product.badge && <div className="cs-badge" style={{ '--c': meta.accent }}>{product.badge}</div>}
+          {!productInStock && <div className="cs-oos-overlay">Sold Out</div>}
+
+          {/* Stock dot */}
+          {product.inventory?.stock !== undefined && productInStock && (
+            <div className={`cs-stock-dot ${product.inventory.stock <= (product.inventory.lowStockAlert || 5) ? 'low' : 'ok'}`}>
+              {product.inventory.stock <= (product.inventory.lowStockAlert || 5)
+                ? `${product.inventory.stock} left`
+                : 'In Stock'}
+            </div>
+          )}
         </div>
 
-        {/* Info */}
-        <div className="coffee-info" style={{ transform: 'translateZ(30px)' }}>
-          <div className="coffee-header">
-            <h3 className="coffee-title">{product.name}</h3>
-            <div className="price-tag-compact">KES {product.price?.toLocaleString?.() ?? product.sizes?.[0]?.price?.toLocaleString?.() ?? '—'}</div>
-          </div>
-
-          {/* Subtitle row adapts per category */}
-          <p className="coffee-origin">
+        {/* ── Info zone ── */}
+        <div className="cs-info" style={{ transform: 'translateZ(20px)' }}>
+          {/* Category line */}
+          <p className="cs-meta-line" style={{ color: meta.color }}>
             {product.category === 'coffee-beans'
-              ? `${product.origin || ''}${product.origin && product.size ? ' • ' : ''}${product.size || ''}`
-              : product.brand
-                ? `${product.brand}${product.size ? ' · ' + product.size : ''}`
-                : product.size || meta.label}
+              ? [product.origin, product.roastLevel && `${product.roastLevel} Roast`].filter(Boolean).join(' · ')
+              : [product.brand, product.material].filter(Boolean).join(' · ') || meta.label}
           </p>
 
-          {/* Coffee: flavor notes — Equipment/others: material or features */}
-          {product.category === 'coffee-beans' && product.flavorNotes?.length > 0 && (
-            <div className="flavor-notes">
-              {product.flavorNotes.slice(0, 2).map((note, idx) => (
-                <span key={idx} className="flavor-pill">{note}</span>
+          {/* Title + price row */}
+          <div className="cs-title-row">
+            <h3 className="cs-title">{product.name}</h3>
+            <div className="cs-price">
+              <span className="cs-price-currency">KES</span>
+              <span className="cs-price-amount">
+                {(product.price?.toLocaleString?.() ?? product.sizes?.[0]?.price?.toLocaleString?.() ?? '—')}
+              </span>
+            </div>
+          </div>
+
+          {/* Flavor / spec pills */}
+          <div className="cs-pills">
+            {product.category === 'coffee-beans'
+              ? product.flavorNotes?.slice(0, 3).map((n, i) => <span key={i} className="cs-pill">{n}</span>)
+              : [product.material, product.capacity, ...(product.tags?.slice(0, 2) || [])].filter(Boolean).slice(0, 3).map((t, i) => (
+                <span key={i} className="cs-pill">{t}</span>
               ))}
-            </div>
+          </div>
+
+          {/* Size if applicable */}
+          {product.size && (
+            <div className="cs-size-tag">{product.size}</div>
           )}
 
-          {product.category !== 'coffee-beans' && (
-            <div className="flavor-notes">
-              {product.material && <span className="flavor-pill"><FaShieldAlt style={{ fontSize: '0.65rem' }} /> {product.material}</span>}
-              {product.capacity && <span className="flavor-pill">{product.capacity}</span>}
-              {!product.material && !product.capacity && product.tags?.slice(0, 2).map((t, i) => (
-                <span key={i} className="flavor-pill">{t}</span>
-              ))}
-            </div>
-          )}
+          {/* CTA */}
+          <motion.button
+            className={`cs-cta${!productInStock || adding ? ' cs-cta--disabled' : ''}`}
+            onClick={() => handleAddToCart(product)}
+            disabled={!productInStock || adding}
+            whileHover={productInStock && !adding ? { scale: 1.02 } : {}}
+            whileTap={productInStock && !adding ? { scale: 0.97 } : {}}
+          >
+            {adding ? (
+              <span className="cs-cta-spinner" />
+            ) : !productInStock ? (
+              'Sold Out'
+            ) : (
+              <>
+                <FaPlus className="cs-cta-icon" />
+                Add to Cart
+              </>
+            )}
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
-          {/* Stock indicator */}
-          {product.inventory?.stock !== undefined && (
-            <div className={`card-stock-indicator ${product.inventory.stock <= 0 ? 'out' : product.inventory.stock <= (product.inventory.lowStockAlert || 5) ? 'low' : 'ok'}`}>
-              {product.inventory.stock <= 0 ? '● Out of stock' :
-                product.inventory.stock <= (product.inventory.lowStockAlert || 5) ? `● Only ${product.inventory.stock} left` :
-                  `● ${product.inventory.stock} in stock`}
-            </div>
-          )}
+/* ─── Quick View Modal ──────────────────────────────────── */
+const QuickViewModal = ({ product, onClose, onAddToCart, addingToCart }) => {
+  const meta = getCatMeta(product.category);
+  const isCoffee = product.category === 'coffee-beans';
+  const productInStock = isInStock(product);
+  const adding = addingToCart === product.variationKey;
+  const [added, setAdded] = useState(false);
 
-          <div className="card-footer">
-            <motion.button
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              className={`btn-premium-add ${!productInStock || addingToCart === product.variationKey ? 'disabled' : ''}`}
-              onClick={() => handleAddToCart(product)}
-              disabled={!productInStock || addingToCart === product.variationKey}
-            >
-              {addingToCart === product.variationKey ? <div className="loader-mini" /> : (<><FaPlus /> <span>Add to Cart</span></>)}
-            </motion.button>
+  const handleAdd = async () => {
+    await onAddToCart(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  return (
+    <motion.div
+      className="qv-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="qv-panel"
+        initial={{ opacity: 0, y: 60, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 40, scale: 0.97 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Accent bar */}
+        <div className="qv-accent-bar" style={{ background: `linear-gradient(90deg, ${meta.color}, ${meta.accent})` }} />
+
+        <button className="qv-close" onClick={onClose}>
+          <FaTimes />
+        </button>
+
+        <div className="qv-grid">
+          {/* Left — image */}
+          <div className="qv-img-pane">
+            <div className="qv-img-bg" style={{ '--glow': meta.color }} />
+            <motion.img
+              src={getProductImage(product)}
+              alt={product.name}
+              className="qv-img"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            />
+            {product.badge && (
+              <div className="qv-img-badge" style={{ '--c': meta.color }}>{product.badge}</div>
+            )}
+          </div>
+
+          {/* Right — details */}
+          <div className="qv-details">
+            {/* Category tag */}
+            <div className="qv-cat-tag" style={{ '--c': meta.color }}>
+              {meta.icon} {meta.label}
+              {isCoffee && product.roastLevel && <span className="qv-roast"> · {product.roastLevel} Roast</span>}
+            </div>
+
+            <h2 className="qv-title">{product.name}</h2>
+
+            <p className="qv-origin">
+              {isCoffee
+                ? [product.origin, product.size].filter(Boolean).join(' · ')
+                : [product.brand, product.material, product.capacity, product.size].filter(Boolean).join(' · ')}
+            </p>
+
+            {/* Price */}
+            <div className="qv-price-row">
+              <span className="qv-price-label">KES</span>
+              <span className="qv-price-value">{product.price?.toLocaleString?.() ?? '—'}</span>
+              {product.badge && <span className="qv-price-badge" style={{ '--c': meta.color }}>{product.badge}</span>}
+            </div>
+
+            {/* Description */}
+            {product.description && (
+              <p className="qv-desc">{product.description}</p>
+            )}
+
+            {/* Flavor notes (coffee) */}
+            {isCoffee && product.flavorNotes?.length > 0 && (
+              <div className="qv-section">
+                <p className="qv-section-label">Flavor Notes</p>
+                <div className="qv-pills">
+                  {product.flavorNotes.map((n, i) => (
+                    <span key={i} className="qv-pill" style={{ '--c': meta.color }}>{n}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Product details (non-coffee) */}
+            {!isCoffee && (product.material || product.brand || product.capacity) && (
+              <div className="qv-section">
+                <p className="qv-section-label">Details</p>
+                <div className="qv-pills">
+                  {product.brand && <span className="qv-pill" style={{ '--c': meta.color }}>🏷 {product.brand}</span>}
+                  {product.material && <span className="qv-pill" style={{ '--c': meta.color }}>🛡 {product.material}</span>}
+                  {product.capacity && <span className="qv-pill" style={{ '--c': meta.color }}>📐 {product.capacity}</span>}
+                </div>
+              </div>
+            )}
+
+            {/* Stock */}
+            {product.inventory?.stock !== undefined && (
+              <div className={`qv-stock ${product.inventory.stock <= 0 ? 'out' : product.inventory.stock <= (product.inventory.lowStockAlert || 5) ? 'low' : 'ok'}`}>
+                <span className="qv-stock-dot" />
+                {product.inventory.stock <= 0
+                  ? 'Out of stock'
+                  : product.inventory.stock <= (product.inventory.lowStockAlert || 5)
+                    ? `Only ${product.inventory.stock} units left`
+                    : `${product.inventory.stock} units available`}
+              </div>
+            )}
+
+            {/* CTA */}
+            <div className="qv-actions">
+              <motion.button
+                className={`qv-cta${!productInStock ? ' qv-cta--disabled' : added ? ' qv-cta--added' : ''}`}
+                onClick={handleAdd}
+                disabled={!productInStock || adding}
+                whileHover={productInStock && !adding ? { scale: 1.02 } : {}}
+                whileTap={productInStock && !adding ? { scale: 0.97 } : {}}
+                style={productInStock ? { '--c': meta.color, '--ca': meta.accent } : {}}
+              >
+                {added ? (
+                  <><FaCheck /> Added!</>
+                ) : adding ? (
+                  <><span className="cs-cta-spinner" /> Adding…</>
+                ) : !productInStock ? (
+                  'Out of Stock'
+                ) : (
+                  <><FaPlus /> Add to Cart</>
+                )}
+              </motion.button>
+
+              <Link to={`/product/${product.seo?.slug || product._id}`} className="qv-view-link">
+                View Full Details <FaArrowRight />
+              </Link>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -159,101 +345,30 @@ const ProductCard = ({ product, index, handleAddToCart, addingToCart, setSelecte
   );
 };
 
-/* ─── Quick-View Modal (category-aware) ─────────────────── */
-const QuickViewModal = ({ product, onClose, onAddToCart, addingToCart }) => {
-  const meta = getCatMeta(product.category);
-  const isCoffee = product.category === 'coffee-beans';
-  const productInStock = isInStock(product);
+/* ─── Category Tab ──────────────────────────────────────── */
+const CategoryTab = ({ cat, allProducts, activeCategory, setActiveCategory }) => {
+  const meta = cat === 'all'
+    ? { icon: '⬡', label: 'All', color: '#D4AF37' }
+    : getCatMeta(cat);
+  const count = cat === 'all'
+    ? allProducts.length
+    : allProducts.filter(p => p.category === cat).length;
+  const active = activeCategory === cat;
 
   return (
-    <motion.div
-      className="modal-overlay premium-modal-overlay"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose}
+    <motion.button
+      className={`cs-tab${active ? ' cs-tab--active' : ''}`}
+      style={active ? { '--c': meta.color } : {}}
+      onClick={() => setActiveCategory(cat)}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.96 }}
     >
-      <motion.div
-        className="quick-view-modal premium-modal-content"
-        initial={{ scale: 0.9, opacity: 0, y: 50 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 50 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button className="close-modal-btn" onClick={onClose}><FaTimes /></button>
-
-        <div className="modal-content-grid">
-          <div className="modal-image">
-            <div className="modal-image-glow" style={{ background: `radial-gradient(circle, ${meta.color}22 0%, transparent 70%)` }} />
-            <img src={getProductImage(product)} alt={product.name} />
-          </div>
-
-          <div className="modal-details">
-            {/* Category badge — replaces coffee-only "X Roast" badge */}
-            <div className="modal-badge" style={{ background: `${meta.color}18`, color: meta.color, borderColor: `${meta.color}44` }}>
-              {meta.icon} {isCoffee && product.roastLevel ? `${product.roastLevel} Roast · ` : ''}{meta.label}
-            </div>
-
-            <h2>{product.name}</h2>
-
-            {/* Subtitle adapts per category */}
-            <p className="modal-origin">
-              {isCoffee
-                ? `${product.origin || 'Kenya'} · ${product.selectedSize || product.size || ''}`
-                : [product.brand, product.material, product.capacity, product.size].filter(Boolean).join(' · ')}
-            </p>
-
-            <div className="modal-price">
-              <span>KES {product.price?.toLocaleString?.() ?? '—'}</span>
-              {product.badge && <span className="price-badge-small">{product.badge}</span>}
-            </div>
-
-            <div className="modal-desc">{product.description}</div>
-
-            {/* Coffee: flavor notes */}
-            {isCoffee && product.flavorNotes?.length > 0 && (
-              <div className="modal-flavors">
-                <strong>Flavor Notes</strong>
-                <div className="flavor-notes" style={{ marginTop: '0.5rem' }}>
-                  {product.flavorNotes.map((note, i) => <span key={i} className="flavor-pill">{note}</span>)}
-                </div>
-              </div>
-            )}
-
-            {/* Equipment/accessories: extra details */}
-            {!isCoffee && (product.material || product.brand || product.capacity) && (
-              <div className="modal-flavors">
-                <strong>Product Details</strong>
-                <div className="flavor-notes" style={{ marginTop: '0.5rem' }}>
-                  {product.brand && <span className="flavor-pill">🏷️ {product.brand}</span>}
-                  {product.material && <span className="flavor-pill">🛡️ {product.material}</span>}
-                  {product.capacity && <span className="flavor-pill">📐 {product.capacity}</span>}
-                </div>
-              </div>
-            )}
-
-            {/* Stock */}
-            {product.inventory?.stock !== undefined && (
-              <div className={`modal-stock-badge ${product.inventory.stock <= 0 ? 'out' : product.inventory.stock <= (product.inventory.lowStockAlert || 5) ? 'low' : 'ok'}`}>
-                {product.inventory.stock <= 0 ? '● Out of stock' :
-                  product.inventory.stock <= (product.inventory.lowStockAlert || 5) ? `● Only ${product.inventory.stock} units left` :
-                    `● ${product.inventory.stock} units available`}
-              </div>
-            )}
-
-            <motion.button
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="btn-premium"
-              onClick={() => onAddToCart(product)}
-              disabled={!productInStock || addingToCart === product.variationKey}
-              style={{ width: '100%', padding: '1.25rem', marginTop: '1.5rem', opacity: productInStock ? 1 : 0.6, cursor: productInStock ? 'pointer' : 'not-allowed' }}
-            >
-              {!productInStock ? 'Out of Stock' :
-                addingToCart === product.variationKey ? 'Adding...' : 'Add to Cart'}
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+      <span className="cs-tab-icon" style={active ? { color: meta.color } : {}}>{meta.icon}</span>
+      <span className="cs-tab-label">{meta.label}</span>
+      <span className="cs-tab-count" style={active ? { background: meta.color, color: '#000' } : {}}>
+        {count}
+      </span>
+    </motion.button>
   );
 };
 
@@ -266,11 +381,11 @@ const CoffeeShop = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showBeans, setShowBeans] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
+  const headerRef = useRef(null);
 
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch ALL active, in-stock products (no category filter)
       const response = await fetch('/api/products?isActive=true&limit=100');
       if (!response.ok) throw new Error('Failed to fetch products');
       const result = await response.json();
@@ -314,9 +429,7 @@ const CoffeeShop = () => {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  // Build category tabs dynamically from what we actually have
   const categoriesInUse = ['all', ...Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)))];
-
   const displayed = activeCategory === 'all'
     ? allProducts
     : allProducts.filter(p => p.category === activeCategory);
@@ -324,8 +437,10 @@ const CoffeeShop = () => {
   const handleAddToCart = async (product) => {
     if (!isInStock(product)) return;
     setAddingToCart(product.variationKey);
-    setShowBeans(product.category === 'coffee-beans'); // beans animation only for coffee
-    setTimeout(() => setShowBeans(false), 2000);
+    if (product.category === 'coffee-beans') {
+      setShowBeans(true);
+      setTimeout(() => setShowBeans(false), 2000);
+    }
     try {
       await addToCart({
         _id: product._id,
@@ -349,93 +464,135 @@ const CoffeeShop = () => {
     }
   };
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <section id="coffee-shop" className="coffee-shop">
-        <div className="container">
-          <div className="loading-state">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} className="loading-icon-wrap">
-              <FaShoppingBag style={{ fontSize: '3rem', color: 'var(--color-primary)' }} />
-            </motion.div>
-            <p>Loading our collection...</p>
-          </div>
+      <section id="coffee-shop" className="cs-section">
+        <div className="cs-loading">
+          <motion.div
+            className="cs-loading-ring"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+          />
+          <p className="cs-loading-text">Curating our collection…</p>
         </div>
       </section>
     );
   }
 
   return (
-    <section id="coffee-shop" className="coffee-shop">
+    <section id="coffee-shop" className="cs-section">
       <FloatingBeans isVisible={showBeans} />
-      <div className="container">
 
-        {/* Dynamic Ad Placement Zone */}
+      {/* Background texture */}
+      <div className="cs-bg-texture" aria-hidden="true">
+        <div className="cs-bg-orb cs-bg-orb--1" />
+        <div className="cs-bg-orb cs-bg-orb--2" />
+        <div className="cs-bg-grid" />
+      </div>
+
+      <div className="cs-container">
+
+        {/* Ad Zone */}
         <AdPlacement zone="homepage" />
 
-        {/* Section header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
-          <h2 className="section-title">Shop Our Collection</h2>
-          <p className="section-subtitle">
-            Discover our full range — from hand-roasted Kenyan beans to premium brewing gear and accessories.
+        {/* ── Section Header ── */}
+        <motion.div
+          ref={headerRef}
+          className="cs-header"
+          initial={{ opacity: 0, y: -24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="cs-header-eyebrow">
+            <span className="cs-eyebrow-line" />
+            <span>Our Collection</span>
+            <span className="cs-eyebrow-line" />
+          </div>
+          <h2 className="cs-heading">
+            Crafted for the
+            <br />
+            <em className="cs-heading-em">Discerning Palate</em>
+          </h2>
+          <p className="cs-subheading">
+            Kenyan single-origin beans, precision-engineered brewing gear, and everything in between.
           </p>
         </motion.div>
 
-        {/* Category filter tabs */}
+        {/* ── Category Tabs ── */}
         {categoriesInUse.length > 2 && (
           <motion.div
-            className="shop-category-tabs"
-            initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ delay: 0.1 }}>
-            {categoriesInUse.map(cat => {
-              const meta = cat === 'all' ? { icon: '🗂️', label: 'All Products', color: '#D4AF37' } : getCatMeta(cat);
-              const count = cat === 'all' ? allProducts.length : allProducts.filter(p => p.category === cat).length;
-              return (
-                <button
-                  key={cat}
-                  className={`shop-cat-tab ${activeCategory === cat ? 'active' : ''}`}
-                  style={activeCategory === cat ? { borderColor: meta.color, color: meta.color, background: `${meta.color}12` } : {}}
-                  onClick={() => setActiveCategory(cat)}>
-                  {meta.icon} {meta.label}
-                  <span className="shop-cat-count">{count}</span>
-                </button>
-              );
-            })}
-          </motion.div>
-        )}
-
-        {/* Products grid */}
-        {displayed.length === 0 ? (
-          <div className="shop-empty">
-            <span style={{ fontSize: '3rem' }}>📦</span>
-            <p>No products in this category yet.</p>
-          </div>
-        ) : (
-          <motion.div className="coffee-grid" layout>
-            {displayed.map((product, index) => (
-              <ProductCard
-                key={product.variationKey}
-                product={product}
-                index={index}
-                handleAddToCart={handleAddToCart}
-                addingToCart={addingToCart}
-                setSelectedProduct={setSelectedProduct}
+            className="cs-tabs"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+          >
+            {categoriesInUse.map(cat => (
+              <CategoryTab
+                key={cat}
+                cat={cat}
+                allProducts={allProducts}
+                activeCategory={activeCategory}
+                setActiveCategory={setActiveCategory}
               />
             ))}
           </motion.div>
         )}
 
-        {/* Quick view modal */}
-        <AnimatePresence>
-          {selectedProduct && (
-            <QuickViewModal
-              product={selectedProduct}
-              onClose={() => setSelectedProduct(null)}
-              onAddToCart={handleAddToCart}
-              addingToCart={addingToCart}
-            />
-          )}
-        </AnimatePresence>
+        {/* ── Product count / meta line ── */}
+        <motion.div
+          className="cs-meta-bar"
+          key={activeCategory}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <span className="cs-meta-count">
+            <strong>{displayed.length}</strong> {displayed.length === 1 ? 'product' : 'products'}
+          </span>
+          <span className="cs-meta-divider" />
+          <span className="cs-meta-label">
+            {activeCategory === 'all' ? 'All categories' : getCatMeta(activeCategory).label}
+          </span>
+        </motion.div>
+
+        {/* ── Grid ── */}
+        {displayed.length === 0 ? (
+          <div className="cs-empty">
+            <span className="cs-empty-icon">◎</span>
+            <p>Nothing here yet — check back soon.</p>
+          </div>
+        ) : (
+          <motion.div className="cs-grid" layout>
+            <AnimatePresence mode="popLayout">
+              {displayed.map((product, index) => (
+                <ProductCard
+                  key={product.variationKey}
+                  product={product}
+                  index={index}
+                  handleAddToCart={handleAddToCart}
+                  addingToCart={addingToCart}
+                  setSelectedProduct={setSelectedProduct}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
       </div>
+
+      {/* ── Quick View Modal ── */}
+      <AnimatePresence>
+        {selectedProduct && (
+          <QuickViewModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onAddToCart={handleAddToCart}
+            addingToCart={addingToCart}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 };
