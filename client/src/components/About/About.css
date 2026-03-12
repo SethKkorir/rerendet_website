@@ -1,5 +1,14 @@
-/* src/components/About/About.css */
+/* ============================================================
+   About — Rerendet Coffee  |  Enhanced Visual v2
+   All original text / data unchanged.
+   Additions: ring marks, diagonal lines, elevation chip,
+   polaroid caption, process strip, quote mark refinement,
+   corner dots, primary vignette, richer stat boxes.
+============================================================ */
 
+/* ==============================================
+   SECTION BASE
+============================================== */
 .about-editorial-section {
   padding: 12rem 0;
   position: relative;
@@ -7,6 +16,11 @@
   overflow: hidden;
 }
 
+/* ==============================================
+   BACKGROUND LAYERS
+============================================== */
+
+/* Giant watermark word */
 .editorial-watermark {
   position: absolute;
   top: 10%;
@@ -24,11 +38,99 @@
   z-index: 0;
 }
 
-[data-theme="dark"] .editorial-watermark {
+[data-theme='dark'] .editorial-watermark {
   color: var(--text-light);
   opacity: 0.02;
 }
 
+/* Corner architectural line clusters */
+.about-lines-tl,
+.about-lines-br {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.about-lines-tl {
+  top: 60px;
+  left: 40px;
+  border-top: 1px solid rgba(212, 175, 55, 0.08);
+  border-left: 1px solid rgba(212, 175, 55, 0.08);
+}
+
+.about-lines-tl::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: -16px;
+  bottom: -16px;
+  border-top: 1px solid rgba(212, 175, 55, 0.05);
+  border-left: 1px solid rgba(212, 175, 55, 0.05);
+}
+
+.about-lines-br {
+  bottom: 60px;
+  right: 40px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+  border-right: 1px solid rgba(212, 175, 55, 0.08);
+}
+
+.about-lines-br::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: -16px;
+  bottom: -16px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.05);
+  border-right: 1px solid rgba(212, 175, 55, 0.05);
+}
+
+/* Parallax ring mark wrappers */
+.about-ring-wrap {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.about-ring-wrap--tl {
+  top: 15%;
+  left: 8%;
+}
+
+.about-ring-wrap--br {
+  bottom: 10%;
+  right: 6%;
+}
+
+/* Coffee ring mark (concentric circles) */
+.about-ring-mark {
+  border-radius: 50%;
+  border: 1.5px solid rgba(212, 175, 55, 1);
+  /* opacity set via JS */
+  position: relative;
+}
+
+.about-ring-mark::before,
+.about-ring-mark::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  inset: 14px;
+}
+
+.about-ring-mark::after {
+  inset: 28px;
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+/* ==============================================
+   GRID
+============================================== */
 .editorial-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -38,21 +140,26 @@
   z-index: 2;
 }
 
-/* Left side: Images */
+/* ==============================================
+   LEFT: IMAGE COLUMN
+============================================== */
 .editorial-image-column {
   position: relative;
   height: 700px;
 }
 
+/* Primary photo */
 .primary-image-wrapper {
   position: absolute;
   top: 0;
   right: 0;
   width: 85%;
   height: 600px;
-  border-radius: 2px;
+  border-radius: 4px;
   overflow: hidden;
-  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 40px 80px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(212, 175, 55, 0.08);
 }
 
 .primary-parallax-img {
@@ -62,9 +169,21 @@
   position: absolute;
   top: -10%;
   left: 0;
-  filter: brightness(0.9) contrast(1.1);
+  filter: brightness(0.88) contrast(1.1) saturate(1.05);
 }
 
+/* Inner vignette */
+.primary-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 45%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.12) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Gold offset frame */
 .gold-accent-frame {
   position: absolute;
   top: 2rem;
@@ -74,24 +193,50 @@
   border: 1px solid var(--color-primary);
   pointer-events: none;
   z-index: 10;
-  opacity: 0.5;
+  opacity: 0.4;
+  border-radius: 2px;
 }
 
+/* Corner dot accents on primary frame */
+.corner-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  z-index: 11;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+
+.corner-dot--tl {
+  top: -4px;
+  left: -4px;
+}
+
+.corner-dot--br {
+  bottom: -4px;
+  right: -4px;
+}
+
+/* Secondary polaroid card */
 .secondary-image-card {
   position: absolute;
   bottom: 0;
   left: -2rem;
   width: 250px;
-  height: 300px;
-  background: white;
-  padding: 10px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+  /* Polaroid: white border + caption area */
+  background: #f8f3eb;
+  padding: 10px 10px 36px;
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
   z-index: 5;
+  cursor: default;
 }
 
 .secondary-image-inner {
   width: 100%;
-  height: 100%;
+  height: 280px;
   position: relative;
   overflow: hidden;
 }
@@ -101,19 +246,82 @@
   height: 100%;
   object-fit: cover;
   transform: scale(1.5);
-  /* zoom in effect */
-  filter: grayscale(30%) sepia(20%);
+  filter: grayscale(25%) sepia(20%) contrast(1.05);
 }
 
 .sec-img-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
 }
 
-/* Right side: Text */
+/* Polaroid caption strip */
+.polaroid-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: #5a3e28;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+/* Elevation chip */
+.elevation-chip {
+  position: absolute;
+  top: 50%;
+  left: -3rem;
+  transform: translateY(-50%);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 1rem;
+  background: rgba(15, 10, 5, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 12px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.elevation-chip-icon {
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.elevation-chip-value {
+  font-family: var(--font-heading, serif);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.elevation-chip-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(245, 240, 232, 0.5);
+  font-weight: 600;
+}
+
+/* ==============================================
+   RIGHT: TEXT COLUMN
+============================================== */
 .editorial-text-column {
   padding-left: 2rem;
+  position: relative;
 }
 
 .editorial-pre-title {
@@ -133,7 +341,8 @@
   display: block;
   width: 40px;
   height: 2px;
-  background-color: var(--color-primary);
+  background: linear-gradient(to right, var(--color-primary), transparent);
+  flex-shrink: 0;
 }
 
 .editorial-title {
@@ -151,52 +360,114 @@
   font-weight: 700;
 }
 
+/* Decorative open-quote mark */
+.about-quote-mark {
+  font-family: var(--font-heading, serif);
+  font-size: 8rem;
+  color: var(--color-primary);
+  opacity: 0.15;
+  line-height: 0.6;
+  margin-bottom: 0.5rem;
+  margin-left: -0.5rem;
+  user-select: none;
+  pointer-events: none;
+}
+
 .editorial-story {
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
   position: relative;
 }
 
-.editorial-story::before {
-  content: '"';
-  position: absolute;
-  top: -2rem;
-  left: -1rem;
-  font-family: var(--font-heading);
-  font-size: 6rem;
-  color: var(--color-primary);
-  opacity: 0.2;
-  line-height: 1;
-}
-
 .story-lead {
-  font-size: 1.4rem;
-  line-height: 1.6;
+  font-size: 1.35rem;
+  line-height: 1.65;
   color: var(--text-main);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   font-weight: 500;
 }
 
 .story-body {
-  font-size: 1.1rem;
-  line-height: 1.8;
+  font-size: 1.05rem;
+  line-height: 1.85;
   color: var(--text-muted);
 }
 
 .btn-editorial {
-  margin-bottom: 4rem;
+  margin-bottom: 2.5rem;
 }
 
-/* Stats */
+/* ==============================================
+   PROCESS PILLS STRIP
+============================================== */
+.about-process-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 3rem;
+}
+
+.process-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 99px;
+  background: rgba(212, 175, 55, 0.04);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+}
+
+.process-pill:hover {
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--color-primary);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.process-pill-num {
+  font-family: var(--font-heading, serif);
+  font-size: 0.65rem;
+  color: var(--color-primary);
+  opacity: 0.7;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ==============================================
+   STATS
+============================================== */
 .editorial-stats {
   display: flex;
-  gap: 3rem;
-  border-top: 1px solid var(--border-light);
-  padding-top: 3rem;
+  gap: 0;
+  border-top: 1px solid rgba(212, 175, 55, 0.12);
+  padding-top: 2.5rem;
 }
 
 .ed-stat-box {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  padding-right: 2rem;
+  position: relative;
+}
+
+.ed-stat-box+.ed-stat-box {
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.ed-stat-box+.ed-stat-box::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(212, 175, 55, 0.2), transparent);
 }
 
 .ed-stat-num {
@@ -206,6 +477,12 @@
   line-height: 1;
   font-weight: 400;
   margin-bottom: 0.5rem;
+  /* Number shimmer on hover */
+  transition: color 0.25s;
+}
+
+.ed-stat-box:hover .ed-stat-num {
+  color: var(--color-primary);
 }
 
 .ed-stat-num span {
@@ -215,14 +492,17 @@
 }
 
 .ed-stat-lab {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 2px;
   color: var(--text-muted);
   font-weight: 600;
+  line-height: 1.6;
 }
 
-/* Responsive */
+/* ==============================================
+   RESPONSIVE
+============================================== */
 @media (max-width: 1024px) {
   .editorial-grid {
     grid-template-columns: 1fr;
@@ -241,8 +521,19 @@
 
   .secondary-image-card {
     width: 200px;
-    height: 250px;
     left: 0;
+  }
+
+  .secondary-image-inner {
+    height: 230px;
+  }
+
+  .elevation-chip {
+    left: auto;
+    right: -1rem;
+    top: auto;
+    bottom: 2rem;
+    transform: none;
   }
 
   .editorial-text-column {
@@ -262,5 +553,39 @@
   .editorial-stats {
     flex-direction: column;
     gap: 2rem;
+  }
+
+  .ed-stat-box,
+  .ed-stat-box+.ed-stat-box {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .ed-stat-box+.ed-stat-box::before {
+    display: none;
+  }
+
+  .about-lines-tl,
+  .about-lines-br {
+    display: none;
+  }
+
+  .elevation-chip {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-process-strip {
+    gap: 0.4rem;
+  }
+
+  .process-pill {
+    font-size: 0.65rem;
+    padding: 0.35rem 0.7rem;
+  }
+
+  .about-quote-mark {
+    font-size: 6rem;
   }
 }
