@@ -221,6 +221,45 @@ function AccountDashboard() {
             {isSidebarOpen ? <FaTimes /> : <FaUser />}
           </button>
 
+          {/* Mobile Profile Card - New section for mobile visibility */}
+          <div className="dashboard-mobile-header">
+            <div className="mobile-user-card">
+              <div className="mobile-avatar-wrap">
+                <div className="mobile-avatar">
+                  {user.firstName?.charAt(0) || <FaUser />}
+                </div>
+                <div className="mobile-avatar-glow" />
+              </div>
+              <div className="mobile-user-info">
+                <span className="mobile-membership-badge">Rerendet Member</span>
+                <h3>{user.firstName} {user.lastName}</h3>
+                <p className="mobile-user-email">{user.email}</p>
+                <div className="mobile-user-stats">
+                  <div className="mobile-stat-pill">
+                    <span className="mobile-stat-label">Member Since</span>
+                    <span className="mobile-stat-value">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'New Member'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Access Mobile Tabs */}
+          <div className="mobile-tabs-scroll-nav">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                className={`mobile-scroll-tab ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
           <div className="tab-header">
             <p>Member Dashboard</p>
             <h2>
