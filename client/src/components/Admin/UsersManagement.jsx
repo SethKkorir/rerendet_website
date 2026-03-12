@@ -54,7 +54,7 @@ const RoleBadge = ({ role }) => {
 
 // ─── Main Component ────────────────────────────────────────────
 const UsersManagement = () => {
-  const { showAlert, fetchAdminUsers, updateUserRole, deleteUser, unlockAccount } = useContext(AppContext);
+  const { showAlert, fetchAdminUsers, updateUserRole, deleteUser, unlockAccount, resetUserSecurity } = useContext(AppContext);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -148,6 +148,29 @@ const UsersManagement = () => {
         fetchUsers();
         if (selectedUser?._id === userId) {
           setSelectedUser(prev => ({ ...prev, lockUntil: null, loginAttempts: 0 }));
+        }
+      }
+    } catch {
+      // Error is already handled by context
+    }
+  };
+  
+  const handleSecurityReset = async (userId, type) => {
+    // Confirm before proceeding
+    const typeLabel = type === 'mfa' ? 'Two-Factor Authentication' : 'Recovery Phone Number';
+    if (!window.confirm(`Are you sure you want to reset the ${typeLabel} for this user?`)) return;
+
+    try {
+      const res = await resetUserSecurity(userId, type);
+      if (res.success) {
+        fetchUsers(); // Refresh the list
+        // Update the drawer if it's the same user
+        if (selectedUser?._id === userId) {
+          setSelectedUser(prev => ({ 
+            ...prev, 
+            twoFactorEnabled: type === 'mfa' ? false : prev.twoFactorEnabled,
+            phone: type === 'phone' ? null : prev.phone
+          }));
         }
       }
     } catch {
@@ -385,6 +408,7 @@ const UsersManagement = () => {
             onRoleChange={handleRoleChange}
             onDelete={handleDeleteUser}
             onUnlock={handleUnlockUser}
+            onSecurityReset={handleSecurityReset}
             isLocked={isUserLocked(selectedUser)}
           />
         )}
@@ -394,7 +418,7 @@ const UsersManagement = () => {
 };
 
 // ─── User Profile Drawer ────────────────────────────────────────
-const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete, onUnlock, isLocked }) => {
+const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete, onUnlock, onSecurityReset, isLocked }) => {
   const [role, setRole] = useState(user.userType || user.role || 'customer');
   const [unlocking, setUnlocking] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -562,6 +586,62 @@ const UserProfileDrawer = ({ user, onClose, onRoleChange, onDelete, onUnlock, is
               </button>
             </div>
           )}
+
+          {/* Emergency Recovery */}
+          <div className="um-drawer-section">
+            <h4 className="um-drawer-section-title" style={{ color: '#f59e0b' }}><FaShieldAlt /> Emergency Recovery</h4>
+            <p className="um-drawer-section-hint">
+              Use these tools to help users who have lost access to their 2FA device or recovery phone.
+            </p>
+            
+            <div className="um-recovery-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '1rem' }}>
+              <button 
+                className="um-recovery-btn mfa"
+                onClick={() => onSecurityReset(user._id, 'mfa')}
+                disabled={!user.twoFactorEnabled}
+                style={{ 
+                  padding: '10px', 
+                  borderRadius: '8px', 
+                  border: '1px solid #f59e0b',
+                  background: 'transparent',
+                  color: '#f59e0b',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: user.twoFactorEnabled ? 'pointer' : 'not-allowed',
+                  opacity: user.twoFactorEnabled ? 1 : 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FaLock /> Disable MFA
+              </button>
+              
+              <button 
+                className="um-recovery-btn phone"
+                onClick={() => onSecurityReset(user._id, 'phone')}
+                disabled={!user.phone}
+                style={{ 
+                  padding: '10px', 
+                  borderRadius: '8px', 
+                  border: '1px solid #3b82f6',
+                  background: 'transparent',
+                  color: '#3b82f6',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: user.phone ? 'pointer' : 'not-allowed',
+                  opacity: user.phone ? 1 : 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FaPhone /> Clear Phone
+              </button>
+            </div>
+          </div>
 
           {/* Danger Zone */}
           <div className="um-drawer-section danger-zone">

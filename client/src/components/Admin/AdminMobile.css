@@ -444,46 +444,68 @@
     }
 
     /* Table → card list */
-    .um-table-head {
+    .um-table, 
+    .um-table thead, 
+    .um-table tbody, 
+    .um-table tr, 
+    .um-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .um-table thead {
+        display: none; /* Hide header on mobile */
+    }
+
+    .um-row {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding: 1.25rem !important;
+        border-radius: 16px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-light);
+        margin-bottom: 0.85rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Column specific adjustments */
+    .um-row td {
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    /* Hide checkbox on mobile cards unless needed */
+    .um-row td:first-child {
         display: none;
     }
 
-    .um-table-row {
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-        padding: 1rem;
-        border-radius: 12px;
-        background: var(--bg-surface);
-        border: 1px solid var(--border-light);
-        margin-bottom: 0.6rem;
+    .um-user-cell {
+        margin-bottom: 0.5rem;
     }
 
-    /* User card header row */
-    .um-table-row .um-col-name {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        font-size: 0.9rem;
-        font-weight: 700;
+    .um-user-name-block strong {
+        font-size: 1.05rem !important;
     }
 
-    .um-col-email {
-        font-size: 0.78rem;
-        color: var(--text-muted);
+    .um-contact-block {
+        margin-bottom: 0.5rem;
+        background: var(--bg-deep);
+        padding: 0.75rem;
+        border-radius: 10px;
     }
 
-    .um-col-role {
-        width: fit-content;
+    .um-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 0.5rem;
     }
 
-    .um-col-joined {
-        font-size: 0.72rem;
-        color: var(--text-dim);
-    }
-
-    .um-col-status {
-        width: fit-content;
+    .um-action-btn {
+        width: 100% !important;
+        height: 42px !important;
+        font-size: 0.9rem !important;
     }
 
     /* Modal → full-screen on mobile */
@@ -502,6 +524,26 @@
 
     .um-modal-overlay {
         align-items: flex-end;
+    }
+
+    /* User Profile Drawer → Bottom Sheet */
+    .um-drawer {
+        width: 100% !important;
+        max-width: 100%;
+        bottom: 0 !important;
+        top: auto !important;
+        right: 0 !important;
+        left: 0 !important;
+        border-radius: 24px 24px 0 0 !important;
+        border-left: none !important;
+        border-top: 1px solid var(--border-glass) !important;
+        height: 85vh !important;
+        max-height: 85vh !important;
+    }
+
+    .um-drawer-backdrop {
+        backdrop-filter: blur(6px) !important;
+        z-index: 1090 !important;
     }
 }
 

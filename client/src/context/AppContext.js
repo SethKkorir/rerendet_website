@@ -22,7 +22,8 @@ import API, {
   verifyPassword as apiVerifyPassword,
   logAbandonedCheckout as apiLogAbandoned,
   getAbandonedCheckouts as apiGetAbandoned,
-  unlockUserAccount as apiUnlockUser
+  unlockUserAccount as apiUnlockUser,
+  resetUserSecurity as apiResetUserSecurity
 } from '../api/api';
 
 export const AppContext = createContext(null);
@@ -999,6 +1000,17 @@ export function AppProvider({ children }) {
     }
   }, [showSuccess, showError]);
 
+  const resetUserSecurity = useCallback(async (userId, type) => {
+    try {
+      const response = await apiResetUserSecurity(userId, type);
+      showSuccess(response.data?.message || 'Security reset successful');
+      return response.data;
+    } catch (error) {
+      showError(error.response?.data?.message || 'Failed to reset security');
+      throw error;
+    }
+  }, [showSuccess, showError]);
+
   const fetchAdminOrders = useCallback(async (params = {}) => {
     try {
       const response = await getAdminOrders(params);
@@ -1252,6 +1264,7 @@ export function AppProvider({ children }) {
     updateUserRole,
     deleteUser,
     unlockAccount,
+    resetUserSecurity,
     fetchAdminOrders,
     fetchAdminProducts,
 

@@ -105,6 +105,7 @@ export const getActivityLogs = (params) => API.get('/admin/logs', { params });
 export const getAdminUsers = (params) => API.get('/admin/users', { params });
 export const updateUserRole = (id, role) => API.put(`/admin/users/${id}/role`, { role });
 export const deleteUser = (id) => API.delete(`/admin/users/${id}`);
+export const resetUserSecurity = (id, type) => API.patch(`/admin/users/${id}/security-reset`, { type });
 export const getAdminOrders = (params) => API.get('/admin/orders', { params });
 export const getAdminProducts = (params) => API.get('/admin/products', { params });
 export const getAdminOrderDetail = (id) => API.get(`/admin/orders/${id}`);

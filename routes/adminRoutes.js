@@ -26,6 +26,7 @@ import {
   updateUserRole,
   toggleUserStatus,
   deleteUser,
+  resetUserSecurity,
   testEmailConfig,
   checkNewOrders,
   getAdminOverview,
@@ -79,6 +80,7 @@ router.get('/users', adminAuth(['users:view']), getUsers);
 router.put('/users/:id/role', adminAuth(['users:manage']), updateUserRole);
 router.put('/users/:id/status', adminAuth(['users:manage']), toggleUserStatus);
 router.delete('/users/:id', adminAuth(['users:manage']), deleteUser);
+router.patch('/users/:id/security-reset', adminAuth(['users:manage']), resetUserSecurity);
 
 // ==================== CONTACT MANAGEMENT ====================
 router.get('/contacts', adminAuth(['contacts:manage']), getContacts);

@@ -330,7 +330,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
       }
     }
 
-    logActivity(req.user._id, 'ORDER_STATUS_UPDATE', `Updated order #${order.orderNumber}: ${changes.join(', ')}`);
+    await logActivity(req, 'ORDER_STATUS_UPDATE', `Updated order #${order.orderNumber}: ${changes.join(', ')}`, order._id);
   }
 
   res.json({
@@ -1477,6 +1477,48 @@ const toggleUserStatus = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Reset user security (MFA or Phone)
+// @route   PATCH /api/admin/users/:id/security-reset
+// @access  Private/Admin
+const resetUserSecurity = asyncHandler(async (req, res) => {
+  const { type } = req.body;
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  if (type === 'mfa') {
+    user.twoFactorEnabled = false;
+    user.verificationCode = undefined;
+    user.verificationCodeExpires = undefined;
+    
+    // If we ever add TOTP secrets, clear them here too
+    // user.twoFactorSecret = undefined; 
+  } else if (type === 'phone') {
+    user.phone = null;
+  } else {
+    res.status(400);
+    throw new Error('Invalid reset type');
+  }
+
+  // Save changes
+  await user.save({ validateBeforeSave: false });
+
+  // Log the activity for auditing
+  await logActivity(req, 'SECURITY_RESET', user.email, user._id, { 
+    type,
+    affectedUser: user.email 
+  });
+
+  res.json({
+    success: true,
+    message: `${type === 'mfa' ? 'Two-Factor Authentication' : 'Recovery phone'} has been reset for this user.`,
+    data: user
+  });
+});
+
 // @desc    Get quick admin overview (for header/sidebar badges)
 // @route   GET /api/admin/overview
 // @access  Private/Admin
@@ -1946,5 +1988,6 @@ export {
   getCouponsReport,
   exportOrdersCSV,
   exportCustomersCSV,
-  updateProductStock
+  updateProductStock,
+  resetUserSecurity
 };
