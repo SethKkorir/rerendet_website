@@ -40,24 +40,24 @@ const OverviewTab = ({ user, orders, onNavigate }) => {
         <div className="overview-stat-card">
           <div className="stat-icon-wrap"><FaShoppingBag /></div>
           <div className="stat-content">
+            <span className="stat-label">Acquisitions</span>
             <span className="stat-value">{orders.length}</span>
-            <span className="stat-label">Total Orders</span>
           </div>
         </div>
         <div className="overview-stat-card">
           <div className="stat-icon-wrap"><FaCreditCard /></div>
           <div className="stat-content">
+            <span className="stat-label">Pending</span>
             <span className="stat-value">{unpaidOrders}</span>
-            <span className="stat-label">Unpaid Orders</span>
           </div>
         </div>
         <div className={`overview-stat-card ${user.twoFactorEnabled ? 'security-card' : 'at-risk-card'}`}>
           <div className="stat-icon-wrap"><FaShieldAlt /></div>
           <div className="stat-content">
+            <span className="stat-label">Account Health</span>
             <span className={`stat-value ${user.twoFactorEnabled ? 'text-success' : 'text-warning'}`}>
               {user.twoFactorEnabled ? 'Secure' : 'At Risk'}
             </span>
-            <span className="stat-label">Account Health</span>
           </div>
         </div>
       </div>
@@ -221,7 +221,7 @@ function AccountDashboard() {
             {isSidebarOpen ? <FaTimes /> : <FaUser />}
           </button>
 
-          {/* Mobile Profile Card - New section for mobile visibility */}
+          {/* Mobile Profile Card - Premium Edition */}
           <div className="dashboard-mobile-header">
             <div className="mobile-user-card">
               <div className="mobile-avatar-wrap">
@@ -231,7 +231,10 @@ function AccountDashboard() {
                 <div className="mobile-avatar-glow" />
               </div>
               <div className="mobile-user-info">
-                <span className="mobile-membership-badge">Rerendet Member</span>
+                <span className="mobile-membership-badge">
+                  <FaShieldAlt style={{ fontSize: '0.8rem' }} /> Rerendet Elite
+                </span>
+                <p className="mobile-welcome-text">Welcome back,</p>
                 <h3>{user.firstName} {user.lastName}</h3>
                 <p className="mobile-user-email">{user.email}</p>
                 <div className="mobile-user-stats">
@@ -240,6 +243,10 @@ function AccountDashboard() {
                     <span className="mobile-stat-value">
                       {user.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'New Member'}
                     </span>
+                  </div>
+                  <div className="mobile-stat-pill">
+                    <span className="mobile-stat-label">Total Orders</span>
+                    <span className="mobile-stat-value">{orders.length}</span>
                   </div>
                 </div>
               </div>
@@ -258,6 +265,13 @@ function AccountDashboard() {
                 <span>{tab.label}</span>
               </button>
             ))}
+            <button
+              className="mobile-scroll-tab logout-mobile-tab"
+              onClick={handleLogout}
+            >
+              <FaSignOutAlt style={{ color: '#ff4d4d' }} />
+              <span style={{ color: '#ff4d4d' }}>Logout</span>
+            </button>
           </div>
 
           <div className="tab-header">

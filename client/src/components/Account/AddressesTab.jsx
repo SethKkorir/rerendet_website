@@ -153,14 +153,14 @@ const AddressesTab = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="empty-state premium">
-                            <div className="empty-icon-animated">
-                                <FaMapMarkerAlt />
+                        <div className="empty-state">
+                            <div className="empty-icon-wrap">
+                                <FaMapMarkerAlt className="empty-icon" />
                             </div>
-                            <h3>Setup Delivery Address</h3>
-                            <p>Tell us where to deliver your Rerendet packages for seamless logistics.</p>
-                            <button className="btn-primary" onClick={() => setIsEditing(true)}>
-                                <FaPlus /> Add Address
+                            <h3>Map your deliveries</h3>
+                            <p>Tell us where to deliver your Rerendet acquisitions for seamless logistics.</p>
+                            <button className="btn-order-primary" onClick={() => setIsEditing(true)}>
+                                <FaPlus /> Add Pin Location
                             </button>
                         </div>
                     )}

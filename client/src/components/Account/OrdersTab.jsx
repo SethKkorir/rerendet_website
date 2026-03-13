@@ -129,10 +129,14 @@ const OrdersTab = ({ orders, loading }) => {
                 </div>
             ) : (
                 <div className="empty-state">
-                    <FaBox className="empty-icon" />
-                    <h3>No orders yet</h3>
-                    <p>Once you make a purchase, it will appear here.</p>
-                    <button className="btn-primary" onClick={() => navigate('/shop')}>Start Shopping</button>
+                    <div className="empty-icon-wrap">
+                        <FaShoppingBag className="empty-icon" />
+                    </div>
+                    <h3>Start your journey</h3>
+                    <p>Experience the finest Kenyan single-origin coffee. Your future acquisitions will appear here.</p>
+                    <button className="btn-order-primary" onClick={() => (window.location.href = '#coffee-shop')}>
+                        Explore Collection
+                    </button>
                 </div>
             )}
         </div>
