@@ -188,6 +188,20 @@
     }
 }
 
+/* Logout button in bottom nav */
+.bn-logout {
+    color: rgba(239, 68, 68, 0.6) !important;
+}
+
+.bn-logout .bn-icon {
+    color: #ef4444;
+}
+
+.bn-logout .bn-label {
+    color: #ef4444;
+    opacity: 0.8;
+}
+
 /* ══════════════════════════════════════════════════════════════════
    DASHBOARD — MOBILE
 ══════════════════════════════════════════════════════════════════ */

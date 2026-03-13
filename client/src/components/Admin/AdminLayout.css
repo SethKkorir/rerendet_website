@@ -503,7 +503,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 999;
+  z-index: 1199;
   backdrop-filter: blur(2px);
 }
 
@@ -847,6 +847,7 @@
     left: 0;
     top: 0;
     bottom: 0;
+    z-index: 1200;
     transform: translateX(-100%);
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.4);
   }
@@ -892,7 +893,7 @@
   .notification-panel {
     position: fixed;
     top: auto;
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 8px);
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 8px);
     left: 0.75rem;
     right: 0.75rem;
     width: auto;
@@ -900,6 +901,13 @@
     max-height: 55vh;
     overflow-y: auto;
     z-index: 3000;
+  }
+
+  /* Ensure sidebar footer (logout) is visible on mobile */
+  .sidebar-footer {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 20px));
+    background: #1a1714;
+    border-top: 1px solid rgba(212, 175, 55, 0.1);
   }
 }
 

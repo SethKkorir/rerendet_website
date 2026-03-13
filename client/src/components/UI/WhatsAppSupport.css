@@ -1,9 +1,8 @@
 .whatsapp-support-floating {
     position: fixed;
-    bottom: 20px;
-    /* Lowered from 40px */
-    right: 30px;
-    z-index: 1000;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1050; /* Above most content but below modals and sidebar */
     display: flex;
     align-items: center;
 }
@@ -102,7 +101,7 @@
 
 @media (max-width: 768px) {
     .whatsapp-support-floating {
-        bottom: 90px;
+        bottom: 92px; /* Stay just above admin bottom nav (72px) + breathing room */
         right: 20px;
         left: auto;
     }

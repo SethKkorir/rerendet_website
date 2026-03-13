@@ -155,9 +155,7 @@ function Navbar() {
               className="header__account"
               onClick={() => {
                 if (user) {
-                  // If user is admin, take them to admin portal, otherwise to customer account
-                  const isAdminUser = user.role === 'admin' || user.role === 'super-admin' || user.userType === 'admin';
-                  navigate(isAdminUser ? '/admin' : '/account');
+                  navigate('/account');
                 } else {
                   openAuth('login');
                 }

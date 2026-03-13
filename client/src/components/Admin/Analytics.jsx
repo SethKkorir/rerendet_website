@@ -176,17 +176,34 @@ const Analytics = () => {
     setError(null);
 
     try {
+      console.log('📊 Analytics: Fetching sales data for period:', timeframe);
       const res = await getSalesAnalytics({ period: timeframe });
-      if (res?.data?.success) {
+      console.log('📊 Analytics: API response:', res?.data?.success, res?.data?.data ? 'has data' : 'no data');
+      
+      if (res?.data?.success && res?.data?.data) {
         setOverview(res.data.data);
-      } else {
-        // API returned but with success:false — set empty object so UI renders
+      } else if (res?.data?.success === false) {
         setOverview({});
         console.warn('Analytics API returned success:false', res?.data);
+        setError('Analytics returned no data. Please try a different timeframe.');
+      } else {
+        // Unexpected response shape — try to use whatever we got
+        setOverview(res?.data?.data || res?.data || {});
       }
     } catch (e) {
       console.error('Analytics loadOverview error:', e);
-      setError('Failed to load analytics. Check your connection and try again.');
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e.message;
+      
+      if (status === 403) {
+        setError('Access denied. You may not have analytics permissions.');
+      } else if (status === 401) {
+        setError('Session expired. Please log out and log in again.');
+      } else if (status === 500) {
+        setError('Server error loading analytics. Check server logs.');
+      } else {
+        setError(`Failed to load analytics: ${msg || 'Unknown error'}`);
+      }
       // Still set overview so we don't get stuck on the spinner
       setOverview(prev => prev || {});
     } finally {

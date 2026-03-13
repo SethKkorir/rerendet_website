@@ -417,6 +417,16 @@ const AdminLayout = ({ children }) => {
             </button>
           );
         })}
+        {/* Logout visible in mobile bottom bar */}
+        <button
+          className="bn-item bn-logout"
+          style={{ '--bn-color': '#ef4444', '--bn-bg': 'rgba(239,68,68,0.18)' }}
+          onClick={handleLogout}
+          aria-label="Logout"
+        >
+          <span className="bn-icon"><FaSignOutAlt /></span>
+          <span className="bn-label">Logout</span>
+        </button>
       </nav>
     </div>
   );
