@@ -16,6 +16,7 @@ import './Navbar.css';
 function Navbar() {
   const {
     user,
+    userType,
     cartCount,
     setIsCartOpen,
     mobileMenuOpen,
@@ -28,6 +29,8 @@ function Navbar() {
     setShowAuthModal,
     setAuthView
   } = useContext(AppContext);
+
+  const isAdminUser = userType === 'admin' || user?.role === 'admin' || user?.role === 'super-admin';
 
   const navigate = useNavigate();
 
@@ -155,7 +158,7 @@ function Navbar() {
               className="header__account"
               onClick={() => {
                 if (user) {
-                  navigate('/account');
+                  navigate(isAdminUser ? '/admin' : '/account');
                 } else {
                   openAuth('login');
                 }
@@ -200,8 +203,8 @@ function Navbar() {
             ))}
             {user ? (
               <>
-                <button className="header__mobile-nav-link" onClick={() => navigate('/account')}>
-                  My Account
+                <button className="header__mobile-nav-link" onClick={() => { navigate(isAdminUser ? '/admin' : '/account'); setMobileMenuOpen(false); }}>
+                  {isAdminUser ? 'Admin Panel' : 'My Account'}
                 </button>
                 <button className="header__mobile-nav-link" onClick={() => { logout(); setMobileMenuOpen(false); }}>
                   Logout

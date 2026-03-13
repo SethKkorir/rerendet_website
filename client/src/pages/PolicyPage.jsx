@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Link, useLocation } from 'react-router-dom';
-import { FaShieldAlt, FaClock, FaBook, FaChevronRight } from 'react-icons/fa';
+import { FaShieldAlt, FaClock, FaBook } from 'react-icons/fa';
 import './PolicyPage.css';
 
 const PolicyPage = ({ type, title }) => {

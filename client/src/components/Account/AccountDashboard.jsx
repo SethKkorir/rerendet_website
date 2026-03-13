@@ -109,12 +109,21 @@ const OverviewTab = ({ user, orders, onNavigate }) => {
 function AccountDashboard() {
   const {
     user,
+    userType,
     logout,
     fetchUserOrders,
     orderRefreshTrigger
   } = useContext(AppContext);
 
   const navigate = useNavigate();
+
+  // Block admin users from accessing customer dashboard
+  const isAdminUser = userType === 'admin' || user?.role === 'admin' || user?.role === 'super-admin';
+  useEffect(() => {
+    if (user && isAdminUser) {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, isAdminUser, navigate]);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
   

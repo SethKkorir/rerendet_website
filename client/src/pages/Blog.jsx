@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { motion } from 'framer-motion';
-import { FaCalendarAlt, FaUser, FaChevronRight, FaSearch } from 'react-icons/fa';
+import { FaCalendarAlt, FaChevronRight, FaSearch } from 'react-icons/fa';
 import Footer from '../components/Footer/Footer';
 import './Blog.css';
 
