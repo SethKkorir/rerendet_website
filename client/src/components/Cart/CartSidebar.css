@@ -14,7 +14,7 @@
   right: 0;
   width: 100%;
   max-width: 500px;
-  height: 100vh;
+  height: 100dvh;
   background: var(--bg-surface);
   z-index: 2001;
   display: flex;

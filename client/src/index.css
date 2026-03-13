@@ -108,6 +108,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  overscroll-behavior-y: none;
+}
+
 /* --- Semantic Layout Control --- */
 .container {
   width: 100%;
@@ -137,11 +141,13 @@ body {
   background-color: var(--bg-home);
   color: var(--text-main);
   line-height: 1.5;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   transition: background-color 0.4s ease, color 0.4s ease;
   font-size: clamp(0.85rem, 0.8vw + 0.4rem, 1rem);
   /* Slightly smaller base text */
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Global Form Resets */

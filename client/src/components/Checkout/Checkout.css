@@ -2,7 +2,7 @@
 
 .checkout-page {
   background: radial-gradient(circle at 0% 0%, var(--bg-deep) 0%, var(--bg-home) 100%);
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 2rem 0;
   /* Further reduced for compactness */
   font-family: var(--font-body);

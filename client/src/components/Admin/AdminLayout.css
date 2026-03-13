@@ -3,7 +3,7 @@
 /* ══ Layout shell ══════════════════════════════════════════ */
 .admin-layout {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-home);
   color: var(--text-main);
   font-family: 'Outfit', sans-serif;
@@ -30,7 +30,7 @@
 
 .admin-sidebar {
   width: 260px;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -512,7 +512,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   min-width: 0;
 }

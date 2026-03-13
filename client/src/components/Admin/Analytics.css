@@ -46,7 +46,7 @@
 .analytics-dashboard {
   padding: 2rem;
   background: var(--bg-home);
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text-main);
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   animation: anFade 0.4s ease-out;

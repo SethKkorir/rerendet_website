@@ -5,7 +5,8 @@ import {
   FaUser, FaShoppingBag, FaMapMarkerAlt, FaCreditCard,
   FaSignOutAlt, FaLock, FaTimes, FaHome, FaShieldAlt, FaHistory, FaCheckCircle
 } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import './AccountDashboard.css';
 
 // Import Tab Components
@@ -114,7 +115,13 @@ function AccountDashboard() {
   } = useContext(AppContext);
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'overview';
+  
+  const setActiveTab = (tabId) => {
+    setSearchParams({ tab: tabId });
+  };
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Real Data State
@@ -175,8 +182,31 @@ function AccountDashboard() {
   return (
     <div className="modern-account-dashboard">
       <div className="modern-dashboard-container">
+        {/* Backdrop for Mobile Sidebar */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              className="sidebar-mobile-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Sidebar */}
-        <aside className={`modern-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <motion.aside 
+          className={`modern-sidebar ${isSidebarOpen ? 'open' : ''}`}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.1}
+          onDragEnd={(e, info) => {
+            if (info.offset.x < -50 || info.velocity.x < -300) {
+              setIsSidebarOpen(false);
+            }
+          }}
+        >
           <div className="user-card-modern">
             <div className="avatar-modern-wrap">
               <div className="avatar-modern">
@@ -213,7 +243,7 @@ function AccountDashboard() {
               <span>Logout</span>
             </button>
           </nav>
-        </aside>
+        </motion.aside>
 
         {/* Main Content */}
         <main className="modern-main-content">

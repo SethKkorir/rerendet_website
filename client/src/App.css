@@ -51,6 +51,7 @@
 
 html {
   scroll-behavior: smooth;
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -60,6 +61,8 @@ body {
   background-color: var(--bg-primary);
   overflow-x: hidden;
   transition: background-color 0.3s ease, color 0.3s ease;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .container {
@@ -293,7 +296,7 @@ img {
 
 .maintenance-active .admin-sidebar {
   margin-top: 45px;
-  height: calc(100vh - 45px);
+  height: calc(100dvh - 45px);
 }
 
 /* =========== Navigation =========== */
@@ -486,7 +489,7 @@ img {
   top: 0;
   right: -400px;
   width: 380px;
-  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-card);
   box-shadow: -5px 0 30px rgba(0, 0, 0, 0.15);
   z-index: 1001;
@@ -832,12 +835,30 @@ img {
   padding: 40px 30px;
   text-align: center;
   box-shadow: var(--box-shadow);
-  transition: var(--transition);
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at top right, rgba(212, 175, 55, 0.08), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
 }
 
 .feature-card:hover {
-  transform: translateY(-10px);
+  transform: translateY(-12px);
+  box-shadow: 0 25px 50px -12px rgba(212, 175, 55, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.feature-card:hover::before {
+  opacity: 1;
 }
 
 .feature-card .icon {
@@ -851,13 +872,14 @@ img {
   background-color: var(--bg-primary);
   color: var(--primary-color);
   font-size: 2rem;
-  transition: var(--transition);
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .feature-card:hover .icon {
   background-color: var(--primary-color);
   color: var(--white);
-  transform: scale(1.1);
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 10px 20px rgba(212, 175, 55, 0.3);
 }
 
 .feature-card h3 {
@@ -1578,17 +1600,20 @@ img {
 .login-section {
   display: flex;
   align-items: center;
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg-primary);
 }
 
 .login-card {
   position: relative;
   overflow: hidden;
-  background-color: var(--bg-card);
-  padding: 40px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  padding: 50px 40px;
+  border-radius: 30px;
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
@@ -1699,17 +1724,20 @@ img {
 .signup-section {
   display: flex;
   align-items: center;
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg-primary);
 }
 
 .signup-card {
   position: relative;
   overflow: hidden;
-  background-color: var(--bg-card);
-  padding: 40px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  padding: 50px 40px;
+  border-radius: 30px;
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
@@ -1816,7 +1844,7 @@ img {
     top: 70px;
     left: 0;
     width: 100%;
-    height: calc(100vh - 70px);
+    height: calc(100dvh - 70px);
     background-color: var(--white);
     flex-direction: column;
     justify-content: flex-start;

@@ -161,7 +161,7 @@
     position: fixed;
     top: 0;
     right: 0;
-    height: 100vh;
+    height: 100dvh;
     width: 800px;
     max-width: 95%;
     background: var(--bg-surface);

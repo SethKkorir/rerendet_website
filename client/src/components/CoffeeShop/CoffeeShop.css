@@ -31,7 +31,7 @@
 .cs-section {
   background: var(--cs-bg);
   padding: 9rem 0 7rem;
-  min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   overflow: hidden;
   font-family: 'DM Sans', sans-serif;

@@ -2,7 +2,7 @@
 .policy-page {
     padding: 10rem 0 8rem;
     background-color: var(--bg-home);
-    min-height: 100vh;
+    min-height: 100dvh;
     position: relative;
     overflow: hidden;
 }

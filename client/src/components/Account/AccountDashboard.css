@@ -1,42 +1,41 @@
 /* AccountDashboard.css - Premium Editorial Version */
 
 .modern-account-dashboard {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background: var(--bg-home);
   color: var(--text-main);
   padding-top: 80px;
-  /* Reduced from 100px */
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden; /* Lock outer scroll */
+  overscroll-behavior: none; /* Disable pull-to-refresh / rubber banding */
 }
 
 .modern-dashboard-container {
   display: flex;
   max-width: 1300px;
-  /* Reduced from 1400px */
   margin: 0 auto;
   gap: 2rem;
-  /* Reduced from 3rem */
-  padding: 0 3rem 3rem;
-  /* Reduced from 4rem */
+  padding: 0 3rem 0; /* Removing bottom padding since we scroll inner */
   position: relative;
   z-index: 1;
+  height: calc(100dvh - 80px); /* Fill remaining viewport after header */
+  overflow: hidden; /* Prevent container from spilling over */
 }
 
 /* ── Sidebar: The Control Center ── */
 .modern-sidebar {
   width: 280px;
   background: var(--bg-glass);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
   border: 1px solid var(--border-glass);
   border-radius: 30px;
   padding: 2.5rem 1.5rem;
   height: fit-content;
   position: sticky;
   top: 80px;
-  /* Reduced from 100px */
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .user-card-modern {
@@ -175,20 +174,23 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
 }
 
 .modern-nav-item:hover {
-  background: var(--bg-overlay);
-  color: var(--text-main);
-  transform: translateX(10px);
+  background: rgba(212, 175, 55, 0.08); /* Warm gold tint on hover */
+  color: var(--color-primary);
+  transform: translateX(8px);
+  border-color: rgba(212, 175, 55, 0.15);
 }
 
 .modern-nav-item.active {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: white;
-  box-shadow: 0 15px 30px rgba(212, 175, 55, 0.2);
-  border-color: var(--border-glass);
+  box-shadow: 0 15px 30px rgba(212, 175, 55, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-color: transparent;
 }
 
 .modern-nav-item.logout-btn {
@@ -205,9 +207,18 @@
 .modern-main-content {
   flex: 1;
   min-width: 0;
-  /* Critical for flex overflow */
   max-width: 100%;
   overflow-wrap: break-word;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: none; /* Prevent bouncing */
+  -webkit-overflow-scrolling: touch; /* Momentum scroll iOS */
+  padding-bottom: 3rem; /* padding inside the scroll area */
+  scrollbar-width: none; /* optional: hide scrollbar */
+}
+.modern-main-content::-webkit-scrollbar {
+  display: none;
 }
 
 .modern-dashboard-tab {
@@ -279,10 +290,10 @@
 }
 
 .modern-order-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-8px) scale(1.01);
   background: var(--bg-home);
   border-color: var(--color-primary);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 25px 50px -12px rgba(212, 175, 55, 0.15);
 }
 
 .order-header {
@@ -1975,6 +1986,9 @@ input:checked+.slider:before {
   max-width: 420px;
   text-align: center;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-height: 90dvh;
+  overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .prompt-header .icon-badge {
@@ -2067,6 +2081,9 @@ input:checked+.slider:before {
   width: 100%;
   max-width: 500px;
   box-shadow: var(--shadow-lg);
+  max-height: 90dvh;
+  overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .edit-header {
@@ -2378,16 +2395,29 @@ input:checked+.slider:before {
     position: fixed;
     top: 0;
     left: -100%;
-    /* Initially hidden */
     width: 280px;
-    height: 100vh;
-    z-index: 1000;
+    height: 100dvh;
+    z-index: 1200;
     transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     border-radius: 0 30px 30px 0;
     margin: 0;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     background: #111;
-    /* Darker for separation */
+  }
+
+  .sidebar-mobile-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 1100;
   }
 
   .modern-sidebar.open {
@@ -2716,8 +2746,23 @@ input:checked+.slider:before {
 
 /* -- Menu Toggle Fix -- */
 @media (max-width: 1100px) {
-  /* We use horizontal scroll tabs now, so hide the toggle button */
   .mobile-menu-toggle {
-    display: none !important;
+    display: flex !important;
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    background: var(--color-primary);
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.4);
+    z-index: 1000;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 } 

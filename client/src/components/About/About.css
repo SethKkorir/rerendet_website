@@ -155,11 +155,19 @@
   right: 0;
   width: 85%;
   height: 600px;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow:
     0 40px 80px rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(212, 175, 55, 0.08);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.6s ease;
+}
+
+.primary-image-wrapper:hover {
+  transform: translateY(-12px);
+  box-shadow:
+    0 50px 100px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(212, 175, 55, 0.15);
 }
 
 .primary-parallax-img {
@@ -451,14 +459,18 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-right: 2rem;
+  padding: 1.5rem 2rem;
   position: relative;
+  border-radius: 20px;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.4s ease;
 }
 
-.ed-stat-box+.ed-stat-box {
-  padding-left: 2rem;
-  padding-right: 2rem;
+.ed-stat-box:hover {
+  background: rgba(212, 175, 55, 0.03);
+  transform: translateY(-6px);
 }
+
+
 
 .ed-stat-box+.ed-stat-box::before {
   content: '';

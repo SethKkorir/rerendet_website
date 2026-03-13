@@ -6,7 +6,7 @@
 .users-management {
   padding: 2rem;
   background: var(--bg-home);
-  min-height: 100vh;
+  min-height: 100dvh;
   animation: umFade 0.4s ease-out;
   color: var(--text-main);
   font-family: 'Outfit', sans-serif;

@@ -3,7 +3,7 @@
 
 /* ══ Page wrapper ═════════════════════════════════════════════════ */
 .or-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-home);
   padding: 4.5rem 1rem 3rem;
   font-family: 'Plus Jakarta Sans', sans-serif;
