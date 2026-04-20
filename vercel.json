@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "buildCommand": "cd client && npm install && NODE_OPTIONS=--openssl-legacy-provider npm run build",
+    "buildCommand": "cd client && npm ci && NODE_OPTIONS=--openssl-legacy-provider npm run build",
     "builds": [
         {
             "src": "api/index.js",
