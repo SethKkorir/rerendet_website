@@ -1,9 +1,14 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaLock, FaShieldAlt, FaKey, FaTrash, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
+import API from '../../api/api';
+import {
+    FaLock, FaShieldAlt, FaKey, FaTrash, FaCheckCircle,
+    FaExclamationTriangle, FaHistory, FaDesktop, FaFingerprint,
+    FaArrowRight, FaShieldVirus, FaFingerprint as FaBiometric
+} from 'react-icons/fa';
 
 const SecurityTab = () => {
-    const { user, updateUserProfile, loading: contextLoading, showSuccess, showError, token, logout } = useContext(AppContext);
+    const { user, updateUserProfile, deleteAccount, loading: contextLoading, showSuccess, showError, token, logout } = useContext(AppContext);
 
     // Password Change State
     const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -16,7 +21,30 @@ const SecurityTab = () => {
 
     // Delete Account State
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // Activity Logs State
+    const [logs, setLogs] = useState([]);
+    const [logsLoading, setLogsLoading] = useState(false);
+
+    const fetchLogs = async () => {
+        setLogsLoading(true);
+        try {
+            const res = await API.get('/auth/activity');
+            if (res.data.success) {
+                setLogs(res.data.data);
+            }
+        } catch (error) {
+            console.error('Fetch logs error:', error);
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLogs();
+    }, []);
 
     // --- Password Change ---
     const handlePasswordChange = async (e) => {
@@ -74,18 +102,6 @@ const SecurityTab = () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to update 2FA settings');
 
-            // Update local context/user
-            // We assume updateUserProfile can merge partial data or we manually fetch me
-            // Since updateUserProfile calls API usually, here we just want to update local state.
-            // Easiest is to reload window or just assume success if we used Context properly.
-            // But AppContext doesn't expose a "setUser" directly without fetch.
-            // We can force a reload or re-fetch user.
-
-            // Ideally, we'd have `refreshUser()` in context.
-            // For now, let's call `window.location.reload()` after short delay or trust user sees message.
-            // Better: The context might be stale.
-            // Let's rely on showSuccess.
-
             showSuccess(`Two-Factor Authentication ${!user.twoFactorEnabled ? 'Enabled' : 'Disabled'}`);
             setShow2FAConfirm(false);
             setTwoFAData({ password: '' });
@@ -101,24 +117,11 @@ const SecurityTab = () => {
     };
 
     // --- Delete Account ---
-    const handleDeleteAccount = async () => {
-        if (!window.confirm('Are you ABSOLUTELY sure? This action cannot be undone.')) return;
-
+    const handleDeleteAccount = async (e) => {
+        if (e) e.preventDefault();
         setDeleteLoading(true);
         try {
-            const response = await fetch('/api/auth/profile', {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to delete account');
-
-            showSuccess('Account deleted. We are sorry to see you go.');
-            await logout();
-            window.location.href = '/';
+            await deleteAccount(deletePassword);
         } catch (error) {
             showError(error.message);
         } finally {
@@ -127,151 +130,230 @@ const SecurityTab = () => {
     };
 
     return (
-        <div className="modern-dashboard-tab">
-            <div className="tab-header">
-                <h2>Security Settings</h2>
-            </div>
-
-            {/* Two-Factor Authentication */}
-            <div className="content-card mb-4">
-                <div className="security-section">
-                    <div className="sec-icon">
-                        <FaShieldAlt className={user.twoFactorEnabled ? 'text-success' : 'text-muted'} />
-                    </div>
-                    <div className="sec-details">
-                        <h3>Two-Factor Authentication (2FA)</h3>
-                        <p className="text-muted">
-                            Add an extra layer of security. We'll email you a code when you log in.
-                        </p>
-                        <div className="status-badge-container">
-                            {user.twoFactorEnabled ? (
-                                <span className="status-badge success"><FaCheckCircle /> Enabled</span>
-                            ) : (
-                                <span className="status-badge warning">Disabled</span>
-                            )}
-                        </div>
-                    </div>
-                    <div className="sec-actions">
-                        <button
-                            className={`btn-sm ${user.twoFactorEnabled ? 'btn-outline-danger' : 'btn-primary'}`}
-                            onClick={() => setShow2FAConfirm(!show2FAConfirm)}
-                        >
-                            {user.twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
-                        </button>
+        <div className="security-tab-premium">
+            {/* Header Health Overview */}
+            <div className="security-health-card">
+                <div className="health-visual">
+                    <div className={`health-circle ${user.twoFactorEnabled ? 'strong' : 'danger'}`}>
+                        <FaShieldVirus />
                     </div>
                 </div>
+                <div className="health-content">
+                    <div className="health-status-row">
+                        <h4>Security Health</h4>
+                        <span className={`health-pill ${user.twoFactorEnabled ? 'success' : 'danger'}`}>
+                            {user.twoFactorEnabled ? 'Optimal Protection' : 'Basic Protection'}
+                        </span>
+                    </div>
+                    <p>
+                        {user.twoFactorEnabled
+                            ? "Your account is guarded with enterprise-grade two-factor authentication."
+                            : "Enhance your security by enabling two-factor authentication."}
+                    </p>
+                </div>
+            </div>
 
-                {show2FAConfirm && (
-                    <form className="modern-form mt-3 border-top pt-3" onSubmit={handleToggle2FA}>
-                        <p>Please enter your password to confirm this change.</p>
-                        <div className="form-group">
-                            <input
-                                type="password"
-                                placeholder="Current Password"
-                                value={twoFAData.password}
-                                onChange={(e) => setTwoFAData({ password: e.target.value })}
-                                required
-                            />
+            <div className="security-grid">
+                {/* Left Side: Actions */}
+                <div className="security-actions-column">
+                    {/* 2FA Card */}
+                    <div className="sec-card glass-morph">
+                        <div className="sec-card-header">
+                            <div className="header-title">
+                                <FaFingerprint className="accent-icon" />
+                                <div>
+                                    <h5>Two-Factor Authentication</h5>
+                                    <p>Encrypted email verification</p>
+                                </div>
+                            </div>
+                            <label className="premium-switch">
+                                <input
+                                    type="checkbox"
+                                    checked={user.twoFactorEnabled}
+                                    onChange={() => setShow2FAConfirm(true)}
+                                />
+                                <span className="slider round"></span>
+                            </label>
                         </div>
-                        <div className="form-actions">
-                            <button type="submit" className="btn-primary" disabled={twoFALoading}>
-                                {twoFALoading ? 'Processing...' : 'Confirm'}
+
+                        {show2FAConfirm && (
+                            <div className="sec-form-overlay">
+                                <form onSubmit={handleToggle2FA}>
+                                    <p>Confirm with your password</p>
+                                    <div className="input-with-icon">
+                                        <FaLock />
+                                        <input
+                                            type="password"
+                                            placeholder="Current Password"
+                                            value={twoFAData.password}
+                                            onChange={(e) => setTwoFAData({ password: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="overlay-actions mt-3">
+                                        <button
+                                            type="button"
+                                            className="btn-text-only"
+                                            onClick={() => setShow2FAConfirm(false)}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="btn-premium-solid"
+                                            disabled={twoFALoading}
+                                        >
+                                            {twoFALoading ? '...' : 'Verify'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Password Card */}
+                    <div className="sec-card glass-morph mt-4">
+                        <div className="sec-card-header mb-4">
+                            <div className="header-title">
+                                <FaKey className="accent-icon" />
+                                <div>
+                                    <h5>Change Password</h5>
+                                    <p>Ensure your account remains secure</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form className="premium-form-sec" onSubmit={handlePasswordChange}>
+                            <div className="form-group-sec">
+                                <label>Current Password</label>
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={passwordData.currentPassword}
+                                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="form-row-sec">
+                                <div className="form-group-sec">
+                                    <label>New Password</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Min 8 characters"
+                                        value={passwordData.newPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group-sec">
+                                    <label>Confirm New Password</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Verify password"
+                                        value={passwordData.confirmPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <button type="submit" className="btn-premium-outline full-width mt-4" disabled={passwordLoading}>
+                                {passwordLoading ? 'Updating...' : 'Update Password'}
+                                <FaArrowRight />
                             </button>
-                        </div>
-                    </form>
-                )}
-            </div>
+                        </form>
+                    </div>
 
-            {/* Change Password */}
-            <div className="content-card mb-4">
-                <div className="security-section">
-                    <div className="sec-icon">
-                        <FaKey />
-                    </div>
-                    <div className="sec-details">
-                        <h3>Change Password</h3>
-                        <p className="text-muted">Update your password to keep your account secure.</p>
-                    </div>
-                </div>
+                    {/* Delete Zone */}
+                    <div className="sec-card danger-card mt-4">
+                        <div className="danger-header">
+                            <FaTrash />
+                            <h5>Danger Zone</h5>
+                        </div>
+                        <p>Permanently delete your account and all of your data.</p>
 
-                <form className="modern-form mt-3" onSubmit={handlePasswordChange}>
-                    <div className="form-grid-2">
-                        <div className="form-group full-width">
-                            <label>Current Password</label>
-                            <input
-                                type="password"
-                                value={passwordData.currentPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label>New Password</label>
-                            <input
-                                type="password"
-                                value={passwordData.newPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label>Confirm New Password</label>
-                            <input
-                                type="password"
-                                value={passwordData.confirmPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                required
-                            />
-                        </div>
-                    </div>
-                    <div className="form-actions right">
-                        <button type="submit" className="btn-primary" disabled={passwordLoading}>
-                            {passwordLoading ? 'Updating...' : 'Update Password'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            {/* Delete Account */}
-            <div className="content-card danger-zone">
-                <div className="security-section">
-                    <div className="sec-icon text-danger">
-                        <FaExclamationTriangle />
-                    </div>
-                    <div className="sec-details">
-                        <h3 className="text-danger">Delete Account</h3>
-                        <p className="text-muted">
-                            Permanently delete your account and all of your data. This action is irreversible.
-                        </p>
-                    </div>
-                    <div className="sec-actions">
                         {!showDeleteConfirm ? (
-                            <button
-                                className="btn-danger"
-                                onClick={() => setShowDeleteConfirm(true)}
-                            >
+                            <button className="btn-danger-minimal" onClick={() => setShowDeleteConfirm(true)}>
                                 Delete Account
                             </button>
                         ) : (
-                            <div className="confirmation-box">
-                                <p className="text-danger font-bold mb-2">Are you sure?</p>
-                                <div className="flex gap-2">
+                            <div className="danger-confirm-box">
+                                <p>Permanently delete account? Enter password to confirm.</p>
+                                <div className="input-with-icon mb-3">
+                                    <FaLock />
+                                    <input
+                                        type="password"
+                                        placeholder="Enter password"
+                                        value={deletePassword}
+                                        onChange={(e) => setDeletePassword(e.target.value)}
+                                        className="danger-input"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="danger-btn-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', alignItems: 'center' }}>
+                                    <button className="btn-outline" style={{ borderColor: 'var(--text-muted)', color: 'var(--text-muted)' }} onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); }}>Abort</button>
                                     <button
-                                        className="btn-danger btn-sm"
+                                        className="btn-primary"
+                                        style={{ background: 'var(--status-cancelled)', borderColor: 'var(--status-cancelled)' }}
                                         onClick={handleDeleteAccount}
-                                        disabled={deleteLoading}
+                                        disabled={deleteLoading || !deletePassword}
                                     >
-                                        {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
-                                    </button>
-                                    <button
-                                        className="btn-outline btn-sm"
-                                        onClick={() => setShowDeleteConfirm(false)}
-                                    >
-                                        Cancel
+                                        {deleteLoading ? 'Processing...' : 'Delete Permanently'}
                                     </button>
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Right Side: Activity */}
+                <div className="security-logs-column">
+                    <div className="sec-card glass-morph activity-container">
+                        <div className="sec-card-header mb-4">
+                            <div className="header-title">
+                                <FaHistory className="accent-icon" />
+                                <div>
+                                    <h5>Access Logs</h5>
+                                    <p>Real-time session tracking</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="activity-vault">
+                            {logsLoading ? (
+                                <div className="vault-loading">
+                                    <div className="vault-spinner"></div>
+                                    <span>Scanning Ledger...</span>
+                                </div>
+                            ) : logs.length > 0 ? (
+                                <div className="vault-list">
+                                    {logs.map(log => (
+                                        <div className="vault-entry" key={log._id}>
+                                            <div className="entry-icon">
+                                                <FaDesktop />
+                                            </div>
+                                            <div className="entry-details">
+                                                <div className="entry-header">
+                                                    <span className="entry-action">{log.action}</span>
+                                                    <span className={`entry-tag ${log.details?.method === '2FA_VERIFIED' ? 'gold' : 'silver'}`}>
+                                                        {log.details?.method === '2FA_VERIFIED' ? '2FA' : 'Basic'}
+                                                    </span>
+                                                </div>
+                                                <div className="entry-meta">
+                                                    <span>{new Date(log.createdAt).toLocaleDateString()}</span>
+                                                    <span>•</span>
+                                                    <span>{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="vault-empty">
+                                    <FaShieldAlt />
+                                    <p>Your security ledger is currently clean.</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

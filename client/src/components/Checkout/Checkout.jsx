@@ -1,14 +1,17 @@
-// components/Checkout/Checkout.jsx - WITH PAYMENT MODAL INTEGRATION
-import React, { useContext, useState, useEffect, useMemo } from 'react';
+import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
+import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
-import { FaLock, FaCreditCard, FaMoneyBillWave, FaPhone, FaTruck, FaUser, FaInfoCircle } from 'react-icons/fa';
+import {
+  FaLock, FaCreditCard, FaMoneyBillWave, FaPhone,
+  FaTruck, FaUser, FaInfoCircle, FaShieldAlt,
+  FaArrowRight, FaMapMarkerAlt, FaEnvelope, FaExclamationCircle, FaPercent, FaSync, FaGlobe, FaCheckCircle
+} from 'react-icons/fa';
 import PaymentProcessingModal from '../PaymentProcessingModal/PaymentProcessingModal';
 import './Checkout.css';
-import './payment-sections.css';
 import { KENYA_LOCATIONS } from '../../utils/kenyaLocations';
 
-const KENYAN_COUNTIES = Object.keys(KENYA_LOCATIONS);
+const KENYAN_COUNTIES = Object.keys(KENYA_LOCATIONS).sort();
 
 function Checkout() {
   const {
@@ -18,7 +21,9 @@ function Checkout() {
     clearCart,
     token,
     isAuthenticated,
-    publicSettings
+    publicSettings,
+    setMobileMenuOpen,
+    logAbandonedCheckout
   } = useContext(AppContext);
 
   const navigate = useNavigate();
@@ -30,12 +35,85 @@ function Checkout() {
     phone: user?.shippingInfo?.phone || user?.phone || '+254 ',
     address: user?.shippingInfo?.address || '',
     county: user?.shippingInfo?.county || '',
+    town: user?.shippingInfo?.town || '',
     city: user?.shippingInfo?.city || '',
     country: user?.shippingInfo?.country || 'Kenya',
-    postalCode: user?.shippingInfo?.zip || '' // Map zip from profile to postalCode
+    postalCode: user?.shippingInfo?.zip || ''
   });
 
-  // Update form when user data is loaded, but don't overwrite existing entries
+  const [paymentMethod, setPaymentMethod] = useState('');
+
+  // Auto-select first available payment method
+  useEffect(() => {
+    if (publicSettings?.payment?.paymentMethods) {
+      const methods = publicSettings.payment.paymentMethods;
+      if (methods.mpesa) setPaymentMethod('mpesa');
+      else if (methods.card) setPaymentMethod('card');
+      else if (methods.cashOnDelivery) setPaymentMethod('cod');
+    }
+  }, [publicSettings]);
+  const [loading, setLoading] = useState(false);
+  const [calculatingShipping, setCalculatingShipping] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [mpesaPhone, setMpesaPhone] = useState(user?.wallet?.mpesaPhone || user?.phone || '');
+  const [codConfirmed, setCodConfirmed] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [allCountries, setAllCountries] = useState(['Kenya', 'Uganda', 'Tanzania', 'Rwanda', 'United Arab Emirates', 'United Kingdom']);
+  const [cardInfo, setCardInfo] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    name: ''
+  });
+
+  useEffect(() => {
+    fetch('https://restcountries.com/v3.1/all?fields=name')
+      .then(res => res.json())
+      .then(data => {
+        const countryList = data.map(c => c.name.common).sort();
+        if (countryList.length > 0) {
+          setAllCountries(countryList);
+        }
+      })
+      .catch(err => console.error('Failed to fetch countries', err));
+  }, []);
+
+  const [couponCode, setCouponCode] = useState('');
+  const [couponData, setCouponData] = useState(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [isSubscription, setIsSubscription] = useState(false);
+  const [subscriptionFrequency, setSubscriptionFrequency] = useState('monthly');
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+
+  const subtotal = useMemo(() => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  }, [cart]);
+
+  const discount = useMemo(() => {
+    let totalDiscount = 0;
+    if (couponData) {
+      if (couponData.discountType === 'percentage') {
+        totalDiscount += subtotal * (couponData.discountAmount / 100);
+      } else {
+        totalDiscount += couponData.discountAmount;
+      }
+    }
+    if (isSubscription) {
+      totalDiscount += subtotal * 0.05;
+    }
+    return Math.round(totalDiscount);
+  }, [subtotal, couponData, isSubscription]);
+
+  const [shippingCost, setShippingCost] = useState(0);
+  const total = Math.max(0, subtotal - discount + shippingCost);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      showNotification('Please log in to checkout', 'info');
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate, showNotification]);
+
   useEffect(() => {
     if (user) {
       setShippingInfo(prev => ({
@@ -47,68 +125,12 @@ function Checkout() {
         address: prev.address || user.shippingInfo?.address || '',
         city: prev.city || user.shippingInfo?.city || '',
         county: prev.county || user.shippingInfo?.county || '',
+        town: prev.town || user.shippingInfo?.town || '',
         postalCode: prev.postalCode || user.shippingInfo?.zip || '',
-        country: prev.country || user.shippingInfo?.country || 'Kenya'
       }));
     }
   }, [user]);
 
-  const [paymentMethod, setPaymentMethod] = useState('mpesa');
-  const [loading, setLoading] = useState(false);
-  const [calculatingShipping, setCalculatingShipping] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  // Payment-specific state
-  const [mpesaPhone, setMpesaPhone] = useState(user?.phone || '+254 ');
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardholderName: ''
-  });
-  const [codConfirmed, setCodConfirmed] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-
-  // Calculate totals
-  const subtotal = useMemo(() => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  }, [cart]);
-
-
-  const [shippingCost, setShippingCost] = useState(0);
-  const tax = subtotal * 0.16;
-  const total = subtotal + shippingCost + tax;
-
-  // Determine enabled payment methods from settings (default to all true if loading/undefined)
-  const enabledMethods = useMemo(() => {
-    const methods = publicSettings?.payment?.paymentMethods || { mpesa: true, card: true, cashOnDelivery: true };
-    return {
-      mpesa: methods.mpesa !== false,
-      card: methods.card !== false,
-      cod: methods.cashOnDelivery !== false
-    };
-  }, [publicSettings]);
-
-  // Auto-select valid payment method if current is disabled
-  useEffect(() => {
-    if (!enabledMethods[paymentMethod] && paymentMethod !== 'cod') {
-      // Note: 'cod' in state maps to 'cashOnDelivery' in settings, handled below
-    }
-
-    // Check if current selected method is disabled
-    const isCurrentDisabled =
-      (paymentMethod === 'mpesa' && !enabledMethods.mpesa) ||
-      (paymentMethod === 'card' && !enabledMethods.card) ||
-      (paymentMethod === 'cod' && !enabledMethods.cod);
-
-    if (isCurrentDisabled) {
-      if (enabledMethods.mpesa) setPaymentMethod('mpesa');
-      else if (enabledMethods.card) setPaymentMethod('card');
-      else if (enabledMethods.cod) setPaymentMethod('cod');
-    }
-  }, [enabledMethods, paymentMethod]);
-
-  // Calculate shipping when county changes
   useEffect(() => {
     if (shippingInfo.county) {
       calculateShipping();
@@ -120,7 +142,6 @@ function Checkout() {
       setShippingCost(0);
       return;
     }
-
     setCalculatingShipping(true);
     try {
       const response = await fetch('/api/orders/shipping-cost', {
@@ -134,7 +155,6 @@ function Checkout() {
           county: shippingInfo.county
         })
       });
-
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
@@ -143,153 +163,195 @@ function Checkout() {
       }
     } catch (error) {
       console.error('Shipping calculation error:', error);
-      const defaultCost = shippingInfo.county === 'Nairobi' ? 200 : 350;
-      setShippingCost(defaultCost);
+      setShippingCost(shippingInfo.county === 'Nairobi' ? 200 : 350);
     } finally {
       setCalculatingShipping(false);
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const [slideComplete, setSlideComplete] = useState(false);
+  const trackRef = useRef(null);
+  const x = useMotionValue(0);
+  const slideProgress = useTransform(x, [0, 260], [0, 1]);
+  const labelOpacity = useTransform(x, [0, 150], [1, 0]);
 
-    if (!shippingInfo.firstName?.trim()) newErrors.firstName = 'First name is required';
-    if (!shippingInfo.lastName?.trim()) newErrors.lastName = 'Last name is required';
-    if (!shippingInfo.email?.trim()) newErrors.email = 'Email is required';
-    if (!shippingInfo.phone?.trim() || shippingInfo.phone.trim().length < 10) newErrors.phone = 'Please enter a full phone number';
-    if (!shippingInfo.address?.trim()) newErrors.address = 'Address is required';
-    if (!shippingInfo.county?.trim()) newErrors.county = 'County is required';
-    if (!shippingInfo.city?.trim()) newErrors.city = 'City/Town is required';
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (shippingInfo.email && !emailRegex.test(shippingInfo.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateCartItems = () => {
-    if (cart.length === 0) {
-      throw new Error('Your cart is empty');
-    }
-
-    for (const item of cart) {
-      const productId = item.productId || item._id;
-      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-
-      if (!productId || !objectIdRegex.test(productId)) {
-        throw new Error(`Invalid product: ${item.name}`);
-      }
-      if (!item.quantity || item.quantity < 1) {
-        throw new Error(`Invalid quantity for: ${item.name}`);
-      }
-      if (!item.price || item.price < 0) {
-        throw new Error(`Invalid price for: ${item.name}`);
-      }
-      if (!item.size) {
-        throw new Error(`Size selection required for: ${item.name}`);
-      }
-    }
-  };
-
-  const prepareCartItems = () => {
-    return cart.map(item => {
-      const productId = item.productId || item._id;
-      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-
-      if (!objectIdRegex.test(productId)) {
-        throw new Error(`Invalid product ID for "${item.name}"`);
-      }
-
-      return {
-        product: productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        size: item.size,
-        image: item.images?.[0]?.url || '/default-product.jpg'
-      };
+  const handleInputChange = (field, value) => {
+    setShippingInfo(prev => {
+      const newData = { ...prev, [field]: value };
+      if (field === 'county') newData.town = ''; // Reset town when county changes
+      return newData;
     });
   };
 
-  const handlePlaceOrder = async () => {
-    if (!isAuthenticated) {
-      showNotification('Please log in to place an order', 'error');
-      navigate('/login');
-      return;
+  const handleCardInputChange = (field, value) => {
+    // Basic formatting for card number
+    if (field === 'number') {
+      value = value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim();
     }
-
-    if (!validateForm()) {
-      showNotification('Please fill in all required fields', 'error');
-      return;
-    }
-
-    // COD-specific validation
-    if (paymentMethod === 'cod') {
-      if (total > 10000) {
-        showNotification('COD is only available for orders under KSh 10,000', 'error');
-        return;
-      }
-      if (!codConfirmed) {
-        showNotification('Please confirm you have cash available for COD', 'error');
-        return;
+    // Basic formatting for expiry
+    if (field === 'expiry') {
+      value = value.replace(/\//g, '');
+      if (value.length > 2) {
+        value = value.slice(0, 2) + '/' + value.slice(2, 4);
       }
     }
+    setCardInfo(prev => ({ ...prev, [field]: value }));
+  };
 
-    // M-Pesa validation
-    if (paymentMethod === 'mpesa') {
-      if (!mpesaPhone || mpesaPhone === '+254 ') {
-        showNotification('Please enter your M-Pesa phone number', 'error');
-        return;
-      }
-    }
+  const logFailure = async (reason) => {
+    logAbandonedCheckout({
+      items: cart.map(item => ({
+        product: item.productId || item._id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        size: item.size
+      })),
+      totalAmount: total,
+      paymentMethod,
+      failureReason: reason,
+      shippingAddress: shippingInfo
+    });
+  };
 
-    // Card validation
-    if (paymentMethod === 'card') {
-      if (!cardDetails.cardNumber || !cardDetails.expiryDate || !cardDetails.cvv || !cardDetails.cardholderName) {
-        showNotification('Please fill in all card details', 'error');
-        return;
-      }
-    }
-
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setValidatingCoupon(true);
     try {
-      validateCartItems();
-    } catch (error) {
-      showNotification(error.message, 'error');
-      return;
-    }
-
-    // Show payment modal for M-Pesa and Card
-    if (paymentMethod === 'mpesa' || paymentMethod === 'card') {
-      setShowPaymentModal(true);
-    } else {
-      // Process COD directly
-      await processOrder();
+      const response = await fetch('/api/orders/validate-coupon', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ code: couponCode, subtotal })
+      });
+      const result = await response.json();
+      if (result.success) {
+        setCouponData(result.data);
+        showNotification('Coupon applied!', 'success');
+      } else {
+        setCouponData(null);
+        showNotification(result.message || 'Invalid coupon', 'error');
+      }
+    } catch (err) {
+      showNotification('Failed to validate coupon', 'error');
+    } finally {
+      setValidatingCoupon(false);
     }
   };
 
-  // Process order after payment success or for COD
+  const validateForm = () => {
+    const newErrors = {};
+    if (!shippingInfo.firstName?.trim()) newErrors.firstName = 'First name is required';
+    if (!shippingInfo.lastName?.trim()) newErrors.lastName = 'Last name is required';
+    if (!shippingInfo.email?.trim()) newErrors.email = 'Email is required';
+    if (!shippingInfo.phone?.trim() || shippingInfo.phone.trim() === '+254') newErrors.phone = 'Valid phone is required';
+    if (!shippingInfo.address?.trim()) newErrors.address = 'Street/Building is required';
+
+    if (shippingInfo.country === 'Kenya') {
+      if (!shippingInfo.county) newErrors.county = 'Please select your county';
+      if (!shippingInfo.town) newErrors.town = 'Please select your area/town';
+    } else {
+      if (!shippingInfo.city) newErrors.city = 'Please specify your city/region';
+    }
+
+    if (paymentMethod === 'cod' && !codConfirmed) {
+      newErrors.cod = 'Please confirm pay on delivery';
+    }
+
+    if (paymentMethod === 'card') {
+      if (!cardInfo.number.trim() || cardInfo.number.length < 15) newErrors.cardNo = 'Valid card number is required';
+      if (!cardInfo.expiry.trim() || !cardInfo.expiry.includes('/')) newErrors.cardExp = 'Valid expiry (MM/YY) is required';
+      if (!cardInfo.cvv.trim() || cardInfo.cvv.length < 3) newErrors.cardCvv = 'Security code (CVV) is required';
+      if (!cardInfo.name.trim()) newErrors.cardName = 'Name on card is required';
+    }
+
+    return newErrors;
+  };
+
+  const handlePlaceOrder = async () => {
+    const newErrors = validateForm();
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      showNotification('Please fill in your delivery details correctly', 'error');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return false;
+    }
+
+    if (paymentMethod === 'cod' && total > 20000) {
+      showNotification('COD limited to KSh 20,000. Please use M-Pesa.', 'error');
+      return false;
+    }
+
+    if (paymentMethod === 'mpesa' || paymentMethod === 'card') {
+      setShowPaymentModal(true);
+    } else {
+      await processOrder();
+    }
+    return true;
+  };
+
+  const handleDragEnd = async (_, info) => {
+    const currentX = x.get();
+    if (currentX >= 180 && !loading) {
+      const validationErrors = validateForm();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        showNotification('Please fill in your delivery details correctly', 'error');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        x.set(0);
+        return;
+      }
+
+      if (paymentMethod === 'cod' && total > 20000) {
+        showNotification('COD limited to KSh 20,000. Please use M-Pesa.', 'error');
+        x.set(0);
+        return;
+      }
+
+      setSlideComplete(true);
+      x.set(260);
+
+      const success = await handlePlaceOrder();
+
+      if (!success) {
+        setTimeout(() => {
+          setSlideComplete(false);
+          x.set(0);
+        }, 800);
+      }
+    } else {
+      x.set(0);
+    }
+  };
+
   const processOrder = async (paymentData = null) => {
     setLoading(true);
-
     try {
-      const preparedCartItems = prepareCartItems();
-
       const orderData = {
-        shippingAddress: shippingInfo,
-        paymentMethod: paymentMethod,
-        items: preparedCartItems,
-        subtotal: subtotal,
-        shippingCost: shippingCost,
-        tax: tax,
+        shippingAddress: {
+          ...shippingInfo,
+          city: shippingInfo.country === 'Kenya' ? shippingInfo.county : shippingInfo.city
+        },
+        paymentMethod,
+        items: cart.map(item => ({
+          product: item.productId || item._id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          size: item.size,
+          image: item.images?.[0]?.url || item.image || '/default-product.jpg'
+        })),
+        subtotal,
+        shippingCost,
         totalAmount: total,
-        notes: '',
-        paymentData: paymentData
+        couponCode: couponData?.code,
+        isSubscription,
+        subscriptionFrequency: isSubscription ? subscriptionFrequency : undefined,
+        paymentData: paymentData || (paymentMethod === 'card' ? { ...cardInfo } : null)
       };
-
-      console.log('📦 Sending order data:', orderData);
 
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -300,504 +362,506 @@ function Checkout() {
         body: JSON.stringify(orderData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Server error' }));
-        console.error('❌ Order failed:', errorData);
-        throw new Error(errorData.message || `Error ${response.status}`);
-      }
-
       const result = await response.json();
-      console.log('✅ Order placed successfully:', result);
-
       if (result.success) {
         clearCart();
-        showNotification('Order placed successfully!', 'success');
-
-        // Ensure we have a valid ID before navigating
-        const orderId = result.data._id || result.data.id;
-        if (orderId) {
-          navigate(`/order-confirmation/${orderId}`, {
-            state: { order: result.data }
-          });
-        } else {
-          showNotification('Order placed, but redirection failed. Please check your account.', 'warning');
-          navigate('/account/orders');
-        }
+        showNotification('Order success! Asante.', 'success');
+        navigate(`/order-confirmation/${result.data._id || result.data.id}`);
       } else {
         throw new Error(result.message || 'Order failed');
       }
-
     } catch (error) {
-      console.error('❌ Order error:', error);
-      showNotification(error.message || 'Failed to place order. Please try again.', 'error');
+      showNotification(error.message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    if (field === 'county') {
-      setShippingInfo(prev => ({
-        ...prev,
-        county: value,
-        city: '' // Clear city when county changes
-      }));
-    } else {
-      setShippingInfo(prev => ({ ...prev, [field]: value }));
+  const currentAvailableTowns = useMemo(() => {
+    if (shippingInfo.country === 'Kenya' && shippingInfo.county) {
+      return KENYA_LOCATIONS[shippingInfo.county] || [];
     }
-
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  // Payment input handlers
-  const handleCardNumberChange = (e) => {
-    const value = e.target.value.replace(/\s/g, '');
-    if (value.length <= 16) {
-      const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
-      setCardDetails(prev => ({ ...prev, cardNumber: formatted }));
-    }
-  };
-
-  const handleExpiryChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    let formatted = value;
-    if (value.length >= 2) {
-      formatted = value.slice(0, 2) + '/' + value.slice(2, 4);
-    }
-    setCardDetails(prev => ({ ...prev, expiryDate: formatted }));
-  };
-
-  const handleCVVChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 4) {
-      setCardDetails(prev => ({ ...prev, cvv: value }));
-    }
-  };
-
-  const handleMpesaPhoneChange = (e) => {
-    let value = e.target.value;
-    if (!value.startsWith('+254')) {
-      value = '+254 ';
-    }
-    const digits = value.slice(4).replace(/\D/g, '');
-    if (digits.length <= 9) {
-      setMpesaPhone('+254 ' + digits);
-    }
-  };
-
-  // Payment modal handlers
-  const handlePaymentSuccess = async (paymentData) => {
-    setShowPaymentModal(false);
-    await processOrder(paymentData);
-  };
-
-  const handlePaymentFailure = (message) => {
-    setShowPaymentModal(false);
-    showNotification(message || 'Payment failed. Please try again.', 'error');
-  };
-
-  const handlePaymentCancel = () => {
-    setShowPaymentModal(false);
-  };
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      showNotification('Please log in to checkout', 'info');
-      navigate('/login');
-    }
-  }, [isAuthenticated, navigate, showNotification]);
-
-  if (cart.length === 0) {
-    return (
-      <div className="checkout-empty">
-        <div className="empty-container">
-          <h2>Your cart is empty</h2>
-          <p>Add some delicious coffee to get started!</p>
-          <button
-            className="btn-primary"
-            onClick={() => navigate('/')}
-          >
-            Start Shopping
-          </button>
-        </div>
-      </div>
-    );
-  }
+    return [];
+  }, [shippingInfo.county, shippingInfo.country]);
 
   return (
     <div className="checkout-page">
       <div className="checkout-container">
-        {/* Payment Processing Modal */}
-        <PaymentProcessingModal
-          isOpen={showPaymentModal}
-          paymentMethod={paymentMethod}
-          amount={total}
-          phone={mpesaPhone}
-          onSuccess={handlePaymentSuccess}
-          onFailure={handlePaymentFailure}
-          onCancel={handlePaymentCancel}
-        />
+        <div className="checkout-forms-column">
+          <header className="checkout-header">
+            <div className="pre-title">Checkout</div>
+            <h1>Delivery Details</h1>
+            <p>Fast and reliable shipping for your coffee.</p>
+          </header>
 
-        <div className="checkout-header">
-          <h1>Checkout</h1>
-        </div>
+          <PaymentProcessingModal
+            isOpen={showPaymentModal}
+            paymentMethod={paymentMethod}
+            amount={total}
+            phone={mpesaPhone}
+            onSuccess={(data) => { setShowPaymentModal(false); processOrder(data); }}
+            onFailure={(msg) => {
+              setShowPaymentModal(false);
+              showNotification(msg, 'error');
+              logFailure(msg);
+              setSlideComplete(false);
+              x.set(0);
+            }}
+            onCancel={() => {
+              setShowPaymentModal(false);
+              logFailure('User cancelled checkout');
+              setSlideComplete(false);
+              x.set(0);
+            }}
+          />
 
-        <div className="checkout-content">
-          <div className="checkout-forms">
-            <div className="form-section">
-              <div className="section-header">
-                <FaUser className="section-icon" />
-                <h2>Shipping Information</h2>
+          <section className="checkout-form-section">
+            <div className="section-head">
+              <FaTruck />
+              <h2>1. Delivery Protocol</h2>
+            </div>
+
+            <div className="form-grid">
+              <div className={`input-group ${errors.firstName ? 'has-error' : ''}`}>
+                <label className="input-label">First Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kipchumba"
+                  value={shippingInfo.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  className="premium-input-modern"
+                />
+                {errors.firstName && <span className="error-text">{errors.firstName}</span>}
               </div>
 
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>First Name *</label>
-                  <input
-                    type="text"
-                    value={shippingInfo.firstName}
-                    onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    className={errors.firstName ? 'error' : ''}
-                    placeholder="Enter your first name"
-                  />
-                  {errors.firstName && <span className="error-message">{errors.firstName}</span>}
-                </div>
+              <div className={`input-group ${errors.lastName ? 'has-error' : ''}`}>
+                <label className="input-label">Last Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Langat"
+                  value={shippingInfo.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  className="premium-input-modern"
+                />
+                {errors.lastName && <span className="error-text">{errors.lastName}</span>}
+              </div>
 
-                <div className="form-group">
-                  <label>Last Name *</label>
-                  <input
-                    type="text"
-                    value={shippingInfo.lastName}
-                    onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    className={errors.lastName ? 'error' : ''}
-                    placeholder="Enter your last name"
-                  />
-                  {errors.lastName && <span className="error-message">{errors.lastName}</span>}
-                </div>
+              <div className={`input-group full-width ${errors.email ? 'has-error' : ''}`}>
+                <label className="input-label">Notification Email</label>
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={shippingInfo.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className="premium-input-modern"
+                />
+                {errors.email && <span className="error-text">{errors.email}</span>}
+              </div>
 
-                <div className="form-group">
-                  <label>Email Address *</label>
-                  <input
-                    type="email"
-                    value={shippingInfo.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className={errors.email ? 'error' : ''}
-                    placeholder="your@email.com"
-                  />
-                  {errors.email && <span className="error-message">{errors.email}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label>Phone Number *</label>
-                  <input
-                    type="tel"
-                    value={shippingInfo.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className={errors.phone ? 'error' : ''}
-                    placeholder="+254 712 345 678"
-                  />
-                  {errors.phone && <span className="error-message">{errors.phone}</span>}
-                </div>
-
-                <div className="form-group full-width">
-                  <label>Street Address *</label>
-                  <input
-                    type="text"
-                    value={shippingInfo.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    className={errors.address ? 'error' : ''}
-                    placeholder="Street address, apartment, suite, etc."
-                  />
-                  {errors.address && <span className="error-message">{errors.address}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label>County *</label>
-                  <select
-                    value={shippingInfo.county}
-                    onChange={(e) => handleInputChange('county', e.target.value)}
-                    className={errors.county ? 'error' : ''}
-                  >
-                    <option value="">Select County</option>
-                    {KENYAN_COUNTIES.map((county, index) => (
-                      <option key={`${county}-${index}`} value={county}>{county}</option>
-                    ))}
-                  </select>
-                  {errors.county && <span className="error-message">{errors.county}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label>City/Town *</label>
-                  <select
-                    value={shippingInfo.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    className={errors.city ? 'error' : ''}
-                    disabled={!shippingInfo.county}
-                  >
-                    <option value="">Select City/Town</option>
-                    {shippingInfo.county && KENYA_LOCATIONS[shippingInfo.county]?.map((city, index) => (
-                      <option key={`${city}-${index}`} value={city}>{city}</option>
-                    ))}
-                    {shippingInfo.county && <option value="Other">Other (Manual Entry)</option>}
-                  </select>
-                  {errors.city && <span className="error-message">{errors.city}</span>}
-                </div>
-
-                {shippingInfo.city === 'Other' && (
-                  <div className="form-group">
-                    <label>Specify City/Town *</label>
-                    <input
-                      type="text"
-                      onChange={(e) => setShippingInfo(prev => ({ ...prev, manualCity: e.target.value }))}
-                      placeholder="Enter town name"
-                    />
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label>Country</label>
+              <div className="input-group full-width">
+                <label className="input-label">Country / Territory</label>
+                <div className="select-wrapper-modern">
+                  <FaGlobe className="select-icon" />
                   <select
                     value={shippingInfo.country}
                     onChange={(e) => handleInputChange('country', e.target.value)}
+                    className="premium-select-modern"
                   >
-                    <option value="Kenya">Kenya</option>
+                    {allCountries.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
               </div>
-            </div>
 
-            <div className="form-section">
-              <div className="section-header">
-                <FaLock className="section-icon" />
-                <h2>Payment Method</h2>
-              </div>
-
-              <div className="payment-options">
-                {enabledMethods.mpesa && (
-                  <div
-                    className={`payment-option ${paymentMethod === 'mpesa' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('mpesa')}
-                  >
-                    <div className="payment-icon">
-                      <FaPhone />
+              {shippingInfo.country === 'Kenya' ? (
+                <>
+                  <div className={`input-group ${errors.county ? 'has-error' : ''}`}>
+                    <label className="input-label">County</label>
+                    <div className="select-wrapper-modern">
+                      <select
+                        value={shippingInfo.county}
+                        onChange={(e) => handleInputChange('county', e.target.value)}
+                        className="premium-select-modern"
+                      >
+                        <option value="">Select County</option>
+                        {KENYAN_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
                     </div>
-                    <div className="payment-info">
-                      <h4>M-Pesa</h4>
-                      <p>Pay securely with M-Pesa</p>
-                    </div>
-                    <div className="payment-radio">
-                      <div className={`radio-dot ${paymentMethod === 'mpesa' ? 'active' : ''}`}></div>
-                    </div>
+                    {errors.county && <span className="error-text">{errors.county}</span>}
                   </div>
-                )}
 
-                {enabledMethods.card && (
-                  <div
-                    className={`payment-option ${paymentMethod === 'card' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('card')}
-                  >
-                    <div className="payment-icon">
-                      <FaCreditCard />
+                  <div className={`input-group ${errors.town ? 'has-error' : ''}`}>
+                    <label className="input-label">Area / Town</label>
+                    <div className="select-wrapper-modern">
+                      <select
+                        value={shippingInfo.town}
+                        onChange={(e) => handleInputChange('town', e.target.value)}
+                        className="premium-select-modern"
+                        disabled={!shippingInfo.county}
+                      >
+                        <option value="">Select Nearest Center</option>
+                        {currentAvailableTowns.sort().map(city => <option key={city} value={city}>{city}</option>)}
+                        <option value="Other">Other</option>
+                      </select>
                     </div>
-                    <div className="payment-info">
-                      <h4>Credit/Debit Card</h4>
-                      <p>Pay with Visa, Mastercard</p>
-                    </div>
-                    <div className="payment-radio">
-                      <div className={`radio-dot ${paymentMethod === 'card' ? 'active' : ''}`}></div>
-                    </div>
+                    {errors.town && <span className="error-text">{errors.town}</span>}
                   </div>
-                )}
-
-                {enabledMethods.cod && (
-                  <div
-                    className={`payment-option ${paymentMethod === 'cod' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('cod')}
-                  >
-                    <div className="payment-icon">
-                      <FaMoneyBillWave />
-                    </div>
-                    <div className="payment-info">
-                      <h4>Cash on Delivery</h4>
-                      <p>Pay when you receive your order</p>
-                    </div>
-                    <div className="payment-radio">
-                      <div className={`radio-dot ${paymentMethod === 'cod' ? 'active' : ''}`}></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Dynamic Payment Inputs */}
-              {paymentMethod === 'mpesa' && (
-                <div className="payment-details-section mpesa-section">
-                  <div className="form-group">
-                    <label>M-Pesa Phone Number *</label>
-                    <input
-                      type="tel"
-                      value={mpesaPhone}
-                      onChange={handleMpesaPhoneChange}
-                      placeholder="+254 712 345 678"
-                      maxLength="14"
-                    />
-                    <p className="payment-note">
-                      <FaPhone className="note-icon" />
-                      You will receive an STK push on this number to complete payment
-                    </p>
-                  </div>
+                </>
+              ) : (
+                <div className={`input-group full-width ${errors.city ? 'has-error' : ''}`}>
+                  <label className="input-label">City / State</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kampala, London"
+                    value={shippingInfo.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    className="premium-input-modern"
+                  />
+                  {errors.city && <span className="error-text">{errors.city}</span>}
                 </div>
               )}
 
-              {paymentMethod === 'card' && (
-                <div className="payment-details-section card-section">
-                  <div className="form-group">
-                    <label>Cardholder Name *</label>
-                    <input
-                      type="text"
-                      value={cardDetails.cardholderName}
-                      onChange={(e) => setCardDetails(prev => ({ ...prev, cardholderName: e.target.value }))}
-                      placeholder="John Doe"
-                    />
-                  </div>
+              <div className={`input-group full-width ${errors.address ? 'has-error' : ''}`}>
+                <label className="input-label">Specific Location (Building, Landmark, Flat No)</label>
+                <textarea
+                  placeholder="e.g. Near Huduma Center, Kimathi House, Floor 4"
+                  value={shippingInfo.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  className="premium-textarea-modern"
+                  rows="2"
+                />
+                {errors.address && <span className="error-text">{errors.address}</span>}
+              </div>
 
-                  <div className="form-group">
-                    <label>Card Number *</label>
-                    <input
-                      type="text"
-                      value={cardDetails.cardNumber}
-                      onChange={handleCardNumberChange}
-                      placeholder="1234 5678 9012 3456"
-                      maxLength="19"
-                    />
-                  </div>
+              <div className="input-group full-width">
+                <div className="label-flex">
+                  <label className="input-label">Posta / Zip Code</label>
+                  <span className="label-hint">Optional in Kenya</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. 00100"
+                  value={shippingInfo.postalCode}
+                  onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                  className="premium-input-modern"
+                />
+                <div className="zip-helper">
+                  <FaInfoCircle /> <span>Commonly <strong>00100</strong> or leave blank if unknown.</span>
+                </div>
+              </div>
 
-                  <div className="card-row">
-                    <div className="form-group">
-                      <label>Expiry Date *</label>
+              <div className={`input-group full-width ${errors.phone ? 'has-error' : ''}`}>
+                <label className="input-label">Courier Contact Phone</label>
+                <div className="input-with-icon-modern" style={{ position: 'relative' }}>
+                  <FaPhone className="inner-icon" />
+                  <input
+                    type="tel"
+                    placeholder="+254 7XX XXX XXX"
+                    value={shippingInfo.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    onFocus={() => setIsPhoneFocused(true)}
+                    onBlur={() => setIsPhoneFocused(false)}
+                    className="premium-input-modern with-icon"
+                  />
+                  {shippingInfo.phone && !isPhoneFocused && (
+                    <div className="input-mask-overlay-checkout" style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: '3rem',
+                      right: 0,
+                      height: '100%',
+                      background: 'var(--bg-deep)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0 1rem',
+                      pointerEvents: 'none',
+                      borderRadius: '0 12px 12px 0',
+                      color: 'var(--text-main)',
+                      fontWeight: '600',
+                      letterSpacing: '1px'
+                    }}>
+                      {shippingInfo.phone.length > 7
+                        ? `${shippingInfo.phone.slice(0, 4)} ••• ${shippingInfo.phone.slice(-3)}`
+                        : shippingInfo.phone}
+                    </div>
+                  )}
+                </div>
+                {errors.phone && <span className="error-text">{errors.phone}</span>}
+              </div>
+            </div>
+          </section>
+
+          <section className="checkout-form-section">
+            <div className="section-head">
+              <FaShieldAlt />
+              <h2>2. Security & Payment</h2>
+            </div>
+            <div className="payment-grid-modern">
+              {publicSettings?.payment?.paymentMethods?.mpesa && (
+                <div
+                  className={`payment-method-card ${paymentMethod === 'mpesa' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('mpesa')}
+                >
+                  <div className="payment-icon"><FaPhone /></div>
+                  <div className="payment-label">M-Pesa Express</div>
+                </div>
+              )}
+              {publicSettings?.payment?.paymentMethods?.card && (
+                <div
+                  className={`payment-method-card ${paymentMethod === 'card' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('card')}
+                >
+                  <div className="payment-icon"><FaCreditCard /></div>
+                  <div className="payment-label">Debit / Credit</div>
+                </div>
+              )}
+              {publicSettings?.payment?.paymentMethods?.cashOnDelivery && (
+                <div
+                  className={`payment-method-card ${paymentMethod === 'cod' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('cod')}
+                >
+                  <div className="payment-icon"><FaMoneyBillWave /></div>
+                  <div className="payment-label">Pay on Delivery</div>
+                </div>
+              )}
+
+              {/* Graceful fallback if NO payment methods are enabled (safety check) */}
+              {(!publicSettings?.payment?.paymentMethods?.mpesa &&
+                !publicSettings?.payment?.paymentMethods?.card &&
+                !publicSettings?.payment?.paymentMethods?.cashOnDelivery) && (
+                  <div className="payment-method-card disabled full-width">
+                    <div className="payment-icon"><FaExclamationCircle /></div>
+                    <div className="payment-label">No payment methods currently available. Please contact support.</div>
+                  </div>
+                )}
+            </div>
+
+            {paymentMethod === 'mpesa' && (
+              <div className="payment-config-box">
+                <p>Funds will be requested via STK Push to the number below:</p>
+                <input
+                  type="tel"
+                  value={mpesaPhone}
+                  onChange={(e) => setMpesaPhone(e.target.value)}
+                  className="premium-input-modern"
+                  placeholder="M-Pesa Number"
+                />
+              </div>
+            )}
+
+            {paymentMethod === 'card' && (
+              <div className="payment-config-box card-input-box animated-fade-in">
+                <div className="card-input-grid">
+                  <div className={`input-group full-width ${errors.cardNo ? 'has-error' : ''}`}>
+                    <label className="input-label">Card Number</label>
+                    <div className="input-with-icon-modern">
+                      <FaCreditCard className="inner-icon" />
                       <input
                         type="text"
-                        value={cardDetails.expiryDate}
-                        onChange={handleExpiryChange}
-                        placeholder="MM/YY"
-                        maxLength="5"
+                        placeholder="0000 0000 0000 0000"
+                        value={cardInfo.number}
+                        onChange={(e) => handleCardInputChange('number', e.target.value)}
+                        className="premium-input-modern with-icon"
+                        maxLength="19"
                       />
                     </div>
-                    <div className="form-group">
-                      <label>CVV *</label>
+                    {errors.cardNo && <span className="error-text">{errors.cardNo}</span>}
+                  </div>
+
+                  <div className={`input-group ${errors.cardExp ? 'has-error' : ''}`}>
+                    <label className="input-label">Expiry Date</label>
+                    <input
+                      type="text"
+                      placeholder="MM / YY"
+                      value={cardInfo.expiry}
+                      onChange={(e) => handleCardInputChange('expiry', e.target.value)}
+                      className="premium-input-modern"
+                      maxLength="5"
+                    />
+                    {errors.cardExp && <span className="error-text">{errors.cardExp}</span>}
+                  </div>
+
+                  <div className={`input-group ${errors.cardCvv ? 'has-error' : ''}`}>
+                    <label className="input-label">CVV / CVC</label>
+                    <div className="input-with-icon-modern">
+                      <FaLock className="inner-icon" />
                       <input
-                        type="text"
-                        value={cardDetails.cvv}
-                        onChange={handleCVVChange}
+                        type="password"
                         placeholder="123"
+                        value={cardInfo.cvv}
+                        onChange={(e) => handleCardInputChange('cvv', e.target.value)}
+                        className="premium-input-modern with-icon"
                         maxLength="4"
                       />
                     </div>
+                    {errors.cardCvv && <span className="error-text">{errors.cardCvv}</span>}
                   </div>
 
-                  <p className="payment-note">
-                    <FaLock className="note-icon" />
-                    Your card details are secure and encrypted
-                  </p>
-                </div>
-              )}
-
-              {paymentMethod === 'cod' && (
-                <div className="payment-details-section cod-section">
-                  <div className="cod-notice">
-                    <FaInfoCircle className="info-icon" />
-                    <div className="notice-content">
-                      <h4>Cash on Delivery</h4>
-                      <p>Pay KSh {total.toLocaleString()} when you receive your order</p>
-                    </div>
-                  </div>
-
-                  {total > 10000 && (
-                    <div className="cod-limit-warning">
-                      <FaInfoCircle />
-                      <p>⚠️ COD is only available for orders under KSh 10,000. Please choose another payment method.</p>
-                    </div>
-                  )}
-
-                  <label className="cod-confirmation">
+                  <div className={`input-group full-width ${errors.cardName ? 'has-error' : ''}`}>
+                    <label className="input-label">Cardholder Name</label>
                     <input
-                      type="checkbox"
-                      checked={codConfirmed}
-                      onChange={(e) => setCodConfirmed(e.target.checked)}
+                      type="text"
+                      placeholder="e.g. Kipchumba Langat"
+                      value={cardInfo.name}
+                      onChange={(e) => handleCardInputChange('name', e.target.value)}
+                      className="premium-input-modern"
                     />
-                    <span>I confirm I have cash available for payment on delivery</span>
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="order-summary">
-            <div className="summary-header">
-              <h3>Order Summary</h3>
-              <span>{cart.length} {cart.length === 1 ? 'item' : 'items'}</span>
-            </div>
-
-            <div className="summary-items">
-              {cart.map((item, index) => (
-                <div key={index} className="summary-item">
-                  <div className="item-image">
-                    <img
-                      src={item.images?.[0]?.url || '/default-product.jpg'}
-                      alt={item.name}
-                    />
+                    {errors.cardName && <span className="error-text">{errors.cardName}</span>}
                   </div>
-                  <div className="item-info">
-                    <div className="item-name">{item.name}</div>
-                    <div className="item-meta">
-                      <span className="item-size">Size: {item.size}</span>
-                      <span className="item-quantity">Qty: {item.quantity}</span>
-                    </div>
-                    <div className="item-price">
-                      KSh {(item.price * item.quantity).toLocaleString()}
-                    </div>
+                </div>
+
+                <div className="card-security-note">
+                  <FaShieldAlt />
+                  <span>Secure bank-level 256-bit encryption active.</span>
+                </div>
+              </div>
+            )}
+
+            {paymentMethod === 'cod' && (
+              <div className={`payment-config-box ${errors.cod ? 'has-error' : ''}`}>
+                <label className="modern-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={codConfirmed}
+                    onChange={(e) => setCodConfirmed(e.target.checked)}
+                  />
+                  <span>I authorize Rerendet to deliver my order for cash/mobile payment on arrival.</span>
+                </label>
+                {errors.cod && <span className="error-text-block">{errors.cod}</span>}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <aside className="checkout-sidebar-column">
+          <div className="order-manifest-card">
+            <div className="manifest-header">
+              <h3>Order Summary</h3>
+              <span className="item-count">{cart.length} Bags</span>
+            </div>
+
+            <div className="manifest-items">
+              {cart.map((item, i) => (
+                <div className="manifest-item" key={i}>
+                  <div className="item-img-wrap">
+                    <img src={item.images?.[0]?.url || item.image || '/default-product.jpg'} alt={item.name} />
+                  </div>
+                  <div className="item-details">
+                    <h4>{item.name}</h4>
+                    <p>{item.size} • Qty {item.quantity}</p>
+                    <span className="item-price">KES {(item.price * item.quantity).toLocaleString()}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="summary-totals">
-              <div className="total-row">
-                <span>Subtotal</span>
-                <span>KSh {subtotal.toLocaleString()}</span>
+            <div className="discount-area">
+              <div className="promo-input-row">
+                <input
+                  type="text"
+                  placeholder="Voucher / Promo Code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  disabled={!!couponData}
+                />
+                <button
+                  className={couponData ? 'btn-remove' : 'btn-apply'}
+                  onClick={couponData ? () => { setCouponData(null); setCouponCode(''); } : handleValidateCoupon}
+                >
+                  {couponData ? 'Reset' : 'Apply'}
+                </button>
               </div>
-              <div className="total-row">
-                <span>
-                  Shipping
-                  {calculatingShipping && <span className="calculating">Calculating...</span>}
-                </span>
-                <span>KSh {shippingCost.toLocaleString()}</span>
-              </div>
-              <div className="total-row">
-                <span>Tax (16% VAT)</span>
-                <span>KSh {tax.toLocaleString()}</span>
-              </div>
-              <div className="total-row grand-total">
-                <span>Total Amount</span>
-                <span>KSh {total.toLocaleString()}</span>
+              {couponData && <div className="promo-success-badge"><FaPercent /> Discount Active</div>}
+            </div>
+
+            <div className="manifest-totals">
+              <div className="total-row"><span>Cart Subtotal</span><span>KES {subtotal.toLocaleString()}</span></div>
+              {discount > 0 && (
+                <div className="total-row discount">
+                  <span>
+                    {couponData ? `Promo (${couponData.code})` : isSubscription ? 'Subscription Discount' : 'Total Discount'}
+                  </span>
+                  <span>- KES {discount.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="total-row"><span>Logistics Fee</span><span>KES {shippingCost.toLocaleString()}</span></div>
+              <div className="grand-total-highlight">
+                <div className="total-label">Total</div>
+                <div className="total-value">KES {total.toLocaleString()}</div>
               </div>
             </div>
 
-            <button
-              className="btn-primary place-order-btn"
-              onClick={handlePlaceOrder}
-              disabled={loading || calculatingShipping}
-            >
-              {loading ? 'Processing Your Order...' : `Place Order - KSh ${total.toLocaleString()}`}
-            </button>
+            <div className={`slide-to-order-container ${loading ? 'loading' : ''}`}>
+              <div
+                className={`slide-track ${slideComplete ? 'slide-success-track' : ''}`}
+                ref={trackRef}
+              >
+                <motion.div
+                  className="slide-progress"
+                  style={{ width: x }}
+                />
 
-            <div className="security-notice">
-              <FaLock />
-              <span>Your payment information is secure and encrypted.</span>
+                <motion.div
+                  className="slide-label-container"
+                >
+                  <AnimatePresence mode="wait">
+                    {loading ? (
+                      <motion.span
+                        key="loading"
+                        className="slide-label loading-text"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <FaSync className="spin-slow" /> Processing Order...
+                      </motion.span>
+                    ) : slideComplete ? (
+                      <motion.span
+                        key="success"
+                        className="slide-label success-text"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <FaCheckCircle /> Confirmed
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="idle"
+                        className="slide-label"
+                        style={{ opacity: labelOpacity }}
+                      >
+                        Slide to Finalize Order
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+
+                <motion.div
+                  className="slide-handle"
+                  drag={!loading && !slideComplete ? "x" : false}
+                  dragConstraints={{ left: 0, right: 260 }}
+                  dragElastic={0.1}
+                  onDragEnd={handleDragEnd}
+                  style={{ x }}
+                  whileTap={!loading && !slideComplete ? { scale: 0.95 } : {}}
+                >
+                  {loading ? (
+                    <FaSync className="spin-slow" />
+                  ) : slideComplete ? (
+                    <FaCheckCircle />
+                  ) : (
+                    <FaArrowRight />
+                  )}
+                </motion.div>
+              </div>
+            </div>
+
+            <div className="manifest-security-footer">
+              <FaShieldAlt /> <span>Guaranteed Secure via SSL Encryption</span>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   );

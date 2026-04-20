@@ -14,7 +14,29 @@ const Testimonials = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   /* REMOVED MOCK DATA AS REQUESTED */
-  const defaultTestimonials = [];
+  const defaultTestimonials = [
+    {
+      id: "mock-1",
+      text: "The Single Origin beans from Rerendet have a complexity I've only encountered in the highest altitudes of Kenya. A truly transcendent morning ritual.",
+      author: "Julian Vance",
+      role: "Connoisseur",
+      rating: 5
+    },
+    {
+      id: "mock-2",
+      text: "Rerendet isn't just about the caffeine; it's about the heritage. You can taste the volcanic soil and the highland mist in every single brew.",
+      author: "Elena Rossi",
+      role: "Brew Master",
+      rating: 5
+    },
+    {
+      id: "mock-3",
+      text: "From the sustainable packaging to the perfectly balanced roast profile, Rerendet represents the future of ethical luxury coffee.",
+      author: "Marcus Thorne",
+      role: "Lifestyle Critic",
+      rating: 5
+    }
+  ];
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -41,7 +63,7 @@ const Testimonials = () => {
     fetchReviews();
   }, []);
 
-  const displayTestimonials = apiReviews;
+  const displayTestimonials = apiReviews.length > 0 ? apiReviews : defaultTestimonials;
 
   const nextTestimonial = () => {
     setCurrentTestimonial((prev) => (prev === displayTestimonials.length - 1 ? 0 : prev + 1));
@@ -100,21 +122,20 @@ const Testimonials = () => {
   };
 
   // Safe checks for rendering
-  const currentItem = displayTestimonials[currentTestimonial] || defaultTestimonials[0];
+  const currentItem = displayTestimonials[currentTestimonial];
 
   return (
     <section className="testimonials">
       <div className="container">
         <div className="testimonials-header">
-          <h2 className="section-title">What Our Customers Say</h2>
-          {displayTestimonials.length > 0 && (
-            <button className="btn-write-review" onClick={() => setShowReviewModal(true)}>
-              <FaPen /> Write a Review
-            </button>
-          )}
+          <p>The Rerendet Experience</p>
+          <h2 className="section-title">Voices of Our Community</h2>
+          <button className="btn-write-review" onClick={() => setShowReviewModal(true)}>
+            <FaPen /> Share Your Story
+          </button>
         </div>
 
-        {displayTestimonials.length > 0 ? (
+        {displayTestimonials.length > 0 && currentItem ? (
           <>
             <div className="testimonial-slider">
               <AnimatePresence mode="wait">

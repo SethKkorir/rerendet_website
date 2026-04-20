@@ -1,5 +1,5 @@
 // context/AppContext.js - COMPLETE REWRITTEN VERSION
-import React, { createContext, useCallback, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import API, {
   login as apiLogin,
   loginAdmin as apiLoginAdmin,
@@ -18,7 +18,12 @@ import API, {
   getAdminProducts,
   getPublicSettings,
   getCart as apiGetCart,
-  syncCart as apiSyncCart
+  syncCart as apiSyncCart,
+  verifyPassword as apiVerifyPassword,
+  logAbandonedCheckout as apiLogAbandoned,
+  getAbandonedCheckouts as apiGetAbandoned,
+  unlockUserAccount as apiUnlockUser,
+  resetUserSecurity as apiResetUserSecurity
 } from '../api/api';
 
 export const AppContext = createContext(null);
@@ -52,6 +57,8 @@ export function AppProvider({ children }) {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authView, setAuthView] = useState('login');
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
@@ -64,14 +71,47 @@ export function AppProvider({ children }) {
 
   const [publicSettings, setPublicSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [globalMaintenance, setGlobalMaintenance] = useState(false);
+
+  // Response interceptor to handle auth errors and maintenance
+  useEffect(() => {
+    const interceptor = API.interceptors.response.use(
+      (response) => {
+        // If we get a successful response and were in maintenance, maybe we are back?
+        // But we usually want the explicit settings fetch to decide
+        return response;
+      },
+      (error) => {
+        // Handle Maintenance Mode (503 Service Unavailable)
+        if (error.response?.status === 503) {
+          console.warn('🚧 Server reported Maintenance Mode (503)');
+          setGlobalMaintenance(true);
+        }
+
+        if (error.response?.status === 401) {
+          localStorage.removeItem('auth');
+          if (window.location.pathname.startsWith('/admin')) {
+            window.location.href = '/admin/login';
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => API.interceptors.response.eject(interceptor);
+  }, []);
 
   // ==================== IDLE SESSION MANAGEMENT ====================
   const [isLocked, setIsLocked] = useState(false);
-  const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+  const IDLE_TIMEOUT = 8 * 60 * 1000; // 8 minutes in milliseconds
 
   const checkForInactivity = useCallback(() => {
     // Skip if already locked or not logged in
     if (!user || !token || isLocked) return;
+
+    // ONLY lock out administrators for security. Regular customers driving traffic shouldn't be locked out of their carts.
+    const isAdminUser = user.userType === 'admin' || user.role === 'super-admin' || user.role === 'admin';
+    if (!isAdminUser) return;
 
     const lastActivityStr = localStorage.getItem('lastActivity');
     const lastActivity = lastActivityStr ? parseInt(lastActivityStr, 10) : Date.now();
@@ -219,8 +259,13 @@ export function AppProvider({ children }) {
     setUser(null);
     setToken(null);
     setUserType(null);
-    setCartState([]); // Clear cart state on logout
+    setCartState([]);
+    setIsLocked(false);
+    // Clear token from memory
+    import('../api/api').then(m => m.tokenStore.clear());
+    // Remove any stale legacy localStorage key
     localStorage.removeItem('auth');
+    localStorage.removeItem('lastActivity');
     console.log('🔓 Auth cleared completely');
   }, []);
 
@@ -269,12 +314,16 @@ export function AppProvider({ children }) {
     setToken(authToken);
     setUserType(type);
 
-    // Store in localStorage
-    localStorage.setItem('auth', JSON.stringify({
-      user: userData,
-      token: authToken,
-      userType: type
-    }));
+    // Store token in MEMORY only (never localStorage)
+    import('../api/api').then(m => m.tokenStore.set(authToken));
+
+    // Persist user profile (NOT the token) for page-reload UX
+    // On reload, we use the HttpOnly cookie to silently get a fresh token
+    localStorage.setItem('auth', JSON.stringify({ user: userData, userType: type }));
+
+    // Reset the session lock timer for this new login
+    localStorage.setItem('lastActivity', Date.now().toString());
+    setIsLocked(false);
 
     console.log('🔐 Auth set for:', userData.email, 'Type:', type);
 
@@ -566,13 +615,24 @@ export function AppProvider({ children }) {
       showSuccess('Login successful!');
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Verification failed';
-      showError(errorMessage);
+      showError(error.response?.data?.message || 'Verification failed');
       throw error;
     } finally {
       setLoading(false);
     }
   }, [setAuth, validateToken, showSuccess, showError]);
+
+  // Confirm Password
+  const confirmPassword = useCallback(async (password) => {
+    try {
+      const response = await apiVerifyPassword({ password });
+      return response.data.success;
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Incorrect password';
+      showError(msg);
+      return false;
+    }
+  }, [showError]);
 
   // Admin login
   const loginAdmin = useCallback(async (credentials) => {
@@ -608,8 +668,12 @@ export function AppProvider({ children }) {
   const loginWithGoogle = useCallback(async (googleData) => {
     setLoading(true);
     try {
-      // Expecting googleData to contain the `credential` token from Google
-      const response = await googleLogin({ credential: googleData.credential });
+      // Handle both standard credential (idToken) or custom accessToken
+      const payload = googleData.credential
+        ? { credential: googleData.credential }
+        : { accessToken: googleData.access_token || googleData.accessToken };
+
+      const response = await googleLogin(payload);
 
       // Handle 2FA (No token yet)
       if (response.data.requires2FA) {
@@ -632,7 +696,19 @@ export function AppProvider({ children }) {
       showSuccess(`Welcome ${userData.firstName}! Google login successful.`);
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Google login failed';
+      console.error('❌ Google Login API Error:', {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        error: error.response?.data
+      });
+
+      let errorMessage = error.response?.data?.message || 'Google login failed';
+
+      // Check if the error is a HTML string (likely a 403 Forbidden from the server/WAF)
+      if (typeof error.response?.data === 'string' && error.response.data.includes('<!DOCTYPE html>')) {
+        errorMessage = 'Security Block: Your current domain might not be whitelisted. Please check CORS settings.';
+      }
+
       showError(errorMessage);
       throw error;
     } finally {
@@ -656,6 +732,30 @@ export function AppProvider({ children }) {
       setLoading(false);
     }
   }, [showSuccess, showError]);
+
+  // Verify email (Registration)
+  const verifyEmail = useCallback(async (email, code) => {
+    setLoading(true);
+    try {
+      const response = await API.post('/auth/verify-email', { email, code });
+      const { user: userData, token: authToken } = response.data.data;
+
+      if (!validateToken(authToken)) throw new Error('Invalid token received');
+
+      setAuth(userData, authToken, 'customer');
+      showSuccess('Email verified! You are now logged in.');
+      return response.data;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Verification failed';
+      showError(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [setAuth, validateToken, showSuccess, showError]);
+
+  // Alias for backward compatibility or specific use cases
+  const loginCustomer = login;
 
   // Logout
   const logout = useCallback(async () => {
@@ -718,10 +818,10 @@ export function AppProvider({ children }) {
   }, [showSuccess, showError]);
 
   // Delete Account
-  const deleteAccount = useCallback(async () => {
+  const deleteAccount = useCallback(async (password) => {
     setLoading(true);
     try {
-      const response = await apiDeleteAccount();
+      const response = await apiDeleteAccount({ password });
       showSuccess('Account deleted successfully. We are sorry to see you go!');
       logout(); // Logout after deletion
       return response.data;
@@ -760,21 +860,15 @@ export function AppProvider({ children }) {
           let hasUpdates = false;
 
           recentOrders.forEach(order => {
-            const lastStatus = knownStatusRef[order._id];
+            // Create a composite hash to detect ANY change in status or fulfillment
+            const orderStateHash = `${order.status}|${order.fulfillmentStatus}|${order.paymentStatus}`;
+            const lastState = knownStatusRef[order._id];
 
-            // If we have seen this order before AND status is different
-            if (lastStatus && lastStatus !== order.status) {
-              console.log(`🔔 Order Update: ${order.orderNumber} ${lastStatus} -> ${order.status}`);
+            // If we have seen this order before AND state is different
+            if (lastState && lastState !== orderStateHash) {
+              console.log(`🔔 Order Update: ${order.orderNumber} changed states.`);
 
-              // Import dynamically if needed or assume we added import
-              // Since I can't add imports easily at top without potentially breaking things
-              // I will rely on the PlaySound logic being available or imported
-              // Wait, I should add the import at the top of file first? 
-              // unique replace_file_content call for import? No, I am in this tool.
-              // I will assume I can add the polling logic here.
-              // I'll assume `playNotificationSound` is imported. 
-              // If not, I'll add logic to play it inline or I will Add import next.
-
+              // Play subtle notification sound
               const AudioContext = window.AudioContext || window.webkitAudioContext;
               if (AudioContext) {
                 const ctx = new AudioContext();
@@ -791,16 +885,20 @@ export function AppProvider({ children }) {
                 osc.stop(ctx.currentTime + 0.5);
               }
 
-              showInfo(`Update: Order #${order.orderNumber} is now ${order.status.toUpperCase()}`);
+              // Format display status
+              const displayStatus = order.fulfillmentStatus !== 'unfulfilled'
+                ? order.fulfillmentStatus.toUpperCase()
+                : order.status.toUpperCase();
+
+              showInfo(`Update: Order #${order.orderNumber} is now ${displayStatus}`);
               hasUpdates = true;
             }
 
-            // Update known status
-            knownStatusRef[order._id] = order.status;
+            // Update known status with the hash
+            knownStatusRef[order._id] = orderStateHash;
           });
 
           if (hasUpdates) {
-            // Maybe refresh dashboard if needed
             setOrderRefreshTrigger(prev => prev + 1);
           }
 
@@ -810,7 +908,7 @@ export function AppProvider({ children }) {
       };
 
       checkOrders(); // Initial run
-      interval = setInterval(checkOrders, 15000); // Poll every 15 seconds
+      interval = setInterval(checkOrders, 10000); // Poll every 10 seconds for real-time feel
     }
 
     return () => {
@@ -891,6 +989,28 @@ export function AppProvider({ children }) {
     }
   }, [showSuccess, showError]);
 
+  const unlockAccount = useCallback(async (id) => {
+    try {
+      const response = await apiUnlockUser(id);
+      showSuccess('Account unlocked successfully');
+      return response.data;
+    } catch (error) {
+      showError(error.response?.data?.message || 'Failed to unlock account');
+      throw error;
+    }
+  }, [showSuccess, showError]);
+
+  const resetUserSecurity = useCallback(async (userId, type) => {
+    try {
+      const response = await apiResetUserSecurity(userId, type);
+      showSuccess(response.data?.message || 'Security reset successful');
+      return response.data;
+    } catch (error) {
+      showError(error.response?.data?.message || 'Failed to reset security');
+      throw error;
+    }
+  }, [showSuccess, showError]);
+
   const fetchAdminOrders = useCallback(async (params = {}) => {
     try {
       const response = await getAdminOrders(params);
@@ -913,6 +1033,24 @@ export function AppProvider({ children }) {
     }
   }, [showError]);
 
+  const fetchAbandonedCheckouts = useCallback(async () => {
+    try {
+      const response = await apiGetAbandoned();
+      return response.data;
+    } catch (error) {
+      console.error('Fetch abandoned error:', error);
+      throw error;
+    }
+  }, []);
+
+  const logAbandonedCheckout = useCallback(async (data) => {
+    try {
+      await apiLogAbandoned(data);
+    } catch (error) {
+      console.error('Log abandoned error:', error);
+    }
+  }, []);
+
   // ==================== AUTH INITIALIZATION ====================
 
   // Fetch Public Settings
@@ -923,53 +1061,106 @@ export function AppProvider({ children }) {
       console.log('✅ Public settings fetched:', response.data.success);
       if (response.data.success) {
         setPublicSettings(response.data.data);
+        // If settings say enabled, make sure global state matches
+        if (response.data.data.maintenance?.enabled) {
+          setGlobalMaintenance(true);
+        } else {
+          setGlobalMaintenance(false);
+        }
       }
     } catch (error) {
-      console.error('❌ Failed to fetch public settings:', error);
-      // Fallback settings to avoid blocking app
-      setPublicSettings({
-        maintenance: { enabled: false }
-      });
+      console.error('❌ Failed to fetch public settings:', error.message);
+
+      if (error.response?.status === 503) {
+        setGlobalMaintenance(true);
+        // We set dummy settings object to satisfy maintenance checks
+        setPublicSettings({
+          maintenance: { enabled: true, message: error.response.data?.message }
+        });
+      } else {
+        // Fallback settings to avoid blocking app if server is just being weird
+        setPublicSettings({
+          maintenance: { enabled: false }
+        });
+      }
     }
-    // Note: We do NOT set settingsLoading(false) here anymore to prevent premature rendering before auth check
   }, []);
 
-  // Initialize auth from localStorage
+  // Ref to track if initialization has already run
+  const hasInitialized = useRef(false);
+
+  // Initialize auth — use silent refresh via HttpOnly cookie (no token in localStorage)
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const initializeAuth = async () => {
       try {
-        // Fetch public settings on mount
         await fetchPublicSettings();
 
+        // Check if we have cached auth data (token in old format, or just user profile in new format)
         const storedAuth = localStorage.getItem('auth');
         if (storedAuth) {
-          const { user: storedUser, token: storedToken, userType: storedUserType } = JSON.parse(storedAuth);
+          const parsed = JSON.parse(storedAuth);
 
-          if (storedToken && validateToken(storedToken)) {
-            console.log('🔄 Found valid token in storage, verifying with server...');
+          // ── Path 1: Try silent cookie refresh (new secure system) ──
+          console.log('🔄 Attempting silent token refresh via HttpOnly cookie...');
+          try {
+            const { default: axios } = await import('axios');
+            const refreshRes = await axios.post(
+              `${process.env.REACT_APP_API_URL || '/api'}/auth/refresh`,
+              {},
+              { withCredentials: true }
+            );
+            if (refreshRes.data?.data?.token) {
+              const { tokenStore } = await import('../api/api');
+              tokenStore.set(refreshRes.data.data.token);
+              setToken(refreshRes.data.data.token);
 
-            setToken(storedToken);
-
-            try {
-              const response = await getCurrentUser();
-              if (response.data.success) {
-                const userData = response.data.data;
-                const actualUserType = userData.userType || storedUserType;
-
-                // Use setAuth to restore user and cart
-                setAuth(userData, storedToken, actualUserType);
-                console.log('✅ Auth restored from API:', userData.email, 'Type:', actualUserType);
+              const { getCurrentUser } = await import('../api/api');
+              const meRes = await getCurrentUser();
+              if (meRes.data.success) {
+                const userData = meRes.data.data;
+                const actualUserType = userData.userType || (userData.role === 'admin' || userData.role === 'super-admin' ? 'admin' : 'customer');
+                setAuth(userData, refreshRes.data.data.token, actualUserType);
+                console.log(`✅ Auth restored via silent refresh: ${userData.email}`);
               }
-            } catch (error) {
-              console.error('❌ Token validation failed - clearing:', error.message);
-              clearAuth();
-              if (error.response?.status === 401) {
-                showInfo('Your session has expired. Please log in again.');
+              return; // Done — don't fall through
+            }
+          } catch (refreshErr) {
+            const status = refreshErr?.response?.status;
+            console.log(`ℹ️ Silent refresh skipped (${status || refreshErr.message}) — trying legacy token fallback...`);
+          }
+
+          // ── Path 2: Legacy fallback — old localStorage token (pre-dual-token) ──
+          // This bridges users who were logged in before the security upgrade.
+          // On next logout+login they'll get the new cookie and this path won't run.
+          const legacyToken = parsed?.token;
+          if (legacyToken) {
+            console.log('🔁 Found legacy token — attempting one-time bridge login...');
+            try {
+              const { tokenStore, getCurrentUser } = await import('../api/api');
+              tokenStore.set(legacyToken);
+              setToken(legacyToken);
+
+              const meRes = await getCurrentUser();
+              if (meRes.data.success) {
+                const userData = meRes.data.data;
+                const actualUserType = userData.userType || (userData.role === 'admin' || userData.role === 'super-admin' ? 'admin' : 'customer');
+                // Overwrite localStorage with new format (no token)
+                setAuth(userData, legacyToken, actualUserType);
+                console.log(`✅ Auth restored via legacy token: ${userData.email}`);
+              }
+            } catch (legacyErr) {
+              const status = legacyErr?.response?.status;
+              if (status === 401) {
+                console.log('❌ Legacy token expired — clearing auth');
+                clearAuth();
+              } else {
+                // Network error etc — don't force logout, let them retry
+                console.warn('⚠️ Could not verify legacy token (network issue?) — keeping state');
               }
             }
-          } else {
-            console.log('❌ Invalid token found - clearing');
-            clearAuth();
           }
         }
 
@@ -1031,6 +1222,8 @@ export function AppProvider({ children }) {
     isAdmin,
     isSuperAdmin,
     isCustomer,
+    isLocked,
+    unlockSession,
 
     // Notification system
     notifications,
@@ -1050,14 +1243,16 @@ export function AppProvider({ children }) {
 
     // Auth methods
     login,
+    loginCustomer,
     verify2FA,
     loginAdmin,
     loginWithGoogle,
-    loginAdmin,
     register,
+    verifyEmail,
     logout,
     clearAuth,
     updateUserProfile,
+    confirmPassword,
     changeUserPassword,
     deleteAccount,
     fetchUserOrders,
@@ -1068,6 +1263,8 @@ export function AppProvider({ children }) {
     fetchAdminUsers,
     updateUserRole,
     deleteUser,
+    unlockAccount,
+    resetUserSecurity,
     fetchAdminOrders,
     fetchAdminProducts,
 
@@ -1091,24 +1288,36 @@ export function AppProvider({ children }) {
     toggleCart,
     setIsCartOpen,
     setMobileMenuOpen: setMobileMenuOpenState,
+    showAuthModal,
+    setShowAuthModal,
+    authView,
+    setAuthView,
     publicSettings,
     settingsLoading,
     fetchPublicSettings,
+    globalMaintenance,
+    setGlobalMaintenance,
     orderRefreshTrigger,
-    refreshOrders
+    refreshOrders,
+    fetchAbandonedCheckouts,
+    logAbandonedCheckout
   }), [
-    user, token, userType, loading, isAuthenticated, isAdmin, isSuperAdmin, isCustomer,
+    user, token, userType, loading, isAuthenticated, isAdmin, isSuperAdmin, isCustomer, isLocked,
     notifications, alert,
     cart, isCartOpen, cartCount, mobileMenuOpen,
+    showAuthModal, authView,
     addNotification, removeNotification, clearNotifications, showSuccess, showError, showWarning, showInfo,
     showAlert, hideAlert,
-    login, loginWithGoogle, loginAdmin, register, logout, clearAuth,
-    updateUserProfile, changeUserPassword, fetchUserOrders,
+    login, loginWithGoogle, loginAdmin, register, logout, clearAuth, unlockSession,
+    updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
     addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartItemCount,
     openCart, closeCart, toggleCart, setMobileMenuOpenState,
-    updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
+    fetchDashboardStats, fetchSalesAnalytics, fetchAdminUsers, updateUserRole, deleteUser, fetchAdminOrders, fetchAdminProducts,
+    publicSettings, settingsLoading, fetchPublicSettings, globalMaintenance,
     orderRefreshTrigger, refreshOrders,
-    isLocked, unlockSession
+    isLocked, unlockSession,
+    fetchAbandonedCheckouts,
+    logAbandonedCheckout
   ]);
 
   return (

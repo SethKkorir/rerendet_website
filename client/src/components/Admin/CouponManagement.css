@@ -1,0 +1,302 @@
+/* CouponManagement.css — Luxury Admin Styling */
+.cp-dashboard {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* ── Stats Row ── */
+.cp-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.cp-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-main);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s;
+}
+
+.cp-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.cp-stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.cp-stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.cp-stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ── Actions Bar ── */
+.cp-actions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.cp-search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+}
+
+.cp-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+}
+
+.cp-search-input {
+    padding-left: 2.25rem;
+    background: var(--bg-deep);
+}
+
+.cp-add-btn {
+    background: var(--color-primary);
+    color: white;
+    padding: 0.65rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+}
+
+.cp-add-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(212, 175, 55, 0.3);
+}
+
+/* ── Table Styling ── */
+.cp-table-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-main);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.cp-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.cp-table th {
+    background: var(--bg-deep);
+    padding: 1rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-main);
+}
+
+.cp-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.88rem;
+    vertical-align: middle;
+}
+
+.cp-code-cell {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: 0.05em;
+    background: rgba(212, 175, 55, 0.08);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.cp-discount-badge {
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.cp-discount-badge.percentage {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.cp-discount-badge.fixed {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.cp-status-toggle {
+    cursor: pointer;
+    font-size: 1.5rem;
+    transition: color 0.2s;
+}
+
+.cp-status-toggle.active {
+    color: #10b981;
+}
+
+.cp-status-toggle.inactive {
+    color: var(--text-dim);
+}
+
+.cp-table-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.cp-action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-deep);
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.cp-action-btn:hover {
+    color: white;
+}
+
+.cp-action-btn.edit:hover {
+    background: #3b82f6;
+}
+
+.cp-action-btn.delete:hover {
+    background: #ef4444;
+}
+
+/* ── Modal Styling ── */
+.cp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.cp-modal {
+    background: var(--bg-card);
+    width: 100%;
+    max-width: 500px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-premium);
+    overflow: hidden;
+}
+
+.cp-modal-header {
+    background: var(--bg-deep);
+    padding: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-main);
+}
+
+.cp-modal-header h2 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.cp-close-btn {
+    background: none;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+}
+
+.cp-modal-body {
+    padding: 1.5rem;
+}
+
+.cp-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.cp-form .full {
+    grid-column: 1 / -1;
+}
+
+.cp-form-group label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    color: var(--text-muted);
+}
+
+.cp-input {
+    background: var(--bg-deep);
+}
+
+.cp-modal-footer {
+    padding: 1rem 1.5rem;
+    background: var(--bg-deep);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.cancel-btn {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    font-weight: 700;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+}
+
+.submit-btn {
+    background: var(--color-primary);
+    color: white;
+    font-weight: 700;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+    .cp-form {
+        grid-template-columns: 1fr;
+    }
+}

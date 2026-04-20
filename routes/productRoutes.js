@@ -8,6 +8,7 @@ import {
   deleteProduct,
   getFeaturedProducts,
   getProductsByCategory,
+  getProductBySlug,
   updateProductStock,
   uploadProductImages, // We'll create this
   deleteProductImage // We'll create this too
@@ -33,6 +34,7 @@ router.route('/:id/images')
 
 router.get('/featured/products', getFeaturedProducts);
 router.get('/category/:category', getProductsByCategory);
+router.get('/slug/:slug', getProductBySlug);
 router.patch('/:id/stock', protect, admin, updateProductStock);
 
 export default router;

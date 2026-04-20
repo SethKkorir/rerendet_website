@@ -12,7 +12,7 @@ export const MpesaModal = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsProcessing(true);
-    
+
     // Simulate payment processing
     setTimeout(() => {
       setIsProcessing(false);
@@ -36,10 +36,10 @@ export const MpesaModal = () => {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="phone-number">Phone Number</label>
-              <input 
-                type="tel" 
-                id="phone-number" 
-                placeholder="e.g., 07XXXXXXXX" 
+              <input
+                type="tel"
+                id="phone-number"
+                placeholder="e.g., 07XXXXXXXX"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -52,8 +52,8 @@ export const MpesaModal = () => {
               <span>Total Amount:</span>
               <span>KSh {cartTotal.toLocaleString()}</span>
             </div>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="btn primary btn-block"
               disabled={isProcessing}
             >
@@ -78,8 +78,15 @@ export const CardModal = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    const digitsOnly = cardDetails.number.replace(/\s/g, '');
+    if (digitsOnly.length !== 16) {
+      showNotification('Please enter a valid 16-digit card number', 'error');
+      return;
+    }
+
     setIsProcessing(true);
-    
+
     // Simulate payment processing
     setTimeout(() => {
       setIsProcessing(false);
@@ -108,9 +115,9 @@ export const CardModal = () => {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="card-name">Name on Card</label>
-              <input 
-                type="text" 
-                id="card-name" 
+              <input
+                type="text"
+                id="card-name"
                 name="name"
                 required
                 value={cardDetails.name}
@@ -119,36 +126,51 @@ export const CardModal = () => {
             </div>
             <div className="form-group">
               <label htmlFor="card-number">Card Number</label>
-              <input 
-                type="text" 
-                id="card-number" 
+              <input
+                type="text"
+                id="card-number"
                 name="number"
-                placeholder="1234 5678 9012 3456" 
+                placeholder="XXXX XXXX XXXX XXXX"
                 required
+                maxLength="19"
                 value={cardDetails.number}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
+                  const formatted = raw.match(/.{1,4}/g)?.join(' ') || raw;
+                  setCardDetails(prev => ({ ...prev, number: formatted }));
+                }}
               />
+            </div>
+            <div className="security-note" style={{ fontSize: '0.7rem', color: '#888', marginBottom: '1rem' }}>
+              Rerendet does not store full CVV codes. Your data is encrypted for your protection.
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="expiry-date">Expiry Date</label>
-                <input 
-                  type="text" 
-                  id="expiry-date" 
+                <input
+                  type="text"
+                  id="expiry-date"
                   name="expiry"
-                  placeholder="MM/YY" 
+                  placeholder="MM/YY"
                   required
+                  maxLength="5"
                   value={cardDetails.expiry}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    if (val.length >= 3) {
+                      val = val.slice(0, 2) + '/' + val.slice(2);
+                    }
+                    setCardDetails(prev => ({ ...prev, expiry: val }));
+                  }}
                 />
               </div>
               <div className="form-group">
                 <label htmlFor="cvv">CVV</label>
-                <input 
-                  type="text" 
-                  id="cvv" 
+                <input
+                  type="text"
+                  id="cvv"
                   name="cvv"
-                  placeholder="123" 
+                  placeholder="123"
                   required
                   value={cardDetails.cvv}
                   onChange={handleChange}
@@ -159,8 +181,8 @@ export const CardModal = () => {
               <span>Total Amount:</span>
               <span>KSh {cartTotal.toLocaleString()}</span>
             </div>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="btn primary btn-block"
               disabled={isProcessing}
             >

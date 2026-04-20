@@ -43,7 +43,8 @@ const getProducts = asyncHandler(async (req, res) => {
     Product.find(filter)
       .sort({ isFeatured: -1, createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit)),
+      .limit(parseInt(limit))
+      .lean(),
     Product.countDocuments(filter),
     Product.distinct('category', { isActive: true })
   ]);
@@ -181,7 +182,14 @@ const createProduct = asyncHandler(async (req, res) => {
       (typeof tags === 'string' ?
         tags.split(',').map(tag => tag.trim()).filter(tag => tag) :
         tags) : [],
-    isFeatured: isFeatured === 'true' || isFeatured === true
+    isFeatured: isFeatured === 'true' || isFeatured === true,
+
+    // Strategic Modules
+    isBundle: req.body.isBundle === 'true' || req.body.isBundle === true,
+    bundleDetails: req.body.bundleDetails ? (typeof req.body.bundleDetails === 'string' ? JSON.parse(req.body.bundleDetails) : req.body.bundleDetails) : [],
+    isSubscriptionAvailable: req.body.isSubscriptionAvailable === 'true' || req.body.isSubscriptionAvailable === true,
+    flavorProfiles: req.body.flavorProfiles ? (typeof req.body.flavorProfiles === 'string' ? JSON.parse(req.body.flavorProfiles) : req.body.flavorProfiles) : undefined,
+    roastDate: req.body.roastDate || new Date()
   });
 
   const createdProduct = await product.save();
@@ -387,6 +395,28 @@ const deleteProductImage = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get product by slug
+// @route   GET /api/products/slug/:slug
+// @access  Public
+const getProductBySlug = asyncHandler(async (req, res) => {
+  const product = await Product.findOne({ 'seo.slug': req.params.slug });
+
+  if (product) {
+    res.json({
+      success: true,
+      data: product
+    });
+  } else {
+    // Also try to find by ID if slug not found (fallback)
+    const productById = await Product.findById(req.params.slug).catch(() => null);
+    if (productById) {
+      return res.json({ success: true, data: productById });
+    }
+    res.status(404);
+    throw new Error('Product not found');
+  }
+});
+
 export {
   getProducts,
   getProductById,
@@ -395,6 +425,7 @@ export {
   deleteProduct,
   getFeaturedProducts,
   getProductsByCategory,
+  getProductBySlug,
   updateProductStock,
   uploadProductImages,
   deleteProductImage

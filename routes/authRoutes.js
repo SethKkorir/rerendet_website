@@ -24,7 +24,11 @@ import {
   changePassword,
   deleteAccount,
   getCart,
-  syncCart
+  syncCart,
+  getMyLogs,
+  verifyPassword,
+  unlockUserAccount,
+  refreshAccessToken
 } from '../controllers/authController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -48,6 +52,8 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/check-email', checkEmail);
 router.post('/resend-verification', resendVerification);
+// Silent token refresh — reads HttpOnly refresh cookie, returns new access token
+router.post('/refresh', refreshAccessToken);
 
 // ==================== PROTECTED ROUTES ====================
 
@@ -56,6 +62,8 @@ router.put('/profile', protect, updateProfile);
 router.put('/toggle-2fa', protect, toggle2FA);
 router.delete('/profile', protect, deleteAccount);
 router.put('/change-password', protect, changePassword);
+router.post('/verify-password', protect, verifyPassword);
+router.get('/activity', protect, getMyLogs);
 
 // Cart Routes
 router.get('/cart', protect, getCart);
@@ -67,5 +75,6 @@ router.post('/logout', protect, logout);
 
 // Admin management (admin only - using existing admin middleware)
 router.post('/admin/create', protect, admin, createAdmin);
+router.put('/admin/unlock/:userId', protect, admin, unlockUserAccount);
 
 export default router;

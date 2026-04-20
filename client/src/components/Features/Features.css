@@ -4,8 +4,8 @@
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
-  /* Parallax effect */
-  padding: 8rem 0;
+  padding: 5rem 0;
+  /* Reduced from 8rem 0 */
   position: relative;
 }
 

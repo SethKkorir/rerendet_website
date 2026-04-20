@@ -1,12 +1,15 @@
 // controllers/userController.js
 import User from '../models/User.js';
 import asyncHandler from 'express-async-handler';
+import Settings from '../models/Settings.js';
+import sendEmail from '../utils/sendEmail.js';
+import { getSecurityAlertEmail } from '../utils/emailTemplates.js';
 
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select('-password');
+  const users = await User.find({}).select('-password +lockUntil +loginAttempts');
   res.json({
     success: true,
     count: users.length,
@@ -28,9 +31,9 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.params.id);
-    res.json({ 
+    res.json({
       success: true,
-      message: 'User removed successfully' 
+      message: 'User removed successfully'
     });
   } else {
     res.status(404);
@@ -62,16 +65,55 @@ const updateUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
 
   if (user) {
+    // Track if email is changing for security alert
+    const oldEmail = user.email;
+    const isEmailChanging = req.body.email && req.body.email !== oldEmail;
+
     user.firstName = req.body.firstName || user.firstName;
     user.lastName = req.body.lastName || user.lastName;
     user.email = req.body.email || user.email;
     user.phone = req.body.phone || user.phone;
-    user.isAdmin = req.body.isAdmin !== undefined ? req.body.isAdmin : user.isAdmin;
-    user.isVerified = req.body.isVerified !== undefined ? req.body.isVerified : user.isVerified;
     user.gender = req.body.gender || user.gender;
     user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
 
+    // Only allow role/admin updates if the requester is an admin
+    if (req.user.role === 'admin' || req.user.role === 'super-admin') {
+      if (req.body.role) {
+        // Prevent recursive escalation
+        if (req.body.role === 'super-admin' && req.user.role !== 'super-admin') {
+          // Ignore or throw error
+        } else {
+          user.role = req.body.role;
+        }
+      }
+      if (req.body.isActive !== undefined) user.isActive = req.body.isActive;
+      if (req.body.isVerified !== undefined) user.isVerified = req.body.isVerified;
+      if (req.body.unlock === true) {
+        user.loginAttempts = 0;
+        user.lockUntil = undefined;
+      }
+    }
+
     const updatedUser = await user.save();
+
+    // Send security alert if email was changed (sent to OLD email as warning)
+    if (isEmailChanging) {
+      try {
+        let logoUrl;
+        try {
+          const settings = await Settings.getSettings();
+          logoUrl = settings?.store?.logo;
+        } catch (e) { }
+
+        await sendEmail({
+          to: oldEmail,
+          subject: 'Security Alert: Account Email Changed',
+          html: getSecurityAlertEmail(user.firstName, `Your account email address was changed to: ${req.body.email}`, logoUrl)
+        });
+      } catch (err) {
+        console.error('Failed to send email change alert:', err);
+      }
+    }
 
     res.json({
       success: true,
@@ -93,4 +135,68 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 });
 
-export { getUsers, deleteUser, getUserById, updateUser };
+// @desc    Get top spenders (CRM)
+// @route   GET /api/users/crm/top-spenders
+// @access  Private/Admin
+const getTopSpenders = asyncHandler(async (req, res) => {
+  const topSpenders = await User.aggregate([
+    {
+      $lookup: {
+        from: 'orders',
+        localField: '_id',
+        foreignField: 'user',
+        as: 'orders'
+      }
+    },
+    {
+      $project: {
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        totalSpent: { $sum: '$orders.totalAmount' },
+        orderCount: { $size: '$orders' },
+        loyaltyPoints: 1
+      }
+    },
+    { $sort: { totalSpent: -1 } },
+    { $limit: 10 }
+  ]);
+
+  res.json({ success: true, data: topSpenders });
+});
+
+// @desc    Get customer insights (AOV, etc.)
+// @route   GET /api/users/crm/insights
+// @access  Private/Admin
+const getCustomerInsights = asyncHandler(async (req, res) => {
+  const insights = await User.aggregate([
+    {
+      $lookup: {
+        from: 'orders',
+        localField: '_id',
+        foreignField: 'user',
+        as: 'orders'
+      }
+    },
+    { $match: { 'orders.0': { $exists: true } } }, // Only customers with at least one order
+    {
+      $project: {
+        avgOrderValue: { $avg: '$orders.totalAmount' },
+        totalSpent: { $sum: '$orders.totalAmount' },
+        orderCount: { $size: '$orders' }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        averageAOV: { $avg: '$avgOrderValue' },
+        totalRevenue: { $sum: '$totalSpent' },
+        totalOrders: { $sum: '$orderCount' }
+      }
+    }
+  ]);
+
+  res.json({ success: true, data: insights[0] || {} });
+});
+
+export { getUsers, deleteUser, getUserById, updateUser, getTopSpenders, getCustomerInsights };

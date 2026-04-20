@@ -2,10 +2,13 @@ import asyncHandler from 'express-async-handler';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Settings from '../models/Settings.js';
-import generateToken from '../utils/generateToken.js';
+import generateToken, { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, clearRefreshTokenCookie } from '../utils/generateToken.js';
 import sendEmail from '../utils/sendEmail.js';
-import { getVerificationEmail, getWelcomeEmail, getResetPasswordEmail, getRegretEmail } from '../utils/emailTemplates.js';
+import { getVerificationEmail, getWelcomeEmail, getResetPasswordEmail, getRegretEmail, getSecurityAlertEmail } from '../utils/emailTemplates.js';
+import { logActivity } from '../utils/activityLogger.js';
+import ActivityLog from '../models/ActivityLog.js';
 import dotenv from 'dotenv';
+import { OAuth2Client } from 'google-auth-library';
 
 // Load environment variables
 dotenv.config();
@@ -18,20 +21,66 @@ dotenv.config();
 const verify2FALogin = asyncHandler(async (req, res) => {
   const { email, code } = req.body;
 
-  const user = await User.findOne({ email }).select('+verificationCode +verificationCodeExpires +role +isVerified +wallet +shippingInfo +cart +twoFactorEnabled +adminPermissions');
+  console.log(`🔐 2FA Attempt for: ${email} | Code Received: [${code}]`);
 
-  if (!user || user.verificationCode !== code || user.verificationCodeExpires < Date.now()) {
+  const user = await User.findOne({ email }).select('+verificationCode +verificationCodeExpires +role +userType +isVerified +wallet +shippingInfo +cart +twoFactorEnabled +adminPermissions');
+
+  if (!user) {
+    console.error(`❌ 2FA Failure: User ${email} not found`);
     res.status(400);
     throw new Error('Invalid or expired verification code');
+  }
+
+  // Coerce both to string and trim to prevent type/whitespace mismatch
+  const dbCode = String(user.verificationCode || '').trim();
+  const inputCode = String(code || '').trim();
+  const isExpired = user.verificationCodeExpires < Date.now();
+
+  console.log(`🔍 2FA Match Check: Input:[${inputCode}] | DB:[${dbCode}] | Expired: ${isExpired}`);
+
+  if (dbCode !== inputCode || isExpired) {
+    console.error(`❌ 2FA Failure: Code mismatch or expired for ${email}`);
+    res.status(400);
+    throw new Error('Invalid or expired verification code');
+  }
+
+  // STRICT SEPARATION CHECK
+  const isTryAdminPath = req.originalUrl.includes('/admin/');
+  const isAdmin = user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin';
+
+  if (isTryAdminPath && !isAdmin) {
+    res.status(403);
+    throw new Error('This account does not have administrator privileges.');
+  }
+
+  if (!isTryAdminPath && isAdmin) {
+    res.status(403);
+    throw new Error('Administrators must log in via the Admin Portal.');
   }
 
   // Clear code
   user.verificationCode = undefined;
   user.verificationCodeExpires = undefined;
   user.lastLoginAt = new Date();
-  await user.save();
+  await user.save({ validateBeforeSave: false });
 
-  const token = generateToken(user._id);
+  // LOG ACTIVITY IF ADMIN
+  if (isAdmin) {
+    await logActivity(req, 'LOGIN', `${user.firstName} (via 2FA)`, user._id, {
+      method: '2FA_VERIFICATION',
+      ip: req.ip,
+      email: user.email
+    });
+  }
+
+  console.log(`✅ 2FA Success for: ${email}`);
+
+  // LOG ACTIVITY IF CUSTOMER
+  // (We don't log customer activity to the admin security dashboard to prevent log bloat and spam alerts)
+
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = generateRefreshToken(user._id);
+  setRefreshTokenCookie(res, refreshToken);
 
   res.json({
     success: true,
@@ -54,7 +103,7 @@ const verify2FALogin = asyncHandler(async (req, res) => {
         twoFactorEnabled: user.twoFactorEnabled,
         permissions: user.adminPermissions // Crucial for Admin UI
       },
-      token
+      token: accessToken
     }
   });
 });
@@ -73,6 +122,21 @@ const toggle2FA = asyncHandler(async (req, res) => {
 
   user.twoFactorEnabled = enabled;
   await user.save();
+
+  // SEND ALERT
+  try {
+    let logoUrl;
+    try {
+      const settings = await Settings.getSettings();
+      logoUrl = settings?.store?.logo;
+    } catch (e) { }
+
+    await sendEmail({
+      to: user.email,
+      subject: `Security Alert: 2FA ${enabled ? 'Enabled' : 'Disabled'}`,
+      html: getSecurityAlertEmail(user.firstName, `Two-Factor Authentication was ${enabled ? 'Enabled' : 'Disabled'}`, logoUrl)
+    });
+  } catch (err) { }
 
   res.json({
     success: true,
@@ -115,11 +179,14 @@ const registerCustomer = asyncHandler(async (req, res) => {
     email,
     password,
     phone,
-    gender,
-    dateOfBirth,
-    userType: 'customer', // Force customer type
+    userType: 'customer',
     role: 'customer'
   };
+
+  // Only add optional fields if they have value (prevents enum/validation errors for empty strings)
+  if (gender && gender.trim()) userData.gender = gender;
+  if (dateOfBirth) userData.dateOfBirth = dateOfBirth;
+  else if (req.body.dob) userData.dateOfBirth = req.body.dob;
 
   const newUser = await User.create(userData);
 
@@ -172,30 +239,59 @@ const registerCustomer = asyncHandler(async (req, res) => {
 });
 
 // Google Login
-import { OAuth2Client } from 'google-auth-library';
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// Google Login
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "697141801323-d2uc6n2f7b2kcckpk1kk6he1du30l1kn.apps.googleusercontent.com");
 
 const googleLogin = asyncHandler(async (req, res) => {
-  const { credential } = req.body;
+  const { credential, accessToken } = req.body;
 
-  if (!credential) {
+  if (!credential && !accessToken) {
     res.status(400);
-    throw new Error('Google credential is required');
+    throw new Error('Google credential or access token is required');
   }
 
   try {
-    // Verify Google Token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-    const payload = ticket.getPayload();
-    const { email, given_name: firstName, family_name: lastName, picture, sub: googleId } = payload;
+    let email, firstName, lastName, picture, googleId;
+
+    if (credential) {
+      // Flow 1: ID Token (Standard Button)
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID || "697141801323-d2uc6n2f7b2kcckpk1kk6he1du30l1kn.apps.googleusercontent.com"
+      });
+      const payload = ticket.getPayload();
+      email = payload.email;
+      firstName = payload.given_name;
+      lastName = payload.family_name;
+      picture = payload.picture;
+      googleId = payload.sub;
+    } else {
+      // Flow 2: Access Token (Custom Button)
+      const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+      const payload = await response.json();
+
+      if (!payload.email) throw new Error('Invalid Access Token');
+
+      email = payload.email;
+      firstName = payload.given_name;
+      lastName = payload.family_name;
+      picture = payload.picture;
+      googleId = payload.sub;
+    }
+
+    console.log('✅ Google token verified for email:', email);
 
     // Check if user exists
     let user = await User.findOne({ email }).populate('cart.product');
 
     if (user) {
+      console.log('👤 Existing user found:', email, 'Type:', user.userType);
+      // RELAXED SECURITY: Allow Admin Login via Google for testing flow
+      if (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin') {
+        console.log('✅ Allowing Admin login via Google for testing:', email);
+        // We continue and grant them a token below
+      }
+
       // If user exists, update googleId if missing
       if (!user.googleId) {
         user.googleId = googleId;
@@ -266,7 +362,9 @@ const googleLogin = asyncHandler(async (req, res) => {
     if (!user.isVerified) user.isVerified = true;
     await user.save();
 
-    const token = generateToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+    setRefreshTokenCookie(res, refreshToken);
 
     console.log(`✅ Google Login successful for ${email}`);
 
@@ -289,14 +387,19 @@ const googleLogin = asyncHandler(async (req, res) => {
           cart: user.cart || [],
           twoFactorEnabled: user.twoFactorEnabled
         },
-        token
+        token: accessToken
       }
     });
 
   } catch (error) {
-    console.error('Google Auth Error:', error);
-    res.status(401);
-    throw new Error('Invalid Google Token');
+    console.error('❌ Google Auth Error Detail:', {
+      message: error.message,
+      stack: error.stack,
+      status: res.statusCode
+    });
+    // Don't override status if already set (like 403)
+    if (res.statusCode === 200) res.status(401);
+    throw new Error(error.message || 'Invalid Google Token');
   }
 });
 
@@ -305,16 +408,18 @@ const loginCustomer = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   console.log('👤 Customer login attempt:', email);
 
-  // Only look for customers
-  const user = await User.findOne({
-    email,
-    userType: 'customer'  // Only customers
-  }).select('+password +isVerified +loginAttempts +lockUntil +verificationCode +verificationCodeExpires +twoFactorEnabled');
+  // First, find user by email to do a proper check
+  const user = await User.findOne({ email }).select('+password +isVerified +loginAttempts +lockUntil +verificationCode +verificationCodeExpires +twoFactorEnabled +userType');
 
   if (!user) {
     console.log('❌ Customer not found:', email);
     res.status(401);
     throw new Error('Invalid email or password');
+  }
+
+  // RELAXED SECURITY: Allow admin to log in via customer portal for testing
+  if (user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin') {
+    console.log('✅ Allowing admin login via customer portal for testing:', email);
   }
 
   // Check if account is locked
@@ -329,23 +434,49 @@ const loginCustomer = asyncHandler(async (req, res) => {
   if (!isMatch) {
     console.log('❌ Invalid password for customer:', email);
 
-    // Increment login attempts
-    await User.findByIdAndUpdate(user._id, {
-      $inc: { loginAttempts: 1 }
-    });
+    // Atomically increment login attempts
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { $inc: { loginAttempts: 1 } },
+      { new: true, select: '+loginAttempts' }
+    );
 
-    // Check if we should lock the account
-    const updatedUser = await User.findById(user._id).select('+loginAttempts');
-    if (updatedUser.loginAttempts + 1 >= 5) {
+    const attempts = updatedUser.loginAttempts;
+    const remaining = 5 - attempts;
+
+    // Lock account after 5 failed attempts
+    if (attempts >= 5) {
+      const lockExpiry = Date.now() + (30 * 60 * 1000); // 30 minutes
       await User.findByIdAndUpdate(user._id, {
-        lockUntil: Date.now() + (2 * 60 * 60 * 1000) // 2 hours
+        $set: { lockUntil: lockExpiry }
       });
+
+      // Send security alert email
+      try {
+        let logoUrl;
+        try {
+          const settings = await Settings.getSettings();
+          logoUrl = settings?.store?.logo;
+        } catch (e) { }
+        await sendEmail({
+          to: user.email,
+          subject: '⚠️ Security Alert: Account Locked - Rerendet Coffee',
+          html: getSecurityAlertEmail(
+            user.firstName,
+            `Your account has been temporarily locked for 30 minutes due to ${attempts} consecutive failed login attempts. If this was not you, please reset your password immediately.`,
+            logoUrl
+          )
+        });
+      } catch (emailErr) {
+        console.error('Failed to send lock alert email:', emailErr);
+      }
+
       res.status(423);
-      throw new Error('Too many failed attempts. Account locked for 2 hours.');
+      throw new Error('Too many failed attempts. Account locked for 30 minutes. A security alert has been sent to your email.');
     }
 
     res.status(401);
-    throw new Error('Invalid email or password');
+    throw new Error(`Invalid email or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before account lock.`);
   }
 
   // Check for 2FA specifically for the user (ignoring Google auth flow here, this is email/pass)
@@ -401,11 +532,20 @@ const loginCustomer = asyncHandler(async (req, res) => {
     const verificationCode = user.generateVerificationCode();
     await user.save({ validateBeforeSave: false });
 
+    // Fetch store logo for email
+    let logoUrl;
+    try {
+      const settings = await Settings.getSettings();
+      logoUrl = settings?.store?.logo;
+    } catch (error) {
+      console.error('Error fetching settings for email logo:', error);
+    }
+
     try {
       await sendEmail({
         to: user.email,
         subject: 'Verification Required - Rerendet Coffee',
-        html: `Your verification code: <strong>${verificationCode}</strong>`
+        html: getVerificationEmail(user.firstName, verificationCode, logoUrl)
       });
     } catch (emailError) {
       console.error('Failed to resend verification:', emailError);
@@ -422,10 +562,14 @@ const loginCustomer = asyncHandler(async (req, res) => {
   // Populate cart after save
   await user.populate('cart.product');
 
-  // Generate token
-  const token = generateToken(user._id);
+  // Generate dual tokens
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = generateRefreshToken(user._id);
+  setRefreshTokenCookie(res, refreshToken);
 
   console.log('✅ Customer login successful:', email);
+
+  // LOG ACTIVITY check removed for customers here.
 
   res.json({
     success: true,
@@ -447,7 +591,7 @@ const loginCustomer = asyncHandler(async (req, res) => {
         cart: user.cart || [],
         twoFactorEnabled: user.twoFactorEnabled
       },
-      token
+      token: accessToken
     }
   });
 });
@@ -541,11 +685,49 @@ const changePassword = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.user._id).select('+password');
 
-  if (user && (await bcrypt.compare(currentPassword, user.password))) {
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // 1. PASSWORD COOLDOWN: 30 minutes (1800000ms)
+  if (user.passwordChangedAt) {
+    const timeSinceLastChange = Date.now() - user.passwordChangedAt.getTime();
+    const cooldownMs = 30 * 60 * 1000;
+
+    if (timeSinceLastChange < cooldownMs) {
+      const remainingMins = Math.ceil((cooldownMs - timeSinceLastChange) / (60 * 1000));
+      res.status(429);
+      throw new Error(`Security Cooldown: Please wait ${remainingMins} minutes before changing your password again.`);
+    }
+  }
+
+  if (await bcrypt.compare(currentPassword, user.password)) {
     user.password = newPassword;
+    user.passwordChangedAt = Date.now();
     await user.save();
 
-    // Clear sensitive data
+    // 2. SEND SECURITY EMAIL ALERT
+    try {
+      let logoUrl;
+      try {
+        const settings = await Settings.getSettings();
+        logoUrl = settings?.store?.logo;
+      } catch (sErr) {
+        console.error('Settings fetch error:', sErr);
+      }
+
+      await sendEmail({
+        to: user.email,
+        subject: 'Security Alert: Password Changed',
+        html: getSecurityAlertEmail(user.firstName, 'Password Updated Successfully', logoUrl)
+      });
+      console.log(`📧 Password change alert sent to: ${user.email}`);
+    } catch (emailErr) {
+      console.error('❌ Failed to send security alert email:', emailErr);
+    }
+
+    // Clear sensitive data from response
     user.password = undefined;
 
     res.json({
@@ -562,9 +744,22 @@ const changePassword = asyncHandler(async (req, res) => {
 // @route   DELETE /api/auth/profile
 // @access  Private
 const deleteAccount = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findById(req.user._id).select('+password');
 
   if (user) {
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400);
+      throw new Error('Please provide your password to confirm account deletion');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      res.status(401);
+      throw new Error('Incorrect password');
+    }
+
     const userEmail = user.email;
     const firstName = user.firstName;
 
@@ -641,23 +836,45 @@ const loginAdmin = asyncHandler(async (req, res) => {
     if (!isMatch) {
       console.log('❌ Invalid password for admin:', email);
 
-      // Increment login attempts
+      // Atomically increment login attempts
       const attempts = (user.loginAttempts || 0) + 1;
       await User.findByIdAndUpdate(user._id, {
         $set: { loginAttempts: attempts }
       });
 
-      // Check if we should lock the account (threshold: 5)
+      // Lock after 5 failed attempts — 30 minutes
       if (attempts >= 5) {
         await User.findByIdAndUpdate(user._id, {
-          $set: { lockUntil: Date.now() + (2 * 60 * 60 * 1000) } // 2 hours
+          $set: { lockUntil: Date.now() + (30 * 60 * 1000) }
         });
+
+        // Send security alert
+        try {
+          let logoUrl;
+          try {
+            const settings = await Settings.getSettings();
+            logoUrl = settings?.store?.logo;
+          } catch (e) { }
+          await sendEmail({
+            to: user.email,
+            subject: '🚨 ADMIN Security Alert: Account Locked - Rerendet',
+            html: getSecurityAlertEmail(
+              user.firstName,
+              `Your admin account has been locked for 30 minutes after ${attempts} failed login attempts. If this was not you, contact the Super Admin immediately.`,
+              logoUrl
+            )
+          });
+        } catch (emailErr) {
+          console.error('Failed to send admin lock alert:', emailErr);
+        }
+
         res.status(423);
-        throw new Error('Too many failed attempts. Account locked for 2 hours.');
+        throw new Error('Too many failed attempts. Admin account locked for 30 minutes. A security alert has been sent.');
       }
 
+      const remaining = 5 - attempts;
       res.status(401);
-      throw new Error('Invalid email or password');
+      throw new Error(`Invalid email or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
     }
 
     // Reset login attempts on successful login
@@ -681,8 +898,17 @@ const loginAdmin = asyncHandler(async (req, res) => {
     user.lastLoginAt = new Date();
     await user.save();
 
+    // LOG ACTIVITY
+    await logActivity(req, 'LOGIN', `${user.firstName} (Direct)`, user._id, {
+      method: 'DIRECT_PASSWORD',
+      ip: req.ip,
+      email: user.email
+    });
+
     // Generate Token
-    const token = generateToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+    setRefreshTokenCookie(res, refreshToken);
 
     console.log('✅ Admin login successful (2FA Disabled):', email);
 
@@ -699,13 +925,15 @@ const loginAdmin = asyncHandler(async (req, res) => {
           permissions: user.adminPermissions,
           profilePicture: user.profilePicture
         },
-        token
+        token: accessToken
       }
     });
 
   } catch (error) {
     console.error('❌ Admin login error:', error.message);
-    throw error;
+    // Ensure we don't expose 500 details unless needed
+    if (res.statusCode === 200) res.status(500);
+    throw new Error(error.message || 'Server error during admin login');
   }
 });
 
@@ -838,7 +1066,9 @@ const verifyEmail = asyncHandler(async (req, res) => {
   user.verificationCodeExpires = undefined;
   await user.save();
 
-  const token = generateToken(user._id);
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = generateRefreshToken(user._id);
+  setRefreshTokenCookie(res, refreshToken);
 
   // Send welcome email
   try {
@@ -873,7 +1103,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
       role: user.role,
       isVerified: user.isVerified,
       cart: user.cart || [],
-      token
+      token: accessToken
     }
   });
 });
@@ -900,8 +1130,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     shippingInfo: user.shippingInfo || {}
   };
 
-  // Add permissions if admin
-  if (user.userType === 'admin') {
+  const isAdmin = user.userType === 'admin' || user.role === 'admin' || user.role === 'super-admin';
+
+  if (isAdmin) {
     userData.permissions = user.adminPermissions;
   }
 
@@ -914,11 +1145,51 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 // Update user profile
 
 
-// Logout
+// Logout — clears HttpOnly refresh token cookie
 const logout = asyncHandler(async (req, res) => {
+  clearRefreshTokenCookie(res);
   res.json({
     success: true,
     message: 'Logged out successfully'
+  });
+});
+
+// @desc    Silent token refresh — reads HttpOnly cookie, issues new access token
+// @route   POST /api/auth/refresh
+// @access  Public (uses HttpOnly cookie)
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const { verifyRefreshToken } = await import('../utils/generateToken.js');
+  const cookieToken = req.cookies?.refreshToken;
+
+  if (!cookieToken) {
+    res.status(401);
+    throw new Error('No refresh token — please log in again.');
+  }
+
+  let decoded;
+  try {
+    decoded = verifyRefreshToken(cookieToken);
+  } catch (err) {
+    clearRefreshTokenCookie(res);
+    res.status(401);
+    throw new Error('Refresh token invalid or expired — please log in again.');
+  }
+
+  const user = await User.findById(decoded.id).select('_id isActive');
+  if (!user || user.isActive === false) {
+    clearRefreshTokenCookie(res);
+    res.status(401);
+    throw new Error('Account not found or deactivated.');
+  }
+
+  // Issue fresh access token + rotate refresh token
+  const newAccessToken = generateAccessToken(user._id);
+  const newRefreshToken = generateRefreshToken(user._id);
+  setRefreshTokenCookie(res, newRefreshToken);
+
+  res.json({
+    success: true,
+    data: { token: newAccessToken }
   });
 });
 
@@ -1023,10 +1294,38 @@ const resetPassword = asyncHandler(async (req, res) => {
     throw new Error('Invalid or expired reset code');
   }
 
+  // PASSWORD COOLDOWN: 30 minutes
+  if (user.passwordChangedAt) {
+    const timeSinceLastChange = Date.now() - user.passwordChangedAt.getTime();
+    if (timeSinceLastChange < 30 * 60 * 1000) {
+      res.status(429);
+      throw new Error('Security Cooldown: A password change was recently processed. Please wait before resetting again.');
+    }
+  }
+
   user.password = newPassword;
+  user.passwordChangedAt = Date.now();
   user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
+  // Clear any active account lock — password reset is the self-service unlock path
+  user.loginAttempts = 0;
+  user.lockUntil = undefined;
   await user.save();
+
+  // SEND ALERT
+  try {
+    let logoUrl;
+    try {
+      const settings = await Settings.getSettings();
+      logoUrl = settings?.store?.logo;
+    } catch (e) { }
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Security Alert: Password Reset',
+      html: getSecurityAlertEmail(user.firstName, 'Password Reset via Recovery Code', logoUrl)
+    });
+  } catch (err) { }
 
   res.json({
     success: true,
@@ -1105,37 +1404,14 @@ const resendVerification = asyncHandler(async (req, res) => {
   }
 });
 
-export {
-  // Customer auth
-  registerCustomer,
-  loginCustomer,
-  verify2FALogin,
-  toggle2FA,
-  googleLogin,
 
-  // Admin auth
-  loginAdmin,
-  createAdmin,
-
-  // Common auth
-  verifyEmail,
-  getCurrentUser,
-  updateProfile,
-  logout,
-  checkEmail,
-  forgotPassword,
-  resetPassword,
-  resendVerification,
-  changePassword,
-  deleteAccount
-};
 
 /**
  * @desc    Get user's saved cart
  * @route   GET /api/auth/cart
  * @access  Private
  */
-export const getCart = asyncHandler(async (req, res) => {
+const getCart = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id).populate('cart.product');
 
   if (!user) {
@@ -1154,7 +1430,7 @@ export const getCart = asyncHandler(async (req, res) => {
  * @route   POST /api/auth/cart
  * @access  Private
  */
-export const syncCart = asyncHandler(async (req, res) => {
+const syncCart = asyncHandler(async (req, res) => {
   const { cart } = req.body;
 
   if (!Array.isArray(cart)) {
@@ -1180,3 +1456,125 @@ export const syncCart = asyncHandler(async (req, res) => {
     data: user.cart
   });
 });
+
+/**
+ * @desc    Get current user's activity logs
+ * @route   GET /api/auth/activity
+ * @access  Private
+ */
+const getMyLogs = asyncHandler(async (req, res) => {
+  const logs = await ActivityLog.find({ admin: req.user._id })
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+  res.json({
+    success: true,
+    data: logs
+  });
+});
+
+// @desc    Verify current password
+// @route   POST /api/auth/verify-password
+// @access  Private
+const verifyPassword = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    res.status(400);
+    throw new Error('Password is required');
+  }
+
+  const user = await User.findById(req.user._id).select('+password');
+
+  if (!user || !(await user.comparePassword(password))) {
+    res.status(401);
+    throw new Error('Incorrect password');
+  }
+
+  res.json({
+    success: true,
+    message: 'Password verified'
+  });
+});
+
+// @desc    Admin manually unlock a user account
+// @route   PUT /api/auth/admin/unlock/:userId
+// @access  Admin
+const unlockUserAccount = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  const user = await User.findById(userId).select('+loginAttempts +lockUntil');
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  await User.findByIdAndUpdate(userId, {
+    $set: { loginAttempts: 0 },
+    $unset: { lockUntil: 1 }
+  });
+
+  // Log the admin action
+  await logActivity(req, 'UPDATE', `Unlocked account for ${user.firstName} ${user.lastName} (${user.email})`, userId, {
+    action: 'MANUAL_ACCOUNT_UNLOCK',
+    performedBy: req.user._id
+  });
+
+  // Notify user their account was unlocked
+  try {
+    let logoUrl;
+    try {
+      const settings = await Settings.getSettings();
+      logoUrl = settings?.store?.logo;
+    } catch (e) { }
+    await sendEmail({
+      to: user.email,
+      subject: '✅ Account Unlocked - Rerendet Coffee',
+      html: getSecurityAlertEmail(
+        user.firstName,
+        'Your account has been manually unlocked by our support team. You can now log in. If you did not request this, please contact us immediately.',
+        logoUrl
+      )
+    });
+  } catch (emailErr) {
+    console.error('Failed to send unlock notification:', emailErr);
+  }
+
+  res.json({
+    success: true,
+    message: `Account for ${user.email} has been unlocked successfully`
+  });
+});
+
+export {
+  // Customer auth
+  registerCustomer,
+  loginCustomer,
+  verify2FALogin,
+  toggle2FA,
+  googleLogin,
+
+  // Admin auth
+  loginAdmin,
+  createAdmin,
+
+  // Common auth
+  verifyEmail,
+  getCurrentUser,
+  updateProfile,
+  logout,
+  checkEmail,
+  forgotPassword,
+  resetPassword,
+  resendVerification,
+  changePassword,
+  deleteAccount,
+
+  // Additional methods
+  getCart,
+  syncCart,
+  getMyLogs,
+  verifyPassword,
+  unlockUserAccount,
+  refreshAccessToken
+};

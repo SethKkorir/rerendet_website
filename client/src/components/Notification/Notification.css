@@ -1,87 +1,159 @@
+/* Notification.css - Prestige Cinematic Notification System */
 .notifications-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
+  top: 32px;
+  right: 32px;
+  z-index: 10000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   pointer-events: none;
-  /* Allow clicks through container */
+  width: 100%;
+  max-width: 420px;
 }
 
-.notification {
-  background: #fff;
-  padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  min-width: 300px;
-  max-width: 400px;
+.notification-toast {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
   pointer-events: auto;
-  /* Re-enable clicks on notifications */
-  animation: slideIn 0.3s ease-out forwards;
-  border-left: 4px solid #ccc;
+  min-width: 340px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-main);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: var(--transition-smooth);
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.notification.success {
-  border-left-color: #10b981;
-}
-
-.notification.error {
-  border-left-color: #ef4444;
-}
-
-.notification.warning {
-  border-left-color: #f59e0b;
-}
-
-.notification.info {
-  border-left-color: #3b82f6;
+/* Highland Mist consistency */
+.notification-toast::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("https://www.transparenttextures.com/patterns/p6.png");
+  opacity: 0.02;
+  pointer-events: none;
 }
 
 .notification-content {
   display: flex;
-  align-items: center;
-  width: 100%;
-  color: #1f2937;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
 }
 
-.notification-icon {
-  margin-right: 12px;
-  font-size: 1.2rem;
+.notification-icon-wrapper {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-light);
+  font-size: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Precise Icon Colors */
+.icon-success {
+  color: #10b981;
+}
+
+.icon-error {
+  color: #ef4444;
+}
+
+.icon-warning {
+  color: #f59e0b;
+}
+
+.icon-info {
+  color: var(--color-primary);
+}
+
+.notification-toast.info .notification-icon-wrapper {
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.notification-toast.success .notification-icon-wrapper {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.notification-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  /* Center message vertically against icon */
+  min-height: 44px;
+  /* Match icon wrapper height */
 }
 
 .notification-message {
-  flex: 1;
   font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.5;
+  margin: 0;
 }
 
-.notification-close {
-  background: none;
+.notification-close-btn {
+  background: transparent;
   border: none;
-  font-size: 1.2rem;
-  color: #9ca3af;
   cursor: pointer;
-  padding: 0 0 0 12px;
-  margin-left: auto;
-  line-height: 1;
+  padding: 8px;
+  border-radius: 50%;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  margin-top: -4px;
+  margin-right: -8px;
 }
 
-.notification-close:hover {
-  color: #4b5563;
+.notification-close-btn:hover {
+  background: var(--bg-deep);
+  color: var(--text-main);
+  transform: rotate(90deg);
+}
+
+/* Prestige Progress Bar */
+.notification-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--color-primary);
+  width: 100%;
+}
+
+.notification-toast.info .notification-progress {
+  background: var(--gradient-gold);
+}
+
+.notification-toast.success .notification-progress {
+  background: #10b981;
+}
+
+.notification-toast.error .notification-progress {
+  background: #ef4444;
+}
+
+@media (max-width: 480px) {
+  .notifications-container {
+    top: auto;
+    bottom: 24px;
+    right: 16px;
+    left: 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  .notification-toast {
+    min-width: 0;
+  }
 }

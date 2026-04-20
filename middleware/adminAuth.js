@@ -23,7 +23,9 @@ const PERMISSIONS = {
     'users:edit',
     'analytics:view',
     'settings:manage',
-    'contacts:manage'
+    'contacts:manage',
+    'marketing:manage',
+    'logs:view'
   ],
 
   // Moderator - Content management only

@@ -6,11 +6,11 @@ import { AppContext } from '../../context/AppContext';
 const AdminRoute = ({ children, requiredRole = 'admin' }) => {
   const { user, userType, isAuthenticated } = useContext(AppContext);
 
-  console.log('🔍 AdminRoute check:', { 
+  console.log('🔍 AdminRoute check:', {
     isAuthenticated,
-    hasUser: !!user, 
-    userType, 
-    userUserType: user?.userType, 
+    hasUser: !!user,
+    userType,
+    userUserType: user?.userType,
     userRole: user?.role,
     requiredRole
   });
@@ -21,10 +21,14 @@ const AdminRoute = ({ children, requiredRole = 'admin' }) => {
     return <Navigate to="/admin/login" replace />;
   }
 
-  // PRIMARY FIX: Simplified logic - if userType === 'admin', grant basic admin access
-  const isAdminByType = userType === 'admin' || user.userType === 'admin';
+  // PRIMARY FIX: Simplified logic - use BOTH state and user object for robustness
+  // But trust the actual user object from backend as source of truth
+  const isAdminByType = user.userType === 'admin' ||
+    user.role === 'admin' ||
+    user.role === 'super-admin';
+
   if (!isAdminByType) {
-    console.log('❌ Not admin by userType, redirecting to home');
+    console.warn('⛔ AdminRoute Access Denied: User is not an admin', { email: user.email, userType: user.userType, role: user.role });
     return <Navigate to="/" replace />;
   }
 
@@ -37,7 +41,7 @@ const AdminRoute = ({ children, requiredRole = 'admin' }) => {
 
   // ONLY for routes requiring specific roles (super-admin, etc.), check role hierarchy
   console.log('🔐 Checking role hierarchy for required role:', requiredRole);
-  
+
   // Normalize role (handle both 'super-admin' and 'super_admin')
   const userRole = user.role || 'admin';
   const normalizedRole = userRole.replace('_', '-'); // Standardize to use hyphens
@@ -52,12 +56,12 @@ const AdminRoute = ({ children, requiredRole = 'admin' }) => {
   };
 
   // Check if user has required role or higher
-  const allowedRoles = roleHierarchy[normalizedRequiredRole] || 
-                       roleHierarchy[requiredRole] || 
-                       roleHierarchy['admin'];
-  
-  const hasRequiredRole = allowedRoles.includes(userRole) || 
-                          allowedRoles.includes(normalizedRole);
+  const allowedRoles = roleHierarchy[normalizedRequiredRole] ||
+    roleHierarchy[requiredRole] ||
+    roleHierarchy['admin'];
+
+  const hasRequiredRole = allowedRoles.includes(userRole) ||
+    allowedRoles.includes(normalizedRole);
 
   console.log('📊 Role check details:', {
     userRole,
@@ -68,9 +72,9 @@ const AdminRoute = ({ children, requiredRole = 'admin' }) => {
   });
 
   if (!hasRequiredRole) {
-    console.log('❌ User does not have required role for privileged route:', { 
-      userRole, 
-      requiredRole: normalizedRequiredRole 
+    console.log('❌ User does not have required role for privileged route:', {
+      userRole,
+      requiredRole: normalizedRequiredRole
     });
     return (
       <div className="access-denied" style={{ padding: '2rem', textAlign: 'center' }}>
@@ -79,7 +83,7 @@ const AdminRoute = ({ children, requiredRole = 'admin' }) => {
         <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
           Required role: {requiredRole}, Your role: {userRole || 'admin'}
         </p>
-        <button 
+        <button
           onClick={() => window.history.back()}
           style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}
         >

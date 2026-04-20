@@ -13,6 +13,17 @@ const settingsSchema = new mongoose.Schema({
     favicon: { type: String, default: '' }
   },
 
+  // About Us Page Content (Dynamic)
+  about: {
+    yearsInBusiness: { type: Number, default: 0 },
+    organicPercentage: { type: Number, default: 0 },
+    awardsWon: { type: Number, default: 0 },
+    story: { type: String, default: 'Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations. Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants.' },
+    subStory: { type: String, default: 'At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.' },
+    imageUrl: { type: String, default: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=1000' },
+    imageUrl2: { type: String, default: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&q=80&w=1000' }
+  },
+
   // Business Hours
   businessHours: {
     monday: { open: String, close: String, closed: { type: Boolean, default: false } },
@@ -28,7 +39,7 @@ const settingsSchema = new mongoose.Schema({
   payment: {
     currency: { type: String, default: 'KES' },
     currencySymbol: { type: String, default: 'KSh' },
-    taxRate: { type: Number, default: 0.16 }, // 16% VAT
+    taxRate: { type: Number, default: 0 }, // No VAT
     freeShippingThreshold: { type: Number, default: 5000 },
     shippingPrice: { type: Number, default: 500 },
     paymentMethods: {
@@ -93,9 +104,35 @@ const settingsSchema = new mongoose.Schema({
     enableStructuredData: { type: Boolean, default: true },
     social: {
       facebook: { type: String, default: '' },
-      instagram: { type: String, default: '' },
-      twitter: { type: String, default: '' }
+      instagram: { type: String, default: 'https://www.instagram.com/rerendetcoffee?igsh=amdyZDYzd2w1dndq' },
+      twitter: { type: String, default: '' },
+      whatsapp: { type: String, default: '' },
+      tiktok: { type: String, default: '' },
+      youtube: { type: String, default: '' }
     }
+  },
+
+  // Analytics / Tracking
+  analytics: {
+    ga4MeasurementId: { type: String, default: '' },
+    fbPixelId: { type: String, default: '' },
+    hotjarId: { type: String, default: '' },
+    enableTracking: { type: Boolean, default: false }
+  },
+
+  // WhatsApp Support Widget
+  whatsappSupport: {
+    enabled: { type: Boolean, default: true },
+    phoneNumber: { type: String, default: '' },
+    message: { type: String, default: 'Hello! I have a question about Rerendet Coffee.' }
+  },
+
+  // Marketing / Newsletter Branding
+  newsletter: {
+    fromName: { type: String, default: 'Rerendet Coffee' },
+    headerColor: { type: String, default: '#D4AF37' },
+    footerText: { type: String, default: 'You are receiving this email because you subscribed to Rerendet Coffee.' },
+    unsubscribeText: { type: String, default: 'Unsubscribe' }
   },
 
   // Policies
@@ -106,10 +143,23 @@ const settingsSchema = new mongoose.Schema({
     shippingPolicy: { type: String, default: '' }
   },
 
-  // Maintenance Settings
+  // Maintenance Settings (Enterprise Super Gate)
   maintenance: {
     enabled: { type: Boolean, default: false },
-    message: { type: String, default: 'We are currently performing maintenance. Please check back soon.' }
+    message: { type: String, default: 'We are currently performing maintenance. Please check back soon.' },
+    magicLinkToken: { type: String, default: null },
+    magicLinkExpires: { type: Date, default: null },
+    lastToggledAt: { type: Date, default: Date.now },
+    history: [
+      {
+        action: { type: String, enum: ['enabled', 'disabled'] },
+        actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        actorName: { type: String, default: 'System' },
+        ip: { type: String },
+        source: { type: String, enum: ['dashboard', 'magic-link', 'cli'], default: 'dashboard' },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ]
   }
 
 }, {

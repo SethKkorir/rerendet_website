@@ -1,7 +1,7 @@
 import { calculateShippingByZone } from './kenyaLocations.js';
 
 const INTERNATIONAL_RATE = 2000;
-const DEFAULT_RATE = 600;
+const DEFAULT_RATE = 350;
 
 /**
  * Calculate shipping cost based on country and county

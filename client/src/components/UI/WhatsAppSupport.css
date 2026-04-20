@@ -1,0 +1,116 @@
+.whatsapp-support-floating {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1050; /* Above most content but below modals and sidebar */
+    display: flex;
+    align-items: center;
+}
+
+.whatsapp-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* Reduced from 12px */
+    background: #25D366;
+    color: white;
+    padding: 8px 16px 8px 8px;
+    /* Reduced padding */
+    border-radius: 40px;
+    /* Reduced from 50px */
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(37, 211, 102, 0.25);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: wa-dance 4s infinite ease-in-out;
+}
+
+@keyframes wa-dance {
+
+    0%,
+    85%,
+    100% {
+        transform: rotate(0deg) scale(1);
+    }
+
+    90% {
+        transform: rotate(2deg) scale(1.02);
+    }
+
+    95% {
+        transform: rotate(-2deg) scale(1.02);
+    }
+}
+
+.whatsapp-btn:hover {
+    transform: scale(1.05) translateY(-5px);
+    box-shadow: 0 15px 30px rgba(37, 211, 102, 0.4);
+}
+
+.whatsapp-icon-wrap {
+    width: 32px;
+    /* Reduced from 36px */
+    height: 32px;
+    background: white;
+    color: #25D366;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    /* Reduced from 20px */
+    position: relative;
+}
+
+.whatsapp-pulse {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    border-radius: 50%;
+    z-index: -1;
+    animation: wa-pulse 2s infinite;
+}
+
+@keyframes wa-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
+.whatsapp-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.whatsapp-label {
+    font-size: 0.8rem;
+    /* Reduced from 0.9rem */
+    font-weight: 700;
+    font-family: var(--font-body);
+}
+
+@media (max-width: 768px) {
+    .whatsapp-support-floating {
+        bottom: 92px; /* Stay just above admin bottom nav (72px) + breathing room */
+        right: 20px;
+        left: auto;
+    }
+
+    .whatsapp-label {
+        display: none;
+    }
+
+    .whatsapp-btn {
+        padding: 10px;
+    }
+}

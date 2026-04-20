@@ -86,16 +86,18 @@ const sendEmail = async (options) => {
   } catch (error) {
     console.error('❌ EMAIL FAILED:', error.message);
 
-    // Fallback: Log the code to console if email fails
-    if (options.html) {
+    // Fallback: Log the code to console if email fails AND in development
+    if (options.html && process.env.NODE_ENV === 'development') {
       const codeMatch = options.html.match(/>(\d{6})</);
       if (codeMatch) {
-        console.log('🔢 FALLBACK CODE (Email Failed):', codeMatch[1]);
+        console.log('\n----------------------------------------');
+        console.log('🔢 FALLBACK 2FA CODE (Terminal Only):', codeMatch[1]);
+        console.log('----------------------------------------\n');
       }
     }
 
-    // Rethrow to let caller handle failure
-    throw error;
+    // Rethrow to let caller handle failure but we've logged the code if in dev
+    throw new Error(process.env.NODE_ENV === 'production' ? 'Email service currently unavailable' : error.message);
   }
 };
 

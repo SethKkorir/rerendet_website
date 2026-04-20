@@ -1,11 +1,27 @@
-// server.js
+// server.js - CLEAN REORGANIZED VERSION
+import dotenv from 'dotenv';
+// Load environment variables IMMEDIATELY
+dotenv.config();
+// CACHE BUSTER: 2026-02-28 03:22 - Trigger Restart
+console.log(`🚀 [BACKEND] Starting server`);
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
+import xss from 'xss-clean';
+import cookieParser from 'cookie-parser';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// Import local modules
 import connectDB from './config/db.js';
+import { notFound, errorHandler } from './middleware/errorMiddleware.js';
+import { startCronJobs } from './utils/cronJobs.js';
+import maintenanceMode from './middleware/maintenanceMiddleware.js';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -21,94 +37,96 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
-
-// Security imports
-import mongoSanitize from 'express-mongo-sanitize';
-import hpp from 'hpp';
-import xss from 'xss-clean';
+import marketingRoutes from './routes/marketingRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
+import adRoutes from './routes/adRoutes.js';
 
 // Import models
+import User from './models/User.js';
 import Product from './models/Product.js';
 import Order from './models/Order.js';
-import User from './models/User.js';
 import Contact from './models/Contact.js';
-import { startCronJobs } from './utils/cronJobs.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Configure trust proxy - ADD THIS LINE
-app.set('trust proxy', 1); // trust first proxy
-
-// Connect to MongoDB
-connectDB();
-
-
-const createDefaultAdmin = async () => {
-  try {
-    const adminExists = await User.findOne({ email: 'admin@rerendetcoffee.com' });
-
-    if (!adminExists) {
-      await User.create({
-        firstName: 'Super',
-        lastName: 'Admin',
-        email: 'admin@rerendetcoffee.com',
-        password: 'Admin123!',
-        phone: '+254700000000',
-        userType: 'admin',
-        role: 'super-admin',
-        isVerified: true,
-        isActive: true,
-        adminPermissions: {
-          canManageUsers: true,
-          canManageProducts: true,
-          canManageOrders: true,
-          canManageContent: true
-        }
-      });
-      console.log('✅ Default admin user created');
-      console.log('📧 Email: admin@rerendetcoffee.com');
-      console.log('🔑 Password: Admin123!');
-    } else {
-      console.log('✅ Admin user already exists');
-    }
-  } catch (error) {
-    console.error('❌ Error creating default admin:', error);
+// Ensure DB is connected for serverless calls BEFORE hitting any routes
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    await connectDB();
   }
-};
+  next();
+});
 
-// Call it after database connection
-connectDB().then(() => createDefaultAdmin());
+// 1. Basic Middlewares & Security
+app.set('trust proxy', 1);
 
-// CORS configuration
+// Global rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+
+// Specific limiter for Auth & Contact (sensitive endpoints)
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // Limit each IP to 20 requests per hour
+  message: 'Too many login attempts, please try again after an hour'
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Limit contact form submissions
+  message: 'Too many messages sent. Please try again later.'
+});
+
+// Global logger
+app.use((req, res, next) => {
+  console.log(`📡 [${req.method}] ${req.path} - Origin: ${req.get('Origin')}`);
+  next();
+});
+
+// Apply global limiter
+app.use('/api/', apiLimiter);
+
+// CORS configuration - Allow multiple origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5004',
+  'http://127.0.0.1:5004',
+  'https://rerendet-website.vercel.app',
+  'https://rerendet-website-two.vercel.app',
+  'https://rerendet-coffee.com'
+];
+if (process.env.CLIENT_URL) allowedOrigins.push(process.env.CLIENT_URL);
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Check if origin is allowed
+    const isAllowed = !origin ||
+      allowedOrigins.includes(origin) ||
+      allowedOrigins.some(o => origin.startsWith(o)) ||
+      allowedOrigins.some(o => origin.replace(/\/$/, '') === o.replace(/\/$/, '')) ||
+      (origin.endsWith('.vercel.app') && origin.includes('rerendet')); // Allow all rerendet vercel previews
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS Blocked: '${origin}' against allowed:`, allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Request-Method',
-    'Access-Control-Request-Headers'
-  ],
-  exposedHeaders: [
-    'Authorization',
-    'Content-Length',
-    'X-Requested-With'
-  ],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  optionsSuccessStatus: 200
 }));
 
-// Handle preflight requests globally
-app.options('*', cors());
-
-// Security middleware with Google OAuth compatibility
+// Security headers
 app.use(helmet({
   crossOriginOpenerPolicy: { policy: "unsafe-none" },
   crossOriginEmbedderPolicy: false,
@@ -117,187 +135,193 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
+      connectSrc: [
+        "'self'",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com"
+      ],
       frameSrc: ["'self'", "https://accounts.google.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
     },
   },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  },
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" }
+  referrerPolicy: { policy: "no-referrer-when-downgrade" }
 }));
 
-// Rate limiting with proxy configuration
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 3000, // Increased limit for admin polling flexibility
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.'
-  },
-  // Add these options for proxy compatibility
-  trustProxy: true,
-  keyGenerator: (req, res) => {
-    // Use the client's real IP address (handles proxy scenarios)
-    return req.ip || req.connection.remoteAddress;
-  }
-});
-
-app.use(limiter);
-
-// Specific limiter for admin login (stricter)
-const adminLoginLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 attempts per hour
-  message: {
-    success: false,
-    message: 'Too many admin login attempts from this IP, please try again after an hour.'
-  },
-  trustProxy: true
-});
-
-// Body parser middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
-
-// Data sanitization against XSS
-app.use(xss());
-
-// Prevent HTTP Parameter Pollution
-app.use(hpp());
-
-// Add security headers manually for Google OAuth compatibility
+// Manual overrides for browser compliance
 app.use((req, res, next) => {
-  // Remove conflicting headers that might block Google OAuth
-  res.removeHeader('Cross-Origin-Opener-Policy');
-  res.removeHeader('Cross-Origin-Embedder-Policy');
-
-  // Set permissive headers for OAuth
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-
   next();
 });
 
-// Debug routes removed for security
-// ==================== ROUTES ====================
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// API Routes
-app.use('/api/auth/admin/login', adminLoginLimiter); // Apply strict limit to admin login
+// Sanitization
+app.use(mongoSanitize());
+app.use(xss());
+app.use(hpp());
+
+// Cookie parser — needed to read the HttpOnly refresh token cookie
+app.use(cookieParser());
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    environment: process.env.NODE_ENV,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    time: new Date()
+  });
+});
+
+// 1.5 Maintenance Mode (Global Check)
+app.use('/api/', maintenanceMode);
+
+// 2. API Routes
+app.use('/api/blogs', blogRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', paymentRoutes); // Mount simulated payment webhook
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/admin/settings', settingsRoutes);
-app.use('/api/settings', settingsRoutes); // Public settings endpoint
+app.use('/api/settings', settingsRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/newsletter', subscriberRoutes);
+app.use('/api/marketing', marketingRoutes);
+app.use('/api/promotions', adRoutes);
 
-// ==================== PUBLIC ENDPOINTS ====================
-
-// Contact form endpoint
-app.post('/api/contact', async (req, res) => {
+// Custom public routes with rate limiting
+app.post('/api/contact', contactLimiter, async (req, res, next) => {
   try {
     const { name, email, subject, message } = req.body;
-
     if (!name || !email || !subject || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
+      res.status(400);
+      throw new Error('All fields are required');
     }
-
-    // Basic Honeypot check (hidden field should be empty)
-    if (req.body._gotcha) {
-      console.log('🐝 Honeypot triggered by:', req.ip);
-      return res.status(400).json({ success: false, message: 'Spam detected' });
-    }
-
-    const contact = new Contact({
-      name,
-      email,
-      subject,
-      message,
-      status: 'new'
-    });
-
+    const contact = new Contact({ name, email, subject, message });
     await contact.save();
-
-    console.log('📧 New Contact Form Submission from:', email);
-
-    res.status(201).json({
-      success: true,
-      message: 'Thank you for your message! We will get back to you soon.'
-    });
-
-  } catch (error) {
-    console.error('Contact form error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to submit contact form'
-    });
-  }
+    res.status(201).json({ success: true, message: 'Message sent successfully!' });
+  } catch (err) { next(err); }
 });
 
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+
+// 3. Static Assets (Production)
+if (process.env.NODE_ENV === 'production') {
+  const publicPath = path.resolve(__dirname, 'client/build');
+  console.log(`📂 [STATIC] Production mode. Absolute Path: ${publicPath}`);
+
+  app.use(express.static(publicPath));
+
+  // Only handle GET requests for SPA routing
+  // SSR-Lite for SEO: Inject Meta Tags for Product Pages
+  app.get('/product/:slug', async (req, res) => {
+    try {
+      const slug = req.params.slug;
+      const product = await Product.findOne({ 'seo.slug': slug });
+
+      const indexPath = path.resolve(publicPath, 'index.html');
+      let indexHtml = fs.readFileSync(indexPath, 'utf8');
+
+      if (product) {
+        const title = product.seo?.title || `${product.name} | Rerendet Coffee`;
+        const description = product.seo?.description || product.description.substring(0, 160);
+        const image = product.images?.[0]?.url || 'https://rerendet-coffee.vercel.app/og-image.jpg';
+        const url = `https://rerendet-coffee.com/product/${slug}`;
+        const price = product.sizes?.[0]?.price || 0;
+
+        // Inject dynamic meta tags
+        const metaTags = `
+          <title>${title}</title>
+          <meta name="description" content="${description}">
+          <meta property="og:title" content="${title}">
+          <meta property="og:description" content="${description}">
+          <meta property="og:image" content="${image}">
+          <meta property="og:url" content="${url}">
+          <meta property="og:type" content="product">
+          <meta property="product:price:amount" content="${price}">
+          <meta property="product:price:currency" content="KES">
+          <meta name="twitter:card" content="summary_large_image">
+          <meta name="twitter:title" content="${title}">
+          <meta name="twitter:description" content="${description}">
+          <meta name="twitter:image" content="${image}">
+        `;
+
+        // Replace existing title or head content
+        indexHtml = indexHtml.replace('<title>Rerendet Coffee</title>', metaTags);
+        // If the tag isn't exactly that, we can inject before </head>
+        if (!indexHtml.includes(metaTags)) {
+          indexHtml = indexHtml.replace('</head>', `${metaTags}</head>`);
+        }
+      }
+
+      res.send(indexHtml);
+    } catch (err) {
+      console.error('❌ SEO Injection Error:', err);
+      res.sendFile(path.resolve(publicPath, 'index.html'));
+    }
   });
-});
 
-
-// ==================== ERROR HANDLING ====================
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(publicPath, 'index.html'));
   });
-});
+}
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server Error:', err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
-});
-// ==================== SERVER START ====================
+// 4. Error Handling (Must be last)
+app.use(notFound);
+app.use(errorHandler);
+
+// 5. Connection & Server Start
+const createDefaultAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ email: 'admin@rerendetcoffee.com' });
+    if (!adminExists) {
+      await User.create({
+        firstName: 'Super', lastName: 'Admin',
+        email: 'admin@rerendetcoffee.com', password: 'Admin123!',
+        phone: '+254700000000', userType: 'admin', role: 'super-admin',
+        isVerified: true, isActive: true,
+        adminPermissions: { canManageUsers: true, canManageProducts: true, canManageOrders: true, canManageContent: true }
+      });
+      console.log('✅ Default admin created');
+    }
+  } catch (err) { console.error('❌ Admin creation error:', err.message); }
+};
+
+const createIndexes = async () => {
+  try {
+    console.log('🏗️  Creating database indexes...');
+    // We can also define indexes in models, but ensuring they are built here
+    await User.createIndexes();
+    console.log('✅ User indexes created');
+    await Product.createIndexes();
+    console.log('✅ Product indexes created');
+    await Order.createIndexes();
+    console.log('✅ Order indexes created');
+  } catch (err) { console.error('❌ Index creation error:', err.message); }
+};
 
 const PORT = process.env.PORT || 5000;
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    // Start background jobs
-    startCronJobs();
 
-    console.log(`
-  🚀 Server running on port ${PORT}
-  📊 Environment: ${process.env.NODE_ENV || 'development'}
-  🔗 API: http://localhost:${PORT}/api
-  ❤️  Health: http://localhost:${PORT}/api/health
-  🔒 Trust proxy: ${app.get('trust proxy')}
-    `);
+if (process.env.NODE_ENV !== 'production' || process.env.RENDER || !process.env.VERCEL) {
+  connectDB().then(() => {
+    createDefaultAdmin();
+    createIndexes();
+    app.listen(PORT, () => {
+      startCronJobs();
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
   });
 }
 

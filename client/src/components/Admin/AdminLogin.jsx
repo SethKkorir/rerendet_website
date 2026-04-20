@@ -1,17 +1,15 @@
-// src/components/Admin/AdminLogin.jsx
+// src/components/Admin/AdminLogin.jsx — Premium Overhaul
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
+import { FaEnvelope, FaLock, FaShieldAlt, FaArrowLeft, FaExclamationCircle } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
 import './AdminLogin.css';
 
 const AdminLogin = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
   const [step, setStep] = useState('login'); // 'login' or '2fa'
   const [code, setCode] = useState('');
 
@@ -19,10 +17,7 @@ const AdminLogin = () => {
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
   };
 
@@ -41,117 +36,168 @@ const AdminLogin = () => {
           navigate('/admin');
         }
       } else {
-        // Verify 2FA
         await verifyAdmin2FA(formData.email, code);
         navigate('/admin');
       }
-
     } catch (error) {
-      console.error('❌ Admin login error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      setError(errorMessage);
-      showNotification(errorMessage, 'error');
+      const msg = error.response?.data?.message || error.message || 'Login failed';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    showNotification('Security Active: Context menu disabled for your protection', 'info');
+  };
+
+  const handlePreventAction = (e) => {
+    e.preventDefault();
+    showNotification('Security Active: Copy/Paste restricted on this field', 'warning');
+  };
+
   return (
-    <div className="admin-login-page">
+    <div className="admin-login-page" onContextMenu={handleContextMenu}>
       <div className="admin-login-container">
-        <div className="admin-login-card">
+        <motion.div
+          className="admin-login-card"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+        >
           <div className="login-header">
-            <div className="logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-              <img src="/rerendet-logo.png" alt="Rerendet Admin" style={{ height: '80px' }} />
-            </div>
-            {step === '2fa' && <h3>Two-Factor Authentication</h3>}
+            <img src="/rerendet-logo.png" alt="Rerendet" className="logo-img" />
+            <h2>{step === 'login' ? 'Admin Portal' : 'Identity Verification'}</h2>
+            <p>{step === 'login' ? 'Secure access for Rerendet administrators' : 'Enter the security code sent to your email'}</p>
           </div>
 
-          {error && (
-            <div className="error-message">
-              <strong>{step === 'login' ? 'Access Denied:' : 'Verification Failed:'}</strong> {error}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                className="error-message"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <FaExclamationCircle />
+                <span>{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <form onSubmit={handleSubmit} className="login-form">
-            {step === 'login' ? (
-              <>
-                <div className="form-group">
-                  <label>Admin Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="Enter admin email"
-                    required
-                    disabled={loading}
-                    className="form-input"
-                  />
-                </div>
+            <AnimatePresence mode="wait">
+              {step === 'login' ? (
+                <motion.div
+                  key="login-fields"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
+                >
+                  <div className="form-group">
+                    <label>Email Address</label>
+                    <div className="input-wrapper">
+                      <FaEnvelope className="input-icon" />
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="admin@rerendetcoffee.com"
+                        required
+                        disabled={loading}
+                        className="form-input"
+                        autoComplete="off"
+                        spellCheck="false"
+                        data-lpignore="true"
+                        onPaste={handlePreventAction}
+                      />
+                    </div>
+                  </div>
 
-                <div className="form-group">
-                  <label>Admin Password</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Enter admin password"
-                    required
-                    disabled={loading}
-                    className="form-input"
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="form-group">
-                <label>Verification Code</label>
-                <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '14px', color: '#666' }}>
-                  Enter the 6-digit code sent to <strong>{formData.email}</strong>
-                </div>
-                <input
-                  type="text"
-                  name="code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="123456"
-                  required
-                  disabled={loading}
-                  className="form-input"
-                  style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '24px' }}
-                  autoFocus
-                />
-              </div>
-            )}
+                  <div className="form-group">
+                    <label>Password</label>
+                    <div className="input-wrapper">
+                      <FaLock className="input-icon" />
+                      <input
+                        type="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        required
+                        disabled={loading}
+                        className="form-input"
+                        autoComplete="current-password"
+                        spellCheck="false"
+                        data-lpignore="true"
+                        onCopy={handlePreventAction}
+                        onPaste={handlePreventAction}
+                        onCut={handlePreventAction}
+                        onDragStart={handlePreventAction}
+                      />
+                    </div>
+                  </div>
 
-            <button
-              type="submit"
-              className={`login-btn ${loading ? 'loading' : ''}`}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <div className="btn-spinner"></div>
-                  {step === 'login' ? 'Authenticating...' : 'Verifying...'}
-                </>
+                  {/* Honeypot field to trap bots */}
+                  <input type="text" name="bot_trap" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
+                </motion.div>
               ) : (
-                step === 'login' ? 'Access Admin Dashboard' : 'Verify & Login'
+                <motion.div
+                  key="2fa-fields"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <div className="form-group">
+                    <label>Authentication Code</label>
+                    <div className="input-wrapper">
+                      <FaShieldAlt className="input-icon" />
+                      <input
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        required
+                        disabled={loading}
+                        className="form-input"
+                        style={{ letterSpacing: '8px', textAlign: 'center', fontSize: '1.5rem', paddingLeft: '18px' }}
+                        autoFocus
+                        onPaste={handlePreventAction}
+                        autoComplete="one-time-code"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                  <div className="btn-spinner"></div>
+                  <span>Authenticating...</span>
+                </div>
+              ) : (
+                <span>{step === 'login' ? 'Authorize Access' : 'Verify Identity'}</span>
               )}
             </button>
 
             {step === '2fa' && (
-              <button
-                type="button"
-                className="back-btn"
-                onClick={() => setStep('login')}
-                style={{ marginTop: '16px', background: 'none', border: 'none', color: '#666', cursor: 'pointer', textDecoration: 'underline', width: '100%' }}
-              >
-                Back to Login
+              <button type="button" className="back-btn" onClick={() => setStep('login')}>
+                <FaArrowLeft style={{ fontSize: '0.8rem', marginRight: '8px' }} />
+                Change Account
               </button>
             )}
+
+            <div className="login-security-footer">
+              <FaShieldAlt style={{ color: 'var(--color-primary, #D4AF37)', fontSize: '0.7rem' }} />
+              <span>End-to-End Encrypted Admin Session</span>
+            </div>
           </form>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

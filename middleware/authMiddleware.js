@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import asyncHandler from 'express-async-handler';
 import dotenv from 'dotenv';
+import { verifyAccessToken } from '../utils/generateToken.js';
 
 // Load environment variables
 dotenv.config();
@@ -20,49 +21,36 @@ const protect = asyncHandler(async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      
-      console.log('🔐 Token verification details:', {
-        secretLength: process.env.JWT_SECRET.length,
-        tokenLength: token.length,
-        tokenPreview: token.substring(0, 20) + '...'
-      });
-      
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('✅ Token decoded successfully:', { userId: decoded.id });
-      
+
+      token = req.headers.authorization.split(' ')[1];
+
+      const decoded = verifyAccessToken(token);
+
       req.user = await User.findById(decoded.id)
         .select('-password -verificationCode -verificationCodeExpires -resetPasswordToken -resetPasswordExpires -loginAttempts -lockUntil');
-      
+
       if (!req.user) {
-        console.error('❌ User not found for ID:', decoded.id);
         res.status(401);
-        throw new Error('User not found');
+        throw new Error('Not authorized, user not found');
       }
 
       // Check if user is active
       if (req.user.isActive === false) {
         res.status(401);
-        throw new Error('Account is deactivated');
+        throw new Error('This account has been deactivated. Please contact support.');
       }
-      
-      console.log('✅ Token verified for user:', req.user.email);
+
       next();
     } catch (error) {
-      console.error('❌ Token verification failed:', {
-        error: error.message,
-        tokenPreview: token ? token.substring(0, 20) + '...' : 'No token',
-        secretPreview: process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 10) + '...' : 'No secret'
-      });
-      
       if (error.name === 'TokenExpiredError') {
         res.status(401);
-        throw new Error('Token expired. Please log in again.');
+        throw new Error('Session expired. Please log in again.');
       } else if (error.name === 'JsonWebTokenError') {
         res.status(401);
-        throw new Error('Invalid token. Please log in again.');
+        throw new Error('Invalid authentication token.');
       } else {
         res.status(401);
-        throw new Error('Not authorized, token failed');
+        throw new Error('Not authorized, token validation failed');
       }
     }
   } else {
@@ -79,32 +67,28 @@ const admin = asyncHandler(async (req, res, next) => {
   }
 
   // Check both userType and role for admin access
-  const isAdmin = req.user.userType === 'admin' || 
-                 req.user.role === 'admin' || 
-                 req.user.role === 'super-admin';
-
-  console.log('🔍 Basic Admin Check:', {
-    email: req.user.email,
-    userType: req.user.userType,
-    role: req.user.role,
-    isAdmin: isAdmin
-  });
+  const isAdmin = req.user.userType === 'admin' ||
+    req.user.role === 'admin' ||
+    req.user.role === 'super-admin';
 
   if (isAdmin) {
     // Additional admin checks
     if (req.user.isActive === false) {
+      console.warn(`⛔ Admin Access Denied: Account Deactivated (${req.user.email})`);
       res.status(403);
       throw new Error('Admin account is deactivated');
     }
-    
+
     if (!req.user.isVerified) {
+      console.warn(`⛔ Admin Access Denied: Not Verified (${req.user.email})`);
       res.status(403);
       throw new Error('Admin account requires verification');
     }
-    
-    console.log('✅ Basic admin access granted for:', req.user.email);
+
+    console.log(`✅ Admin access granted for: ${req.user.email} (Type: ${req.user.userType}, Role: ${req.user.role})`);
     next();
   } else {
+    console.error(`⛔ Unauthorized Admin Attempt: ${req.user.email} (Type: ${req.user.userType}, Role: ${req.user.role})`);
     res.status(403);
     throw new Error('Not authorized as admin');
   }
@@ -117,11 +101,11 @@ const validateToken = asyncHandler(async (req, res) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      const decoded = verifyAccessToken(token);
       const user = await User.findById(decoded.id)
         .select('-password -verificationCode -verificationCodeExpires -resetPasswordToken -resetPasswordExpires -loginAttempts -lockUntil');
-      
+
       if (!user) {
         return res.status(401).json({
           success: false,

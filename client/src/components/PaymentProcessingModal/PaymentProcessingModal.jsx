@@ -1,6 +1,6 @@
 // components/PaymentProcessingModal/PaymentProcessingModal.jsx
 import React, { useEffect, useState } from 'react';
-import { FaSpinner, FaCheckCircle, FaTimesCircle, FaPhone, FaCreditCard } from 'react-icons/fa';
+import { FaSpinner, FaCheckCircle, FaTimesCircle, FaPhone, FaCreditCard, FaLock } from 'react-icons/fa';
 import './PaymentProcessingModal.css';
 
 const PaymentProcessingModal = ({
@@ -33,12 +33,10 @@ const PaymentProcessingModal = ({
 
     const simulateMpesaPayment = async () => {
         setStatus('processing');
-        setMessage(`Sending STK push to ${phone}...`);
+        setMessage(`Sending Secure STK Push to ${phone}...`);
 
-        // Simulate STK push delay (3 seconds)
         await new Promise(resolve => setTimeout(resolve, 1500));
-
-        setMessage('Waiting for M-Pesa confirmation...');
+        setMessage('Awaiting M-Pesa pin authorization...');
 
         await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -49,49 +47,60 @@ const PaymentProcessingModal = ({
             const txId = `MPE${Date.now()}${Math.floor(Math.random() * 1000)}`;
             setTransactionId(txId);
             setStatus('success');
-            setMessage('Payment confirmed successfully!');
+            setMessage('Payment Authorized Successfully!');
 
-            // Call success callback after showing success message
             setTimeout(() => {
                 onSuccess({ transactionId: txId, method: 'mpesa' });
             }, 1500);
         } else {
+            const reasons = [
+                'Insufficient funds in your M-Pesa wallet',
+                'Incorrect PIN entered on your phone',
+                'Transaction timed out (took too long to authorize)',
+                'Payment cancelled by user'
+            ];
+            const reason = reasons[Math.floor(Math.random() * reasons.length)];
             setStatus('failed');
-            setMessage('Payment cancelled or timed out');
+            setMessage(reason);
             setTimeout(() => {
-                onFailure('Payment was cancelled by user');
-            }, 2000);
+                onFailure(reason);
+            }, 2500);
         }
     };
 
     const simulateCardPayment = async () => {
         setStatus('processing');
-        setMessage('Processing card payment...');
+        setMessage('Authorizing secured card payment...');
 
         await new Promise(resolve => setTimeout(resolve, 2000));
-
-        setMessage('Verifying card details...');
+        setMessage('Verifying with bank gateway...');
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // 95% success rate for cards
         const success = Math.random() > 0.05;
 
         if (success) {
             const txId = `CRD${Date.now()}${Math.floor(Math.random() * 1000)}`;
             setTransactionId(txId);
             setStatus('success');
-            setMessage('Payment successful!');
+            setMessage('Payment Processed Successfully!');
 
             setTimeout(() => {
                 onSuccess({ transactionId: txId, method: 'card' });
             }, 1500);
         } else {
+            const reasons = [
+                'Card was declined by the issuer.',
+                'Incorrect CVV or expiry date provided.',
+                '3D Secure verification failed.',
+                'Daily transaction limit exceeded.'
+            ];
+            const reason = reasons[Math.floor(Math.random() * reasons.length)];
             setStatus('failed');
-            setMessage('Card declined. Please try another card.');
+            setMessage(reason);
             setTimeout(() => {
-                onFailure('Card payment failed');
-            }, 2000);
+                onFailure(reason);
+            }, 2500);
         }
     };
 
@@ -117,13 +126,9 @@ const PaymentProcessingModal = ({
                     {/* Payment Method Badge */}
                     <div className="payment-method-badge">
                         {paymentMethod === 'mpesa' ? (
-                            <>
-                                <FaPhone /> M-Pesa Payment
-                            </>
+                            <><FaPhone /> M-Pesa Express</>
                         ) : (
-                            <>
-                                <FaCreditCard /> Card Payment
-                            </>
+                            <><FaCreditCard /> Secured Card Payment</>
                         )}
                     </div>
 
@@ -137,39 +142,59 @@ const PaymentProcessingModal = ({
                         {message}
                     </div>
 
-                    {/* Transaction ID (only on success) */}
+                    {/* Transaction ID */}
                     {transactionId && (
                         <div className="transaction-id">
-                            <span className="label">Transaction ID:</span>
+                            <span className="label">Reference ID</span>
                             <span className="value">{transactionId}</span>
                         </div>
                     )}
 
                     {/* Actions */}
                     <div className="payment-actions">
-                        {status === 'processing' && paymentMethod === 'mpesa' && (
-                            <button
-                                className="btn-cancel"
-                                onClick={onCancel}
-                            >
-                                Cancel Payment
+                        {status === 'processing' && (
+                            <button className="btn-modal btn-cancel" onClick={onCancel}>
+                                Cancel Transaction
                             </button>
                         )}
                         {status === 'failed' && (
-                            <button
-                                className="btn-retry"
-                                onClick={onCancel}
-                            >
-                                Try Again
-                            </button>
+                            <>
+                                <button className="btn-modal btn-retry" onClick={paymentMethod === 'mpesa' ? simulateMpesaPayment : simulateCardPayment}>
+                                    Retry {paymentMethod === 'mpesa' ? 'M-Pesa' : 'Payment'}
+                                </button>
+                                <button className="btn-modal btn-cancel" onClick={onCancel}>
+                                    Different Method
+                                </button>
+                            </>
                         )}
                     </div>
 
-                    {/* Instructions (M-Pesa only) */}
+                    {/* Failure Tips */}
+                    {status === 'failed' && paymentMethod === 'mpesa' && (
+                        <div className="failure-tips">
+                            <h4>Why did it fail?</h4>
+                            <ul>
+                                <li>Insufficient funds in your M-Pesa wallet</li>
+                                <li>Incorrect PIN entered on your phone</li>
+                                <li>Transaction timed out (took too long to authorize)</li>
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Premium Instructions */}
                     {status === 'processing' && paymentMethod === 'mpesa' && (
                         <div className="payment-instructions">
-                            <p>📱 Check your phone for the M-Pesa prompt</p>
-                            <p>🔢 Enter your M-Pesa PIN to complete payment</p>
+                            <p><span className="step-num">1</span> 📱 Unlock your phone now</p>
+                            <p><span className="step-num">2</span> 🔢 Enter M-Pesa PIN in the pop-up</p>
+                            <p><span className="step-num">3</span> ☕ Your coffee will be ready soon!</p>
+                        </div>
+                    )}
+
+                    {status === 'processing' && paymentMethod === 'card' && (
+                        <div className="payment-instructions" style={{ textAlign: 'center', background: '#F0F9FF', border: 'none' }}>
+                            <p style={{ justifyContent: 'center', color: '#0369A1' }}>
+                                <FaLock /> Your financial data is protected by AES-256 bank-level security.
+                            </p>
                         </div>
                     )}
                 </div>

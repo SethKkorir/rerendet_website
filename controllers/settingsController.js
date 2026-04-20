@@ -1,7 +1,7 @@
-// controllers/settingsController.js - COMPLETE IMPLEMENTATION
 import asyncHandler from 'express-async-handler';
 import Settings from '../models/Settings.js';
 import User from '../models/User.js';
+import crypto from 'crypto';
 import sendEmail from '../utils/sendEmail.js';
 import { getMaintenanceEmail, getMaintenanceResolvedEmail } from '../utils/emailTemplates.js';
 
@@ -53,49 +53,47 @@ const updateSettings = asyncHandler(async (req, res) => {
     console.log('✅ Settings updated successfully');
 
 
-    // Handle Maintenance Mode Notification
+    // Handle Maintenance Mode Notification & Audit (Enterprise Super Gate)
     if (req.body.maintenance && typeof req.body.maintenance.enabled !== 'undefined') {
       const wasMaintenance = settings.maintenance.enabled;
       const isMaintenanceNow = req.body.maintenance.enabled === true || req.body.maintenance.enabled === 'true';
 
       if (isMaintenanceNow !== wasMaintenance) {
-        console.log(`🚧 Maintenance status changed: ${wasMaintenance} -> ${isMaintenanceNow}`);
+        console.log(`🚧 Maintenance status changed via dashboard: ${wasMaintenance} -> ${isMaintenanceNow}`);
 
+        // Update audit log in the updatedSettings object
+        updatedSettings.maintenance.lastToggledAt = Date.now();
+        updatedSettings.maintenance.history.push({
+          action: isMaintenanceNow ? 'enabled' : 'disabled',
+          actor: req.user?._id,
+          actorName: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'Admin',
+          ip: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+          source: 'dashboard',
+          timestamp: Date.now()
+        });
+        await updatedSettings.save();
+
+        // Async Background Notification
         const notifyMaintenance = async () => {
           try {
-            if (isMaintenanceNow) {
-              // STARTING MAINTENANCE
-              console.log('🚧 Maintenance Mode ENABLED. Notifying customers...');
-              const customers = await User.find({ userType: 'customer' }).select('email firstName');
-              const batchSize = 10;
-              for (let i = 0; i < customers.length; i += batchSize) {
-                const batch = customers.slice(i, i + batchSize);
-                await Promise.all(batch.map(customer =>
-                  sendEmail({
-                    to: customer.email,
-                    subject: 'Scheduled Maintenance - Rerendet Coffee',
-                    html: getMaintenanceEmail(req.body.maintenance.message || settings.maintenance.message, settings.store?.logo)
-                  }).catch(err => console.error(`Failed to send to ${customer.email}`, err.message))
-                ));
-              }
-            } else {
-              // ENDING MAINTENANCE
-              console.log('✅ Maintenance Mode DISABLED. Notifying customers...');
-              const customers = await User.find({ userType: 'customer' }).select('email firstName');
-              const batchSize = 10;
-              for (let i = 0; i < customers.length; i += batchSize) {
-                const batch = customers.slice(i, i + batchSize);
-                await Promise.all(batch.map(customer =>
-                  sendEmail({
-                    to: customer.email,
-                    subject: 'We are Back Online! - Rerendet Coffee',
-                    html: getMaintenanceResolvedEmail(settings.store?.logo)
-                  }).catch(err => console.error(`Failed to send to ${customer.email}`, err.message))
-                ));
-              }
+            const customers = await User.find({ userType: 'customer' }).select('email firstName');
+            const batchSize = 10;
+            console.log(`📧 Dispatching maintenance notification to ${customers.length} customers...`);
+
+            for (let i = 0; i < customers.length; i += batchSize) {
+              const batch = customers.slice(i, i + batchSize);
+              await Promise.allSettled(batch.map(customer =>
+                sendEmail({
+                  to: customer.email,
+                  subject: isMaintenanceNow ? 'Scheduled Maintenance - Rerendet Coffee' : 'We are Back Online! - Rerendet Coffee',
+                  html: isMaintenanceNow
+                    ? getMaintenanceEmail(req.body.maintenance.message || settings.maintenance.message, settings.store?.logo)
+                    : getMaintenanceResolvedEmail(settings.store?.logo)
+                })
+              ));
             }
           } catch (error) {
-            console.error('❌ Error in maintenance notification job:', error);
+            console.error('❌ Background notification failed:', error);
           }
         };
 
@@ -227,7 +225,8 @@ const getPublicSettings = asyncHandler(async (req, res) => {
       },
       seo: settings.seo,
       policies: settings.policies,
-      maintenance: settings.maintenance
+      maintenance: settings.maintenance,
+      about: settings.about
     };
 
     res.json({
@@ -243,9 +242,118 @@ const getPublicSettings = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Generate a maintenance magic link (Enterpise Super Gate)
+// @route   POST /api/admin/settings/maintenance/magic-link
+// @access  Private/Admin (Super Admin only)
+const generateMaintenanceMagicLink = asyncHandler(async (req, res) => {
+  const settings = await Settings.getSettings();
+
+  // Only super-admin can generate
+  if (req.user.role !== 'super-admin') {
+    return res.status(403).json({ success: false, message: 'Unauthorized. Super Admin only.' });
+  }
+
+  // Generate a cryptographically secure token
+  const token = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  // Store expiration and hashed token
+  settings.maintenance.magicLinkToken = hashedToken;
+  settings.maintenance.magicLinkExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  await settings.save();
+
+  const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  const magicLink = `${backendUrl}/api/settings/super-gate/${token}`;
+
+  res.json({
+    success: true,
+    message: 'Single-use magic link generated. Valid for 1 hour.',
+    data: { link: magicLink, expires: settings.maintenance.magicLinkExpires }
+  });
+});
+
+// @desc    Trigger maintenance via magic link (Out-of-band)
+// @route   GET /api/settings/super-gate/:token
+// @access  Public (Secure)
+const triggerSuperGate = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const settings = await Settings.findOne({
+    'maintenance.magicLinkToken': hashedToken,
+    'maintenance.magicLinkExpires': { $gt: Date.now() }
+  });
+
+  const siteUrl = process.env.FRONTEND_URL || '/';
+
+  if (!settings) {
+    return res.status(401).send(`
+      <div style="font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; background: #0B0F1A; color: white;">
+        <div style="text-align: center; padding: 40px; border: 1px solid #ef4444; border-radius: 12px; background: rgba(239, 68, 68, 0.05);">
+          <h1 style="color: #ef4444;">Access Denied</h1>
+          <p>This magic link is invalid, expired, or has already been used.</p>
+          <a href="${siteUrl}" style="color: #D4AF37; display: block; margin-top: 20px;">Return to Site</a>
+        </div>
+      </div>
+    `);
+  }
+
+  const newState = !settings.maintenance.enabled;
+
+  // 1. Invalidate link (Single-use)
+  settings.maintenance.magicLinkToken = null;
+  settings.maintenance.magicLinkExpires = null;
+
+  // 2. Update state & Log
+  settings.maintenance.enabled = newState;
+  settings.maintenance.lastToggledAt = Date.now();
+
+  settings.maintenance.history.push({
+    action: newState ? 'enabled' : 'disabled',
+    actorName: 'Emergency Super Gate',
+    ip: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+    source: 'magic-link',
+    timestamp: Date.now()
+  });
+
+  await settings.save();
+
+  // 3. Dispatch Async Notifications
+  const notifyUsers = async () => {
+    try {
+      const customers = await User.find({ userType: 'customer' }).select('email');
+      for (const customer of customers) {
+        await sendEmail({
+          to: customer.email,
+          subject: newState ? 'Scheduled Maintenance Alert' : 'We are Back Online!',
+          html: newState
+            ? getMaintenanceEmail(settings.maintenance.message, settings.store?.logo)
+            : getMaintenanceResolvedEmail(settings.store?.logo)
+        }).catch(err => console.error(`Email fail: ${customer.email}`, err.message));
+      }
+    } catch (e) { console.error('Magic link notify fail:', e); }
+  };
+  notifyUsers();
+
+  res.send(`
+    <div style="font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; background: #0B0F1A; color: white;">
+      <div style="text-align: center; padding: 50px; border: 1px solid #D4AF37; border-radius: 20px; background: rgba(212, 175, 55, 0.05);">
+        <h1 style="color: #D4AF37;">Super Gate: ${newState ? 'LOCKED 🔒' : 'UNLOCKED 🔓'}</h1>
+        <p style="font-size: 1.2rem; margin: 25px 0;">System downtime has been toggled successfully.</p>
+        <p style="color: #ADB5BD;">Source: Out-of-band Magic Link (Invalidated)</p>
+        <div style="margin-top: 40px;">
+          <a href="${siteUrl}/admin" style="background: #D4AF37; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 700;">Proceed to Panel</a>
+        </div>
+      </div>
+    </div>
+  `);
+});
+
 export {
   getSettings,
   updateSettings,
   uploadLogo,
-  getPublicSettings
+  getPublicSettings,
+  generateMaintenanceMagicLink,
+  triggerSuperGate
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
+import { getActivityLogs } from '../../api/api';
 import { FaHistory, FaUserShield, FaDesktop, FaInfoCircle } from 'react-icons/fa';
 import './ActivityLogs.css';
 
@@ -13,15 +14,10 @@ const ActivityLogs = () => {
     const fetchLogs = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/admin/logs?pageNumber=${page}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data = await res.json();
-            if (data.success) {
-                setLogs(data.data);
-                setTotalPages(data.pages);
+            const res = await getActivityLogs({ pageNumber: page });
+            if (res.data.success) {
+                setLogs(res.data.data);
+                setTotalPages(res.data.pages);
             }
         } catch (error) {
             console.error('Fetch logs error:', error);
