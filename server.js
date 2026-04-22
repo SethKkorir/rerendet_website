@@ -2,8 +2,22 @@
 import dotenv from 'dotenv';
 // Load environment variables IMMEDIATELY
 dotenv.config();
-// CACHE BUSTER: 2026-02-28 03:22 - Trigger Restart
-console.log(`🚀 [BACKEND] Starting server`);
+
+// VALIDATE REQUIRED ENVIRONMENT VARIABLES
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT'];
+const missingEnvVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars);
+  console.error('Please check your .env file');
+  process.exit(1);
+}
+
+// CACHE BUSTER: 2026-04-22 - Connection fix
+console.log(`🚀 [BACKEND] Starting server on port ${process.env.PORT}`);
+console.log(`🔗 MongoDB URI: ${process.env.MONGO_URI.split('@')[0]}@...`);
+console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`☁️  Vercel: ${process.env.VERCEL ? 'Yes' : 'No'}`);
+console.log('');
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -53,10 +67,42 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// ==================== SERVER INITIALIZATION ====================
+
+// Initialize database connection with timeout
+let dbInitialized = false;
+
+const initDB = async () => {
+  if (dbInitialized) return;
+  
+  try {
+    console.log('🔗 Initializing database connection...');
+    await connectDB();
+    dbInitialized = true;
+    console.log('✅ Database initialized successfully');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err.message);
+    // Don't exit - allow graceful degradation for serverless
+  }
+};
+
+// Initialize DB on startup
+initDB();
+
 // Ensure DB is connected for serverless calls BEFORE hitting any routes
 app.use(async (req, res, next) => {
-  if (process.env.VERCEL) {
-    await connectDB();
+  if (!dbInitialized) {
+    console.log('⏳ DB not initialized yet, attempting connection...');
+    try {
+      await connectDB();
+      dbInitialized = true;
+    } catch (err) {
+      console.error('❌ Connection failed on request:', err.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection unavailable. Please try again.'
+      });
+    }
   }
   next();
 });

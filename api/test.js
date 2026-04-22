@@ -71,29 +71,56 @@ router.post('/test-admin-login', async (req, res) => {
   }
 });
 
-// Test DB connection
+// Test DB connection with detailed diagnostics
 router.get('/db-status', async (req, res) => {
   try {
-    const isConnected = mongoose.connection.readyState === 1;
-    const adminCount = await User.countDocuments({ userType: 'admin' });
-    const totalUsers = await User.countDocuments();
+    const readyState = mongoose.connection.readyState;
+    const states = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting'
+    };
 
-    res.json({
+    const isConnected = readyState === 1;
+    
+    let adminCount = 0;
+    let totalUsers = 0;
+    
+    if (isConnected) {
+      try {
+        adminCount = await User.countDocuments({ userType: 'admin' });
+        totalUsers = await User.countDocuments();
+      } catch (queryErr) {
+        console.error('Query error:', queryErr.message);
+      }
+    }
+
+    const response = {
       success: true,
       database: {
+        state: states[readyState],
         connected: isConnected,
         host: mongoose.connection.host,
-        database: mongoose.connection.name
+        database: mongoose.connection.name,
+        readyState: readyState
       },
       adminCount,
       totalUsers,
-      mongoUri: process.env.MONGO_URI?.split('@')[0] + '@...' // Hide credentials
-    });
+      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.split('@')[0] + '@...' : 'Not set',
+      environment: process.env.NODE_ENV || 'development',
+      vercel: !!process.env.VERCEL
+    };
+
+    console.log('📊 DB Status:', response);
+    res.json(response);
   } catch (err) {
+    console.error('❌ DB status check error:', err.message);
     res.status(500).json({
       success: false,
       message: err.message,
-      mongoUri: process.env.MONGO_URI ? 'Set' : 'Not set'
+      mongoUri: process.env.MONGO_URI ? 'Set' : 'Not set',
+      mongoUriPrefix: process.env.MONGO_URI ? process.env.MONGO_URI.split('@')[0] + '@...' : null
     });
   }
 });
