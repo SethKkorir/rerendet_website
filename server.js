@@ -22,6 +22,7 @@ import connectDB from './config/db.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import maintenanceMode from './middleware/maintenanceMiddleware.js';
+import testRoutes from './api/test.js';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -185,6 +186,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/', maintenanceMode);
 
 // 2. API Routes
+app.use('/api/test', testRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

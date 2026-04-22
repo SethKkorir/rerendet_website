@@ -4,7 +4,8 @@ import User from '../models/User.js';
 import Settings from '../models/Settings.js';
 import sendEmail from './sendEmail.js';
 import { getFraudAlert } from './emailTemplates.js';
-import startSubscriptionCron from '../scripts/subscriptionCron.js';
+// TODO: Install node-cron package and enable subscription cron
+// import startSubscriptionCron from '../scripts/subscriptionCron.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -152,7 +153,8 @@ export const startCronJobs = () => {
     }, 30_000);
 
     // Subscription Engine
-    startSubscriptionCron();
+    // TODO: Enable when node-cron is installed
+    // startSubscriptionCron();
 
     console.log('✅ [Cron] All jobs started: Contact Cleanup • Fraud Detection • Subscription Engine');
 };
